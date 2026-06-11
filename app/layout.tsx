@@ -17,7 +17,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Sviy Hub",
-  description: "Business expenses, organized."
+  description: "Clients, pets, and expenses, softly organized."
 };
 
 export default function RootLayout({

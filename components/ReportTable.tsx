@@ -19,7 +19,7 @@ export function ReportTable({ expenses }: { expenses: Expense[] }) {
   const totalAmount = rows.reduce((sum, row) => sum + row.total, 0);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface p-5 shadow-card">
+    <div className="overflow-hidden rounded-[24px] border border-border bg-surface p-5 shadow-card">
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-border text-left text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">

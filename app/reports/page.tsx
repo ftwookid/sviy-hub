@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Download } from "lucide-react";
-import { Navigation } from "@/components/Navigation";
+import { AppShell } from "@/components/AppShell";
+import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
 import { ReportTable } from "@/components/ReportTable";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
@@ -13,29 +13,16 @@ import { SkeletonRows } from "@/components/ui/Skeleton";
 import { MONTHS } from "@/lib/months";
 import { formatCurrency } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useAuthUser } from "@/lib/useAuthUser";
 import type { Expense } from "@/types/expense";
 
 export default function ReportsPage() {
-  const router = useRouter();
   const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, authLoading } = useAuthUser();
   const [year, setYear] = useState(currentYear);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        router.replace("/login");
-        return;
-      }
-      setUser(data.user);
-      setAuthLoading(false);
-    });
-  }, [router]);
 
   const loadReports = useCallback(async () => {
     if (!supabase || !user) return;
@@ -100,15 +87,22 @@ export default function ReportsPage() {
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
   return (
-    <>
-      <Navigation email={user.email} />
-      <main className="mx-auto max-w-[780px] space-y-8 px-4 py-8 sm:px-6">
+    <AppShell user={user}>
+      <div className="space-y-8">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h1 className="text-[20px] font-medium leading-[1.3] text-text-primary">Reports</h1>
-            <p className="mt-1 text-[13px] text-text-secondary">Schedule C-ready yearly summary.</p>
+            <h1 className="text-[34px] font-medium leading-[1.08] tracking-[-0.01em] text-text-primary">Expenses</h1>
+            <p className="mt-2 text-[16px] text-text-secondary">Schedule C-ready yearly summary.</p>
           </div>
-          <Button variant="soft" onClick={exportCsv} disabled={expenses.length === 0}>
+          <Button className="hidden sm:inline-flex" variant="soft" onClick={exportCsv} disabled={expenses.length === 0}>
+            <Download size={16} strokeWidth={1.5} />
+            Export CSV
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <ExpenseSectionTabs />
+          <Button className="sm:hidden" variant="soft" onClick={exportCsv} disabled={expenses.length === 0}>
             <Download size={16} strokeWidth={1.5} />
             Export CSV
           </Button>
@@ -150,7 +144,7 @@ export default function ReportsPage() {
             </section>
           </>
         )}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

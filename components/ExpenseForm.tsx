@@ -153,7 +153,7 @@ export function ExpenseForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-surface p-5 shadow-card">
+    <form onSubmit={handleSubmit} className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
           label="Date"
@@ -200,12 +200,12 @@ export function ExpenseForm({
           ))}
         </Select>
         <FieldShell label="Payment method">
-          <div className="grid h-10 grid-cols-3 rounded-lg border border-border bg-subtle p-1">
+          <div className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
             {PAYMENT_METHODS.map((method) => (
               <button
                 key={method}
                 className={cn(
-                  "focus-ring rounded-md text-[12px] transition duration-150 ease-in-out",
+                  "focus-ring rounded-xl text-[13px] transition duration-200 ease-in-out active:scale-[0.98]",
                   values.payment_method === method
                     ? "bg-surface text-text-primary shadow-sm"
                     : "text-text-secondary hover:bg-[#ECEAE5]"
@@ -219,7 +219,7 @@ export function ExpenseForm({
           </div>
         </FieldShell>
         <FieldShell label="Receipt">
-          <label className="focus-ring flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border-emphasis bg-subtle px-3 text-[13px] text-text-secondary transition hover:bg-border">
+          <label className="focus-ring flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[15px] text-text-secondary transition hover:bg-border">
             <Upload size={16} strokeWidth={1.5} />
             Choose file
             <input

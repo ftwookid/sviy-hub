@@ -9,9 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        page: "#FAFAF8",
+        page: "#FAF8F4",
         surface: "#FFFFFF",
-        subtle: "#F5F4F1",
+        subtle: "#F5F1EA",
         border: {
           DEFAULT: "#E8E6E1",
           emphasis: "#D4D1CB"
@@ -39,7 +39,7 @@ const config: Config = {
         }
       },
       boxShadow: {
-        card: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)"
+        card: "0 10px 30px rgba(70, 55, 32, 0.06), 0 1px 2px rgba(70, 55, 32, 0.05)"
       },
       fontFamily: {
         sans: ["var(--font-instrument-sans)", "ui-sans-serif", "system-ui"],

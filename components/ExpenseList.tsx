@@ -111,7 +111,7 @@ export function ExpenseList({
       {loading ? <SkeletonRows /> : null}
 
       {!loading && expenses.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface py-14 text-center shadow-card">
+        <div className="rounded-[24px] border border-border bg-surface py-14 text-center shadow-card">
           <Receipt size={22} strokeWidth={1.5} className="mx-auto text-text-tertiary" />
           <p className="mt-3 text-[13px] text-text-secondary">No expenses yet for this period</p>
         </div>

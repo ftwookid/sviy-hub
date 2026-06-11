@@ -1,26 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { X } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { ExpenseList, type ExpenseFilters } from "@/components/ExpenseList";
-import { Navigation } from "@/components/Navigation";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { daysAgo, formatCurrency, formatMonth, monthRange } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useAuthUser } from "@/lib/useAuthUser";
 import type { Expense } from "@/types/expense";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const merchantInputRef = useRef<HTMLInputElement>(null);
   const now = useMemo(() => new Date(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, authLoading } = useAuthUser();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [yearExpenses, setYearExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,18 +32,6 @@ export default function DashboardPage() {
     paymentMethod: "",
     search: ""
   });
-
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        router.replace("/login");
-        return;
-      }
-      setUser(data.user);
-      setAuthLoading(false);
-    });
-  }, [router]);
 
   const loadExpenses = useCallback(async () => {
     if (!supabase || !user) return;
@@ -124,9 +111,15 @@ export default function DashboardPage() {
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
   return (
-    <>
-      <Navigation email={user.email} />
-      <main className="mx-auto max-w-[780px] space-y-8 px-4 py-8 sm:px-6">
+    <AppShell user={user}>
+      <div className="space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-[34px] font-medium leading-[1.08] tracking-[-0.01em] text-text-primary">Expenses</h1>
+            <p className="mt-2 text-[16px] text-text-secondary">Care work spending, softly organized.</p>
+          </div>
+          <ExpenseSectionTabs />
+        </div>
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label={`This month · ${formatMonth(now)}`} value={formatCurrency(currentMonthTotal)} />
           <StatCard label="This year" value={formatCurrency(yearTotal)} />
@@ -135,7 +128,6 @@ export default function DashboardPage() {
         </section>
 
         <section className="space-y-3">
-          <h1 className="text-[20px] font-medium leading-[1.3] text-text-primary">Expenses</h1>
           <ExpenseForm userId={user.id} merchantInputRef={merchantInputRef} onSaved={showSavedToast} />
         </section>
 
@@ -147,7 +139,7 @@ export default function DashboardPage() {
           onEdit={setEditing}
           onDeleted={loadExpenses}
         />
-      </main>
+      </div>
 
       {editing ? (
         <div className="fixed inset-0 z-40 bg-black/20">
@@ -173,6 +165,6 @@ export default function DashboardPage() {
       ) : null}
 
       {toast ? <Toast message={toast} /> : null}
-    </>
+    </AppShell>
   );
 }

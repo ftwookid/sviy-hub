@@ -41,7 +41,7 @@ export default function LoginPage() {
       >
         <div className="text-center">
           <div className="font-serif text-[32px] italic leading-[1.3] text-accent">Sviy Hub</div>
-          <p className="mt-1 text-[13px] text-text-secondary">Business expenses, organized.</p>
+          <p className="mt-1 text-[15px] text-text-secondary">Clients, pets, and expenses, softly organized.</p>
         </div>
         <div className="mt-8 space-y-4">
           <Input
