@@ -1,0 +1,53 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}"
+  ],
+  theme: {
+    extend: {
+      colors: {
+        page: "#FAFAF8",
+        surface: "#FFFFFF",
+        subtle: "#F5F4F1",
+        border: {
+          DEFAULT: "#E8E6E1",
+          emphasis: "#D4D1CB"
+        },
+        text: {
+          primary: "#1A1916",
+          secondary: "#6B6860",
+          tertiary: "#9E9B96"
+        },
+        accent: {
+          DEFAULT: "#C9A96E",
+          soft: "#F0E8D8"
+        },
+        success: {
+          DEFAULT: "#4A8C6F",
+          soft: "#EAF4EE"
+        },
+        warning: {
+          DEFAULT: "#B07D2A",
+          soft: "#FBF3E3"
+        },
+        danger: {
+          DEFAULT: "#9B3A3A",
+          soft: "#FAEAEA"
+        }
+      },
+      boxShadow: {
+        card: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)"
+      },
+      fontFamily: {
+        sans: ["var(--font-instrument-sans)", "ui-sans-serif", "system-ui"],
+        serif: ["var(--font-instrument-serif)", "ui-serif", "Georgia"]
+      }
+    }
+  },
+  plugins: []
+};
+
+export default config;
