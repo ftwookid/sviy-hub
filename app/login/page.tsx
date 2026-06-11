@@ -40,7 +40,7 @@ export default function LoginPage() {
         className="w-full max-w-[400px] rounded-xl border border-border bg-surface p-5 shadow-card"
       >
         <div className="text-center">
-          <div className="font-serif text-[32px] italic leading-[1.3] text-accent">Yani</div>
+          <div className="font-serif text-[32px] italic leading-[1.3] text-accent">Sviy Hub</div>
           <p className="mt-1 text-[13px] text-text-secondary">Business expenses, organized.</p>
         </div>
         <div className="mt-8 space-y-4">

@@ -16,7 +16,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Yani",
+  title: "Sviy Hub",
   description: "Business expenses, organized."
 };
 

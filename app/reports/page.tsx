@@ -91,7 +91,7 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `yani-expenses-${year}.csv`;
+    link.download = `sviy-hub-expenses-${year}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }

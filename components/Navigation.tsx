@@ -32,7 +32,7 @@ export function Navigation({ email }: NavigationProps) {
     <header className="border-b border-border bg-surface">
       <nav className="mx-auto flex h-16 max-w-[780px] items-center justify-between px-4 sm:px-6">
         <Link href="/" className="font-serif text-[20px] italic text-accent">
-          Yani
+          Sviy Hub
         </Link>
 
         <div className="hidden items-center gap-1 sm:flex">

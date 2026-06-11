@@ -1,6 +1,6 @@
-# Yani
+# Sviy Hub
 
-Yani is a private business expense tracker for one small-business owner. It uses Next.js, Supabase Auth, Supabase Postgres, and Supabase Storage.
+Sviy Hub is a private business expense tracker for one small-business owner. It uses Next.js, Supabase Auth, Supabase Postgres, and Supabase Storage.
 
 ## 1. Install dependencies
 
@@ -44,7 +44,7 @@ Then open `http://localhost:3000`.
 1. Push the project to GitHub.
 2. Import it in Vercel.
 3. Add the same environment variables in Vercel Project Settings.
-4. Set the Vercel project name/subdomain to `yani`.
+4. Set the Vercel project name/subdomain to `sviy-hub`.
 5. Deploy.
 
 ## What is already built
