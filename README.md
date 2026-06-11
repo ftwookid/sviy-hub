@@ -2,6 +2,8 @@
 
 Sviy Hub is a private business expense tracker for one small-business owner. It uses Next.js, Supabase Auth, Supabase Postgres, and Supabase Storage.
 
+The `main` branch contains the deploy-ready version of the app.
+
 ## 1. Install dependencies
 
 ```bash
