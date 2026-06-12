@@ -141,8 +141,11 @@ export default function ClientsPage() {
       </Button>
 
       {editorOpen ? (
-        <div className="fixed inset-0 z-[60] bg-[#1A1916]/20 backdrop-blur-sm">
-          <aside className="ml-auto flex h-full w-full max-w-[620px] flex-col overflow-y-auto bg-page p-4 shadow-[0_20px_70px_rgba(48,38,24,0.18)] sm:p-6">
+        <div className="fixed inset-0 z-[60] bg-[#1A1916]/20 backdrop-blur-sm" onClick={closeEditor}>
+          <aside
+            className="ml-auto flex h-full w-full max-w-[620px] flex-col overflow-y-auto bg-page p-4 shadow-[0_20px_70px_rgba(48,38,24,0.18)] sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[28px] font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">

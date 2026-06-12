@@ -53,7 +53,6 @@ export type ClientFormValues = {
   service_type: string;
   custom_service_type: string;
   price_per_visit: string;
-  frequency_label: string;
-  visits_per_week: string;
+  selected_days: string[];
   notes: string;
 };

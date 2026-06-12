@@ -3,32 +3,24 @@ import type { ClientFormValues, ClientPaymentMethod, ClientWithPets, PetType } f
 export const CLIENT_PAYMENT_METHODS: ClientPaymentMethod[] = ["Rover", "Venmo", "Cash"];
 export const PET_TYPES: PetType[] = ["Dog", "Cat", "Bird", "Exotic"];
 export const SERVICE_TYPES = ["Dog walking", "House sitting", "Drop-in visit", "Exotic care", "Custom"];
-export const FREQUENCY_SUGGESTIONS = [
-  { label: "daily", visitsPerWeek: 7 },
-  { label: "4x/week", visitsPerWeek: 4 },
-  { label: "7x/week", visitsPerWeek: 7 },
-  { label: "weekly", visitsPerWeek: 1 },
-  { label: "monthly", visitsPerWeek: 0.23 }
-];
+export const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export const ROVER_COMMISSION_RATE = 0.2;
 export const WEEKS_PER_MONTH = 52 / 12;
 
-export function parseVisitsPerWeek(value: string) {
-  const normalized = value.trim().toLowerCase();
-  const suggestion = FREQUENCY_SUGGESTIONS.find((item) => item.label === normalized);
-  if (suggestion) return suggestion.visitsPerWeek;
+export function selectedDaysFromRecord(frequencyLabel: string, visitsPerWeek: number | null) {
+  const savedDays = frequencyLabel
+    .split(",")
+    .map((day) => day.trim())
+    .filter((day) => WEEK_DAYS.includes(day));
 
-  const explicitPerWeek = normalized.match(/(\d+(?:\.\d+)?)\s*x?\s*\/?\s*week/);
-  if (explicitPerWeek) return Number(explicitPerWeek[1]);
+  if (savedDays.length > 0) return savedDays;
+  const count = Math.max(0, Math.min(7, Math.round(visitsPerWeek ?? 0)));
+  return WEEK_DAYS.slice(0, count);
+}
 
-  const firstNumber = normalized.match(/\d+(?:\.\d+)?/);
-  if (firstNumber) return Number(firstNumber[0]);
-
-  if (normalized.includes("daily")) return 7;
-  if (normalized.includes("weekly")) return 1;
-  if (normalized.includes("monthly")) return 0.23;
-  return null;
+export function selectedDaysLabel(days: string[]) {
+  return days.join(", ");
 }
 
 export function estimateClientEarnings(input: {
@@ -66,14 +58,13 @@ export function defaultClientValues(): ClientFormValues {
   return {
     name: "",
     address: "",
-    pets: [{ name: "", type: "Dog", photoFile: null }],
+    pets: [],
     payment_method: "Rover",
     status: "Active",
     service_type: "Dog walking",
     custom_service_type: "",
     price_per_visit: "",
-    frequency_label: "daily",
-    visits_per_week: "7",
+    selected_days: [],
     notes: ""
   };
 }
