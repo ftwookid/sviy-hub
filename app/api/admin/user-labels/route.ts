@@ -58,40 +58,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ labels: {} });
   }
 
-  const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000
-  });
-
-  if (error) {
-    return NextResponse.json({ error: "Could not load user labels." }, { status: 500 });
-  }
-
   const requestedIds = new Set(userIds);
   const { data: profiles } = await supabaseAdmin
     .from("profiles")
     .select("id, nickname")
     .in("id", userIds);
-  const nicknames = new Map(
+
+  const labels: Record<string, string> = Object.fromEntries(
     (profiles ?? [])
       .filter((profile) => typeof profile.nickname === "string" && profile.nickname.trim().length > 0)
       .map((profile) => [profile.id as string, profile.nickname.trim() as string])
   );
 
-  const labels = Object.fromEntries(
+  const missingIds = userIds.filter((id) => !labels[id]);
+
+  if (missingIds.length > 0) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000
+    });
+
+    if (error) {
+      return NextResponse.json({ error: "Could not load user labels." }, { status: 500 });
+    }
+
     data.users
-      .filter((owner) => requestedIds.has(owner.id))
-      .map((owner) => {
+      .filter((owner) => requestedIds.has(owner.id) && !labels[owner.id])
+      .forEach((owner) => {
         const metadata = owner.user_metadata as Record<string, unknown>;
         const metadataName = metadata?.name ?? metadata?.full_name;
-        const label =
-          nicknames.get(owner.id) ||
+        labels[owner.id] =
           owner.email ||
           (typeof metadataName === "string" && metadataName.trim() ? metadataName.trim() : `User ${owner.id.slice(0, 8)}`);
-
-        return [owner.id, label];
-      })
-  );
+      });
+  }
 
   return NextResponse.json({ labels });
 }

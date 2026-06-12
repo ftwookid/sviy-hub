@@ -39,6 +39,12 @@ type ClientFormErrors = Partial<
   Record<"name" | "address" | "payment_method" | "price_per_visit" | "pets" | "selected_days", string>
 >;
 
+type ChangeSummary = {
+  label: string;
+  before: string;
+  after: string;
+};
+
 function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   if (!client) return defaultClientValues();
   return {
@@ -71,6 +77,8 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [notesOpen, setNotesOpen] = useState(Boolean(client?.notes));
+  const [confirmingChanges, setConfirmingChanges] = useState(false);
+  const [changeSummary, setChangeSummary] = useState<ChangeSummary[]>([]);
 
   const selectedDaysCount = values.selected_days.length;
 
@@ -144,7 +152,7 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
     return Object.keys(nextErrors).length === 0;
   }
 
-  async function uploadPetPhoto(pet: ClientFormPet) {
+  async function uploadPetPhoto(pet: ClientFormPet, ownerId: string) {
     if (!pet.photoFile || !supabase) {
       return {
         photo_url: pet.photo_url ?? null,
@@ -153,7 +161,7 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
     }
 
     const filename = `${Date.now()}-${sanitizeFilename(pet.photoFile.name)}`;
-    const path = `${userId}/pets/${filename}`;
+    const path = `${ownerId}/pets/${filename}`;
     const { error } = await supabase.storage.from("pet-photos").upload(path, pet.photoFile, {
       upsert: false
     });
@@ -166,15 +174,60 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
     };
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!validate() || !supabase) return;
+  function normalizeBlank(value: string | null | undefined) {
+    return value?.trim() || "None";
+  }
 
+  function petsLabel(pets: ClientFormPet[]) {
+    if (pets.length === 0) return "None";
+    return pets
+      .map((pet) => {
+        const photoNote = pet.photoFile ? ", new photo" : "";
+        return `${pet.name.trim() || "Unnamed"} (${pet.type}${photoNote})`;
+      })
+      .join(", ");
+  }
+
+  function buildChangeSummary() {
+    if (!client) return [];
+    const originalValues = valuesFromClient(client);
+    const changes: ChangeSummary[] = [];
+
+    function addChange(label: string, before: string, after: string) {
+      if (before !== after) changes.push({ label, before, after });
+    }
+
+    addChange("Name", normalizeBlank(originalValues.name), normalizeBlank(values.name));
+    addChange("Address", normalizeBlank(originalValues.address), normalizeBlank(values.address));
+    addChange("Payment method", originalValues.payment_method, values.payment_method);
+    addChange("Status", originalValues.status, values.status);
+    addChange(
+      "Service",
+      originalValues.service_type === "Custom"
+        ? normalizeBlank(originalValues.custom_service_type)
+        : originalValues.service_type,
+      values.service_type === "Custom" ? normalizeBlank(values.custom_service_type) : values.service_type
+    );
+    addChange(
+      "Price per visit",
+      formatCurrency(Number(originalValues.price_per_visit || 0)),
+      formatCurrency(Number(values.price_per_visit || 0))
+    );
+    addChange("Visit days", selectedDaysLabel(originalValues.selected_days) || "None", selectedDaysLabel(values.selected_days) || "None");
+    addChange("Pets", petsLabel(originalValues.pets), petsLabel(values.pets));
+    addChange("Notes", normalizeBlank(originalValues.notes), normalizeBlank(values.notes));
+
+    return changes;
+  }
+
+  async function saveClient() {
+    if (!supabase) return;
+    const ownerId = client?.user_id ?? userId;
     setSaving(true);
     setFormError("");
     try {
       const payload = {
-        user_id: userId,
+        user_id: ownerId,
         name: values.name.trim(),
         address: values.address.trim(),
         payment_method: values.payment_method,
@@ -205,11 +258,11 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
       if (values.pets.length > 0) {
         const petsPayload = await Promise.all(
           values.pets.map(async (pet) => ({
-            user_id: userId,
+            user_id: ownerId,
             client_id: clientId,
             name: pet.name.trim(),
             type: pet.type,
-            ...(await uploadPetPhoto(pet))
+            ...(await uploadPetPhoto(pet, ownerId))
           }))
         );
 
@@ -222,7 +275,28 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
       setFormError(error instanceof Error ? error.message : "Something went wrong while saving.");
     } finally {
       setSaving(false);
+      setConfirmingChanges(false);
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!validate() || !supabase) return;
+
+    if (client) {
+      const changes = buildChangeSummary();
+      if (changes.length === 0) {
+        setFormError("No changes to update.");
+        return;
+      }
+
+      setFormError("");
+      setChangeSummary(changes);
+      setConfirmingChanges(true);
+      return;
+    }
+
+    await saveClient();
   }
 
   return (
@@ -463,12 +537,49 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
 
       <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-border bg-page/90 px-4 py-4 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <Button className="w-full" variant="accent" type="submit" disabled={saving}>
-          {saving ? "Saving..." : client ? "Save client" : "Add client"}
+          {saving ? "Saving..." : client ? "Update client" : "Add client"}
         </Button>
         <Button variant="soft" type="button" onClick={onCancel} aria-label="Cancel">
           <X size={18} strokeWidth={1.6} />
         </Button>
       </div>
+
+      {confirmingChanges ? (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-[#1A1916]/30 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[520px] rounded-[20px] border border-border bg-surface p-5 shadow-[0_22px_70px_rgba(48,38,24,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-[22px] font-medium leading-tight text-text-primary">Confirm client changes</h3>
+                <p className="mt-2 text-[14px] text-text-secondary">Review what changed before updating this client.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 max-h-[48vh] space-y-2 overflow-y-auto">
+              {changeSummary.map((change) => (
+                <div key={change.label} className="rounded-2xl bg-subtle p-3">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+                    {change.label}
+                  </div>
+                  <div className="mt-1 text-[14px] leading-snug text-text-primary">
+                    <span className="text-text-secondary">{change.before}</span>
+                    <span className="px-2 text-text-tertiary">-&gt;</span>
+                    <span className="font-medium">{change.after}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button variant="soft" type="button" onClick={() => setConfirmingChanges(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button variant="accent" type="button" onClick={saveClient} disabled={saving}>
+                {saving ? "Saving..." : "Confirm changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }

@@ -109,6 +109,20 @@ export default function ClientsPage() {
     setEditingClient(null);
   }
 
+  async function deleteClient(client: ClientWithPets) {
+    if (!supabase) return;
+    const confirmed = window.confirm(`Delete ${client.name}? This will also remove their pets.`);
+    if (!confirmed) return;
+
+    const { error } = await supabase.from("clients").delete().eq("id", client.id);
+    if (error) {
+      window.alert(error.message);
+      return;
+    }
+
+    loadClients();
+  }
+
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
@@ -169,6 +183,7 @@ export default function ClientsPage() {
                 key={client.id}
                 client={client}
                 ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
+                onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
                 onClick={() => openExistingClient(client)}
               />
             ))}

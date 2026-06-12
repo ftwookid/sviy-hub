@@ -99,12 +99,15 @@ http://localhost:3000/*
   - Pet names.
   - Pet type icons.
   - Payment method badge.
-  - Estimated monthly earnings.
-  - Admin-only owner label showing the client's owner email/name.
+  - Estimated monthly earnings with a compact `/mo` period label.
+  - Admin-only owner label showing the client's owner nickname.
 - Client card behavior:
   - Paused clients render with a muted/greyed-out style so they are obvious in the All view.
   - In the All filter, Active clients sort first and Paused clients sort at the bottom.
   - Active and Paused tabs keep their existing name-based ordering.
+  - Admin-only delete icon appears only for Paused clients.
+  - Active clients cannot be deleted from client cards.
+  - Paused cards do not translate/lift on hover, so the delete icon stays still.
 - Added add/edit client slide-over form.
 - Add/edit client slide-over closes from both the X button and clicks on the dimmed overlay outside the panel.
 - Added dynamic pets list.
@@ -145,6 +148,16 @@ http://localhost:3000/*
   - Price per visit must be greater than $0.
   - Visit days are required.
   - Error messages appear directly below their related fields/actions.
+- Updated Edit Client save flow:
+  - Edit mode primary button says `Update client`.
+  - New client mode still says `Add client`.
+  - Clicking `Update client` opens a confirmation modal instead of saving immediately.
+  - The modal lists each changed field with old and new values.
+  - Modal actions are `Confirm changes` and `Cancel`.
+  - `Cancel` returns to editing without losing changes.
+  - `Confirm changes` saves the update.
+  - If no values changed, the form shows `No changes to update.`
+  - Admin edits preserve the original client owner instead of reassigning the client to the admin.
 
 ### Client Database
 
@@ -283,12 +296,11 @@ http://localhost:3000
 
 Recent work includes uncommitted changes for:
 
-- Admin/user permission SQL was added and pushed in commit `4f10f98`.
-- `profiles` table and admin-aware RLS policies were successfully run in Supabase.
-- Admin frontend filters were fixed so admin can see all clients/expenses/reports rows.
-- Admin-only client owner labels were added.
-- Edit Client address autocomplete no longer opens for saved addresses on form load.
-- Paused clients were visually muted and sorted below Active clients in the All tab.
+- Client owner labels now prefer profile nicknames instead of email.
+- Client cards no longer show redundant `Estimated monthly` text because `/mo` is shown next to the amount.
+- Admin delete icons are limited to Paused client cards only.
+- Paused card hover behavior was adjusted so the delete icon does not visually jump.
+- Edit Client updates now require a confirmation modal with old/new changed values.
 - Current uncommitted work includes these app fixes plus this `CLAUDE.md` context refresh.
 
 Before pushing again, run:
@@ -327,9 +339,17 @@ Then test the full client workflow in the browser:
 Also test permissions with both users:
 
 1. Log in as admin and confirm all users' clients/pets/expenses are visible.
-2. Confirm admin client cards show an owner label.
+2. Confirm admin client cards show nickname owner labels.
 3. Log in as Yana and confirm only Yana-owned rows are visible.
 4. Confirm Yana does not see owner labels.
 5. Confirm admin test data is not visible to Yana.
+
+Also test client-card/edit behavior:
+
+1. Confirm Active clients do not show a delete icon.
+2. Confirm Paused clients show a delete icon for admin only.
+3. Confirm hovering Paused cards does not move the delete icon.
+4. Edit an existing client and confirm `Update client` opens the change summary modal.
+5. Confirm `Cancel` returns to editing and `Confirm changes` saves.
 
 If autocomplete does not work on `localhost`, update the Google Cloud key referrers to include `http://localhost:3000/*`.

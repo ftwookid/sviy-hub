@@ -1,6 +1,6 @@
 "use client";
 
-import { Bird, Cat, Dog, Sparkles } from "lucide-react";
+import { Bird, Cat, Dog, Sparkles, Trash2 } from "lucide-react";
 import { CategoryTag } from "@/components/CategoryTag";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
@@ -22,10 +22,12 @@ export function PetTypeIcon({ type }: { type: PetType }) {
 export function ClientCard({
   client,
   ownerLabel,
+  onDelete,
   onClick
 }: {
   client: ClientWithPets;
   ownerLabel?: string;
+  onDelete?: () => void;
   onClick: () => void;
 }) {
   const estimate = estimateClientFromRecord(client);
@@ -34,10 +36,10 @@ export function ClientCard({
   return (
     <button
       className={cn(
-        "group w-full rounded-[20px] border p-5 text-left transition duration-200 ease-in-out hover:-translate-y-0.5 active:scale-[0.99]",
+        "group w-full rounded-[20px] border p-5 text-left transition duration-200 ease-in-out active:scale-[0.99]",
         isPaused
           ? "border-border bg-subtle/70 opacity-70 shadow-none hover:border-border-emphasis hover:opacity-85"
-          : "border-border bg-surface shadow-card hover:border-border-emphasis"
+          : "border-border bg-surface shadow-card hover:-translate-y-0.5 hover:border-border-emphasis"
       )}
       onClick={onClick}
       type="button"
@@ -60,15 +62,36 @@ export function ClientCard({
             ))}
           </div>
         </div>
-        <CategoryTag category={client.payment_method} />
+        <div className="flex shrink-0 items-center gap-2">
+          <CategoryTag category={client.payment_method} />
+          {onDelete ? (
+            <span
+              className="focus-ring inline-grid h-8 w-8 place-items-center rounded-xl text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
+              role="button"
+              tabIndex={0}
+              aria-label={`Delete ${client.name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onDelete();
+                }
+              }}
+            >
+              <Trash2 size={15} strokeWidth={1.7} />
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <div className="mt-5 flex items-end justify-between gap-3">
-        <div className="text-[13px] text-text-tertiary">
-          {client.status === "Paused" ? "Paused" : "Estimated monthly"}
-        </div>
-        <div className="text-[22px] font-medium leading-none text-text-primary">
-          {formatCurrency(estimate.monthlyNet)}
+      <div className="mt-5 flex items-end justify-end gap-3">
+        <div className="flex items-baseline gap-1.5 text-text-primary">
+          <span className="text-[22px] font-medium leading-none">{formatCurrency(estimate.monthlyNet)}</span>
+          <span className="text-[13px] font-medium text-text-tertiary">/mo</span>
         </div>
       </div>
     </button>
