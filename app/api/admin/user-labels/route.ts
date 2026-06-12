@@ -68,6 +68,16 @@ export async function POST(request: Request) {
   }
 
   const requestedIds = new Set(userIds);
+  const { data: profiles } = await supabaseAdmin
+    .from("profiles")
+    .select("id, nickname")
+    .in("id", userIds);
+  const nicknames = new Map(
+    (profiles ?? [])
+      .filter((profile) => typeof profile.nickname === "string" && profile.nickname.trim().length > 0)
+      .map((profile) => [profile.id as string, profile.nickname.trim() as string])
+  );
+
   const labels = Object.fromEntries(
     data.users
       .filter((owner) => requestedIds.has(owner.id))
@@ -75,6 +85,7 @@ export async function POST(request: Request) {
         const metadata = owner.user_metadata as Record<string, unknown>;
         const metadataName = metadata?.name ?? metadata?.full_name;
         const label =
+          nicknames.get(owner.id) ||
           owner.email ||
           (typeof metadataName === "string" && metadataName.trim() ? metadataName.trim() : `User ${owner.id.slice(0, 8)}`);
 

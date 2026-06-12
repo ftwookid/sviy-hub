@@ -164,6 +164,7 @@ http://localhost:3000/*
 - Created `profiles` table in Supabase:
   - `id uuid primary key references auth.users(id) on delete cascade`
   - `role text not null default 'user'`
+  - `nickname text`
   - Role values are constrained to `admin` or `user`.
   - `created_at` and `updated_at` timestamps are included in SQL docs.
 - Added `is_admin()` SQL helper function.
@@ -187,8 +188,19 @@ http://localhost:3000/*
 - Added protected admin-only API route `app/api/admin/user-labels/route.ts`.
   - Uses the user's bearer token to confirm the caller is authenticated.
   - Checks `profiles.role = 'admin'`.
-  - Uses `SUPABASE_SERVICE_ROLE_KEY` server-side to resolve auth user IDs to email/name labels.
+  - Uses `SUPABASE_SERVICE_ROLE_KEY` server-side to resolve auth user IDs to profile nicknames.
+  - Falls back to auth email/name only if a nickname is missing.
   - Regular users do not call this route and do not see owner labels.
+- Added user nicknames:
+  - Existing owner/admin nickname should be `Ivan K. (Admin)`.
+  - Existing Yana nickname should be `Yani`.
+  - Owner labels on admin client cards now use nicknames instead of email when available.
+- Added signup/onboarding flow:
+  - Login remains a normal sign-in flow and does not force onboarding.
+  - Login page now has a sign-up mode.
+  - Successful sign-up redirects to `/onboarding`.
+  - `/onboarding` asks for a nickname and saves it to `profiles.nickname`.
+  - The onboarding page is intentionally separate so it can be extended later with more profile fields.
 - The admin SQL has already been run successfully in Supabase.
 - The current owner account has already been set to `admin`.
 - Yana remains a regular `user` by default unless manually promoted.
@@ -233,6 +245,8 @@ with check (auth.uid() = user_id or is_admin())
 - `app/reports/page.tsx`: Reports sub-section.
 - `app/clients/page.tsx`: Clients section.
 - `app/api/admin/user-labels/route.ts`: Admin-only API route for resolving owner labels.
+- `app/onboarding/page.tsx`: Post-signup nickname onboarding screen.
+- `app/login/page.tsx`: Sign-in/sign-up entry point.
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/ClientForm.tsx`: Add/edit client form.

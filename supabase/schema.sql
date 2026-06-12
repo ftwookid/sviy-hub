@@ -1,9 +1,12 @@
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   role text not null default 'user' check (role in ('admin', 'user')),
+  nickname text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table profiles add column if not exists nickname text;
 
 alter table profiles enable row level security;
 
@@ -52,11 +55,37 @@ create policy "Users can create their own user profile"
   on profiles for insert
   with check (auth.uid() = id and role = 'user');
 
+drop policy if exists "Users can update their own profile" on profiles;
+create policy "Users can update their own profile"
+  on profiles for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id and role = 'user');
+
 drop policy if exists "Admins can manage profiles" on profiles;
 create policy "Admins can manage profiles"
   on profiles for all
   using (is_admin())
   with check (is_admin());
+
+-- Existing user nickname setup. Run this in Supabase SQL Editor after replacing
+-- or confirming these email addresses match the auth users.
+update profiles
+set nickname = 'Ivan K. (Admin)',
+    updated_at = now()
+where id = (
+  select id
+  from auth.users
+  where email = 'ftwookid@gmail.com'
+);
+
+update profiles
+set nickname = 'Yani',
+    updated_at = now()
+where id = (
+  select id
+  from auth.users
+  where email = 'yanakoshelna@gmail.com'
+);
 
 create table if not exists expenses (
   id uuid primary key default gen_random_uuid(),

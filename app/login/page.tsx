@@ -9,17 +9,39 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function signIn(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
 
     setLoading(true);
     setError("");
+    setMessage("");
+
+    if (mode === "signup") {
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      setLoading(false);
+
+      if (signUpError) {
+        setError("Could not create that account.");
+        return;
+      }
+
+      if (!data.session) {
+        setMessage("Check your email to finish signing up.");
+        return;
+      }
+
+      router.replace("/onboarding");
+      return;
+    }
+
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
 
@@ -36,12 +58,14 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10">
       <form
-        onSubmit={signIn}
+        onSubmit={handleSubmit}
         className="w-full max-w-[400px] rounded-xl border border-border bg-surface p-5 shadow-card"
       >
         <div className="text-center">
           <div className="font-serif text-[32px] italic leading-[1.3] text-accent">Sviy Hub</div>
-          <p className="mt-1 text-[15px] text-text-secondary">Clients, pets, and expenses, softly organized.</p>
+          <p className="mt-1 text-[15px] text-text-secondary">
+            {mode === "signup" ? "Create your private Sviy Hub account." : "Clients, pets, and expenses, softly organized."}
+          </p>
         </div>
         <div className="mt-8 space-y-4">
           <Input
@@ -61,9 +85,21 @@ export default function LoginPage() {
             required
           />
           {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+          {message ? <p className="text-[12px] text-success">{message}</p> : null}
           <Button className="w-full" type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? (mode === "signup" ? "Creating account..." : "Signing in...") : mode === "signup" ? "Create account" : "Sign in"}
           </Button>
+          <button
+            className="w-full rounded-xl px-3 py-2 text-[14px] font-medium text-text-secondary transition hover:bg-subtle"
+            type="button"
+            onClick={() => {
+              setMode((current) => (current === "signin" ? "signup" : "signin"));
+              setError("");
+              setMessage("");
+            }}
+          >
+            {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Sign up"}
+          </button>
         </div>
       </form>
     </main>
