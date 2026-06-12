@@ -31,16 +31,18 @@ alter table clients enable row level security;
 alter table pets enable row level security;
 
 drop policy if exists "Users can manage their own clients" on clients;
-create policy "Users can manage their own clients"
+drop policy if exists "Users and admins can manage clients" on clients;
+create policy "Users and admins can manage clients"
   on clients for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id or is_admin())
+  with check (auth.uid() = user_id or is_admin());
 
 drop policy if exists "Users can manage their own pets" on pets;
-create policy "Users can manage their own pets"
+drop policy if exists "Users and admins can manage pets" on pets;
+create policy "Users and admins can manage pets"
   on pets for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id or is_admin())
+  with check (auth.uid() = user_id or is_admin());
 
 create index if not exists clients_user_status_idx on clients (user_id, status);
 create index if not exists clients_user_name_idx on clients (user_id, name);

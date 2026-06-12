@@ -1,3 +1,63 @@
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'user' check (role in ('admin', 'user')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table profiles enable row level security;
+
+create or replace function is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from profiles
+    where id = auth.uid()
+      and role = 'admin'
+  );
+$$;
+
+create or replace function handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into profiles (id)
+  values (new.id)
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user_profile();
+
+drop policy if exists "Users can view their own profile" on profiles;
+create policy "Users can view their own profile"
+  on profiles for select
+  using (auth.uid() = id or is_admin());
+
+drop policy if exists "Users can create their own user profile" on profiles;
+create policy "Users can create their own user profile"
+  on profiles for insert
+  with check (auth.uid() = id and role = 'user');
+
+drop policy if exists "Admins can manage profiles" on profiles;
+create policy "Admins can manage profiles"
+  on profiles for all
+  using (is_admin())
+  with check (is_admin());
+
 create table if not exists expenses (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
@@ -16,13 +76,38 @@ create table if not exists expenses (
 alter table expenses enable row level security;
 
 drop policy if exists "Users can manage their own expenses" on expenses;
-create policy "Users can manage their own expenses"
+drop policy if exists "Users and admins can manage expenses" on expenses;
+create policy "Users and admins can manage expenses"
   on expenses for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id or is_admin())
+  with check (auth.uid() = user_id or is_admin());
 
 create index if not exists expenses_user_date_idx on expenses (user_id, date desc);
 create index if not exists expenses_user_category_idx on expenses (user_id, category);
+
+-- Admin-aware policies for client tables. This block is safe to run before or after
+-- supabase/clients-schema.sql because it only applies policies when the tables exist.
+do $$
+begin
+  if to_regclass('public.clients') is not null then
+    execute 'drop policy if exists "Users can manage their own clients" on clients';
+    execute 'drop policy if exists "Users and admins can manage clients" on clients';
+    execute 'create policy "Users and admins can manage clients"
+      on clients for all
+      using (auth.uid() = user_id or is_admin())
+      with check (auth.uid() = user_id or is_admin())';
+  end if;
+
+  if to_regclass('public.pets') is not null then
+    execute 'drop policy if exists "Users can manage their own pets" on pets';
+    execute 'drop policy if exists "Users and admins can manage pets" on pets';
+    execute 'create policy "Users and admins can manage pets"
+      on pets for all
+      using (auth.uid() = user_id or is_admin())
+      with check (auth.uid() = user_id or is_admin())';
+  end if;
+end;
+$$;
 
 -- In Supabase Storage, create a private bucket named "receipts".
 -- Recommended Storage policies for the private receipts bucket:
