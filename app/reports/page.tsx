@@ -18,7 +18,7 @@ import type { Expense } from "@/types/expense";
 
 export default function ReportsPage() {
   const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const { user, authLoading } = useAuthUser();
+  const { user, isAdmin, authLoading } = useAuthUser();
   const [year, setYear] = useState(currentYear);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -28,15 +28,22 @@ export default function ReportsPage() {
     if (!supabase || !user) return;
     setLoading(true);
 
+    let yearQuery = supabase
+      .from("expenses")
+      .select("*")
+      .gte("date", `${year}-01-01`)
+      .lte("date", `${year}-12-31`)
+      .order("date", { ascending: true });
+    let datesQuery = supabase.from("expenses").select("date");
+
+    if (!isAdmin) {
+      yearQuery = yearQuery.eq("user_id", user.id);
+      datesQuery = datesQuery.eq("user_id", user.id);
+    }
+
     const [{ data: yearData }, { data: allDates }] = await Promise.all([
-      supabase
-        .from("expenses")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", `${year}-01-01`)
-        .lte("date", `${year}-12-31`)
-        .order("date", { ascending: true }),
-      supabase.from("expenses").select("date").eq("user_id", user.id)
+      yearQuery,
+      datesQuery
     ]);
 
     const years = Array.from(
@@ -46,7 +53,7 @@ export default function ReportsPage() {
     setAvailableYears(years.length ? years : [currentYear]);
     setExpenses((yearData ?? []) as Expense[]);
     setLoading(false);
-  }, [currentYear, user, year]);
+  }, [currentYear, isAdmin, user, year]);
 
   useEffect(() => {
     loadReports();

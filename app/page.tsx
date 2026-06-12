@@ -19,7 +19,7 @@ import type { Expense } from "@/types/expense";
 export default function DashboardPage() {
   const merchantInputRef = useRef<HTMLInputElement>(null);
   const now = useMemo(() => new Date(), []);
-  const { user, authLoading } = useAuthUser();
+  const { user, isAdmin, authLoading } = useAuthUser();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [yearExpenses, setYearExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,12 +41,12 @@ export default function DashboardPage() {
     let query = supabase
       .from("expenses")
       .select("*")
-      .eq("user_id", user.id)
       .gte("date", selectedRange.start)
       .lte("date", selectedRange.end)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
 
+    if (!isAdmin) query = query.eq("user_id", user.id);
     if (filters.category) query = query.eq("category", filters.category);
     if (filters.paymentMethod) query = query.eq("payment_method", filters.paymentMethod);
     if (filters.search.trim()) {
@@ -57,20 +57,18 @@ export default function DashboardPage() {
     const currentYear = now.getFullYear();
     const yearStart = `${currentYear}-01-01`;
     const yearEnd = `${currentYear}-12-31`;
+    let yearQuery = supabase.from("expenses").select("*").gte("date", yearStart).lte("date", yearEnd);
+    if (!isAdmin) yearQuery = yearQuery.eq("user_id", user.id);
+
     const [{ data: filteredData }, { data: yearData }] = await Promise.all([
       query,
-      supabase
-        .from("expenses")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", yearStart)
-        .lte("date", yearEnd)
+      yearQuery
     ]);
 
     setExpenses((filteredData ?? []) as Expense[]);
     setYearExpenses((yearData ?? []) as Expense[]);
     setLoading(false);
-  }, [filters, now, user]);
+  }, [filters, isAdmin, now, user]);
 
   useEffect(() => {
     loadExpenses();

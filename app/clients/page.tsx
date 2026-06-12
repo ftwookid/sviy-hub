@@ -16,28 +16,60 @@ import type { ClientStatus, ClientWithPets } from "@/types/client";
 type ClientFilter = ClientStatus | "All";
 
 export default function ClientsPage() {
-  const { user, authLoading } = useAuthUser();
+  const { user, isAdmin, authLoading } = useAuthUser();
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClientFilter>("Active");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientWithPets | null>(null);
+  const [ownerLabels, setOwnerLabels] = useState<Record<string, string>>({});
 
   const loadClients = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from("clients")
       .select("*, pets(*)")
-      .eq("user_id", user.id)
       .order("name", { ascending: true });
+
+    if (!isAdmin) query = query.eq("user_id", user.id);
+
+    const { data } = await query;
 
     const nextClients = ((data ?? []) as Array<ClientWithPets & { pets: ClientWithPets["pets"] | null }>).map(
       (client) => ({ ...client, pets: client.pets ?? [] })
     );
+
+    if (isAdmin && nextClients.length > 0) {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
+      const userIds = Array.from(new Set(nextClients.map((client) => client.user_id)));
+
+      if (session?.access_token) {
+        const response = await fetch("/api/admin/user-labels", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ userIds })
+        });
+
+        if (response.ok) {
+          const body = (await response.json()) as { labels?: Record<string, string> };
+          setOwnerLabels(body.labels ?? {});
+        } else {
+          setOwnerLabels({});
+        }
+      }
+    } else {
+      setOwnerLabels({});
+    }
+
     setClients(nextClients);
     setLoading(false);
-  }, [user]);
+  }, [isAdmin, user]);
 
   useEffect(() => {
     loadClients();
@@ -52,7 +84,15 @@ export default function ClientsPage() {
     [clients]
   );
 
-  const filteredClients = clients.filter((client) => filter === "All" || client.status === filter);
+  const filteredClients = useMemo(() => {
+    const nextClients = clients.filter((client) => filter === "All" || client.status === filter);
+    if (filter !== "All") return nextClients;
+
+    return nextClients.slice().sort((a, b) => {
+      if (a.status === b.status) return 0;
+      return a.status === "Active" ? -1 : 1;
+    });
+  }, [clients, filter]);
 
   function openNewClient() {
     setEditingClient(null);
@@ -125,7 +165,12 @@ export default function ClientsPage() {
         {!loading && filteredClients.length > 0 ? (
           <section className="grid gap-4 lg:grid-cols-2">
             {filteredClients.map((client) => (
-              <ClientCard key={client.id} client={client} onClick={() => openExistingClient(client)} />
+              <ClientCard
+                key={client.id}
+                client={client}
+                ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
+                onClick={() => openExistingClient(client)}
+              />
             ))}
           </section>
         ) : null}

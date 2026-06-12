@@ -100,6 +100,11 @@ http://localhost:3000/*
   - Pet type icons.
   - Payment method badge.
   - Estimated monthly earnings.
+  - Admin-only owner label showing the client's owner email/name.
+- Client card behavior:
+  - Paused clients render with a muted/greyed-out style so they are obvious in the All view.
+  - In the All filter, Active clients sort first and Paused clients sort at the bottom.
+  - Active and Paused tabs keep their existing name-based ordering.
 - Added add/edit client slide-over form.
 - Add/edit client slide-over closes from both the X button and clicks on the dimmed overlay outside the panel.
 - Added dynamic pets list.
@@ -147,10 +152,52 @@ http://localhost:3000/*
 - Schema includes:
   - `clients` table.
   - `pets` table.
-  - RLS policies matching the existing single-user pattern.
+  - Admin-aware RLS policies.
   - Indexes for client status/name and pet ownership.
 - Supabase Storage bucket still needs to exist manually:
   - `pet-photos`
+
+### Admin/User Permissions
+
+- Added backend-only admin/user permission system.
+- No UI changes were made for roles.
+- Created `profiles` table in Supabase:
+  - `id uuid primary key references auth.users(id) on delete cascade`
+  - `role text not null default 'user'`
+  - Role values are constrained to `admin` or `user`.
+  - `created_at` and `updated_at` timestamps are included in SQL docs.
+- Added `is_admin()` SQL helper function.
+- Added `handle_new_user_profile()` trigger function.
+- Added `on_auth_user_created` trigger on `auth.users` so new auth users get a default `profiles` row.
+- Updated RLS policies for:
+  - `expenses`
+  - `clients`
+  - `pets`
+  - `profiles`
+- Permission behavior:
+  - Regular users can see/manage only rows where `auth.uid() = user_id`.
+  - Admin users can see/manage all rows in current app tables.
+  - Admins can manage profile rows.
+  - Users can view their own profile.
+- Frontend role behavior:
+  - `useAuthUser()` now loads `profiles.role` and exposes `isAdmin`.
+  - Clients, expenses dashboard, and reports only apply `.eq("user_id", user.id)` filters for non-admin users.
+  - Admin users rely on RLS to see all rows.
+  - This fixed the bug where admin RLS allowed all rows but the frontend still filtered to the admin's own `user_id`.
+- Added protected admin-only API route `app/api/admin/user-labels/route.ts`.
+  - Uses the user's bearer token to confirm the caller is authenticated.
+  - Checks `profiles.role = 'admin'`.
+  - Uses `SUPABASE_SERVICE_ROLE_KEY` server-side to resolve auth user IDs to email/name labels.
+  - Regular users do not call this route and do not see owner labels.
+- The admin SQL has already been run successfully in Supabase.
+- The current owner account has already been set to `admin`.
+- Yana remains a regular `user` by default unless manually promoted.
+- Future app tables should include a `user_id uuid references auth.users(id) on delete cascade` column and reuse this policy shape:
+
+```sql
+using (auth.uid() = user_id or is_admin())
+with check (auth.uid() = user_id or is_admin())
+```
 
 ### Profile Section
 
@@ -176,6 +223,8 @@ http://localhost:3000/*
   - Smaller gray formatted address.
 - Selecting a suggestion writes the formatted address into the form.
 - Selecting an address closes the dropdown and prevents it from immediately re-opening with the same selected address.
+- Existing saved addresses in the Edit Client form do not trigger autocomplete on form load.
+- Autocomplete lookup only starts after the user actively types in the address field.
 - Verified Google Places previously returned suggestions from `http://127.0.0.1:3000`; current local app also runs on `http://localhost:3000`.
 
 ## Important Files
@@ -183,15 +232,17 @@ http://localhost:3000/*
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports sub-section.
 - `app/clients/page.tsx`: Clients section.
+- `app/api/admin/user-labels/route.ts`: Admin-only API route for resolving owner labels.
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
 - `components/ClientCard.tsx`: Client card UI.
+- `lib/useAuthUser.ts`: Auth user and profile role loading.
 - `lib/clients.ts`: Client constants and earnings calculations.
 - `types/client.ts`: Client and pet TypeScript types.
-- `supabase/clients-schema.sql`: SQL for client/pet tables and RLS.
-- `supabase/schema.sql`: Original expense schema.
+- `supabase/clients-schema.sql`: SQL for client/pet tables and admin-aware RLS.
+- `supabase/schema.sql`: Expenses schema plus profiles table, admin helper functions, triggers, and admin-aware RLS.
 
 ## Verification Completed
 
@@ -199,9 +250,8 @@ These checks have passed after the latest changes:
 
 ```bash
 npm run typecheck
+npm run lint
 ```
-
-`npm run lint` currently prompts to configure ESLint because no ESLint config is present yet; it has not been completed in this workspace state.
 
 The dev server was restarted cleanly and responds at:
 
@@ -219,39 +269,33 @@ http://localhost:3000
 
 Recent work includes uncommitted changes for:
 
-- `.gitignore` added to protect `.env.local` and local build/dependency output.
-- `.env.local` created locally and ignored by git.
-- Google Places address autocomplete improvements for building names/landmarks and formatted two-line suggestions.
-- Add Client form layout and validation updates.
-- Pets section redesign.
-- Visit days default/validation updates.
-- Add Client slide-over overlay click-to-close behavior.
-- `CLAUDE.md` project context.
+- Admin/user permission SQL was added and pushed in commit `4f10f98`.
+- `profiles` table and admin-aware RLS policies were successfully run in Supabase.
+- Admin frontend filters were fixed so admin can see all clients/expenses/reports rows.
+- Admin-only client owner labels were added.
+- Edit Client address autocomplete no longer opens for saved addresses on form load.
+- Paused clients were visually muted and sorted below Active clients in the All tab.
+- Current uncommitted work includes these app fixes plus this `CLAUDE.md` context refresh.
 
 Before pushing again, run:
 
 ```bash
 npm run typecheck
+npm run lint
 git status
 ```
 
-Configure ESLint before relying on `npm run lint`, then commit and push to `main`.
+Then commit and push to `main`.
 
 ## Next Step
 
-Run the new Clients SQL in Supabase SQL Editor:
-
-```text
-supabase/clients-schema.sql
-```
-
-Then create the private Supabase Storage bucket:
+Create the private Supabase Storage bucket if it does not exist yet:
 
 ```text
 pet-photos
 ```
 
-After that, test the full client workflow in the browser:
+Then test the full client workflow in the browser:
 
 1. Open `http://localhost:3000`.
 2. Log in.
@@ -265,5 +309,13 @@ After that, test the full client workflow in the browser:
 10. Confirm missing required fields show errors directly below the relevant field/action.
 11. Confirm earnings update correctly.
 12. Save the client.
+
+Also test permissions with both users:
+
+1. Log in as admin and confirm all users' clients/pets/expenses are visible.
+2. Confirm admin client cards show an owner label.
+3. Log in as Yana and confirm only Yana-owned rows are visible.
+4. Confirm Yana does not see owner labels.
+5. Confirm admin test data is not visible to Yana.
 
 If autocomplete does not work on `localhost`, update the Google Cloud key referrers to include `http://localhost:3000/*`.

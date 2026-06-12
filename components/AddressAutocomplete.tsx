@@ -176,6 +176,7 @@ export function AddressAutocomplete({
   const [activeIndex, setActiveIndex] = useState(-1);
   const sessionTokenRef = useRef<unknown>(null);
   const selectedAddressRef = useRef("");
+  const userEditedRef = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -191,6 +192,13 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     const query = value.trim();
+    if (!userEditedRef.current) {
+      setPredictions([]);
+      setOpen(false);
+      setLoading(false);
+      setLookupError("");
+      return;
+    }
     if (query.length < 3) {
       setPredictions([]);
       setOpen(false);
@@ -252,12 +260,14 @@ export function AddressAutocomplete({
       const nextPrediction = prediction.formattedAddress ? prediction : await enrichPrediction(prediction);
       const nextAddress = nextPrediction.formattedAddress || nextPrediction.description;
       selectedAddressRef.current = nextAddress.trim();
+      userEditedRef.current = false;
       onChange(nextAddress);
       sessionTokenRef.current = null;
       setPredictions([]);
       setOpen(false);
       setActiveIndex(-1);
     } catch (selectionError) {
+      userEditedRef.current = false;
       onChange(prediction.description);
       setPredictions([]);
       setOpen(false);
@@ -283,6 +293,7 @@ export function AddressAutocomplete({
             autoComplete="street-address"
             onChange={(event) => {
               selectedAddressRef.current = "";
+              userEditedRef.current = true;
               onChange(event.target.value);
             }}
             onFocus={() => {
