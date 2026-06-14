@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bird, CalendarDays, Cat, Check, Dog, Edit3, MapPin, Pause, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bird, CalendarDays, Cat, Check, ChevronLeft, ChevronRight, Dog, Edit3, MapPin, Pause, Sparkles, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -24,6 +24,8 @@ const petIcons = {
   Bird,
   Exotic: Sparkles
 };
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function PetIcon({ type }: { type: PetType }) {
   const Icon = petIcons[type];
@@ -71,6 +73,30 @@ function earningDaysSince(dateValue: string) {
   return Math.max(0, Math.floor((startOfToday.getTime() - start.getTime()) / 86_400_000) + 1);
 }
 
+function monthTitle(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
+}
+
+function calendarDays(monthDate: Date) {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const leadingDays = firstDay.getDay();
+  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+
+  return [
+    ...Array.from({ length: leadingDays }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => new Date(monthDate.getFullYear(), monthDate.getMonth(), index + 1))
+  ];
+}
+
+function addMonths(date: Date, offset: number) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+}
+
+function nearbyYears(date: Date) {
+  const start = date.getFullYear() - 5;
+  return Array.from({ length: 12 }, (_, index) => start + index);
+}
+
 function mapsUrl(address: string) {
   const query = encodeURIComponent(address);
   if (typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -89,7 +115,7 @@ function earningsBreakdown(gross: number, commission: number) {
 }
 
 export default function ClientDetailPage() {
-  const sinceDateInputRef = useRef<HTMLInputElement>(null);
+  const sinceCalendarRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const clientId = params.id;
@@ -101,6 +127,11 @@ export default function ClientDetailPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusDate, setStatusDate] = useState(todayInputValue());
+  const [statusCalendarMonth, setStatusCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
+  const [statusCalendarMode, setStatusCalendarMode] = useState<"days" | "monthYear">("days");
+  const [sinceCalendarOpen, setSinceCalendarOpen] = useState(false);
+  const [sinceCalendarMonth, setSinceCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
+  const [sinceCalendarMode, setSinceCalendarMode] = useState<"days" | "monthYear">("days");
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingSinceDate, setSavingSinceDate] = useState(false);
 
@@ -135,6 +166,19 @@ export default function ClientDetailPage() {
     loadClient();
   }, [loadClient]);
 
+  useEffect(() => {
+    if (!sinceCalendarOpen) return;
+
+    function closeSinceCalendarOnOutsideClick(event: PointerEvent) {
+      if (!sinceCalendarRef.current?.contains(event.target as Node)) {
+        setSinceCalendarOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeSinceCalendarOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeSinceCalendarOnOutsideClick);
+  }, [sinceCalendarOpen]);
+
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
   const estimate = client ? estimateClientFromRecord(client) : null;
   const currentStatusHistory = currentHistory(client, history);
@@ -163,19 +207,82 @@ export default function ClientDetailPage() {
   const timeline = useMemo(() => history.slice().sort((a, b) => b.start_date.localeCompare(a.start_date)), [history]);
 
   function openStatusModal() {
-    setStatusDate(todayInputValue());
+    const today = todayInputValue();
+    setStatusDate(today);
+    setStatusCalendarMonth(parseLocalDate(today));
+    setStatusCalendarMode("days");
     setStatusModalOpen(true);
   }
 
-  function openSinceDatePicker() {
-    const input = sinceDateInputRef.current;
-    if (!input) return;
+  function changeCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, offset: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setStatusCalendarMonth((current) => addMonths(current, offset));
+  }
 
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-    } else {
-      input.click();
-    }
+  function openSinceCalendar(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSinceCalendarMonth(parseLocalDate(currentStatusStartDate));
+    setSinceCalendarMode("days");
+    setSinceCalendarOpen((open) => !open);
+  }
+
+  function changeSinceCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, offset: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSinceCalendarMonth((current) => addMonths(current, offset));
+  }
+
+  async function selectSinceDate(event: React.MouseEvent<HTMLButtonElement>, date: Date) {
+    event.preventDefault();
+    event.stopPropagation();
+    await updateSinceDate(toInputDate(date));
+    setSinceCalendarOpen(false);
+  }
+
+  function selectStatusDate(event: React.MouseEvent<HTMLButtonElement>, date: Date) {
+    event.preventDefault();
+    event.stopPropagation();
+    setStatusDate(toInputDate(date));
+  }
+
+  function toggleStatusCalendarMode(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setStatusCalendarMode((mode) => (mode === "days" ? "monthYear" : "days"));
+  }
+
+  function toggleSinceCalendarMode(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSinceCalendarMode((mode) => (mode === "days" ? "monthYear" : "days"));
+  }
+
+  function selectStatusCalendarYear(event: React.MouseEvent<HTMLButtonElement>, year: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setStatusCalendarMonth((current) => new Date(year, current.getMonth(), 1));
+  }
+
+  function selectStatusCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, month: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setStatusCalendarMonth((current) => new Date(current.getFullYear(), month, 1));
+    setStatusCalendarMode("days");
+  }
+
+  function selectSinceCalendarYear(event: React.MouseEvent<HTMLButtonElement>, year: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSinceCalendarMonth((current) => new Date(year, current.getMonth(), 1));
+  }
+
+  function selectSinceCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, month: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSinceCalendarMonth((current) => new Date(current.getFullYear(), month, 1));
+    setSinceCalendarMode("days");
   }
 
   async function changeStatus() {
@@ -344,30 +451,124 @@ export default function ClientDetailPage() {
                     {client.status}
                   </span>
                 </div>
-                <div className="mt-4">
+                <div ref={sinceCalendarRef} className="relative mt-4">
                   <span className="text-[13px] font-medium text-text-tertiary">Since</span>
                   <span className="relative mt-2 flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-border bg-page px-3 text-[14px] font-medium text-text-primary">
                     <span>{formatExactDate(currentStatusStartDate)}</span>
                     <button
                       className="focus-ring inline-grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
                       type="button"
-                      onClick={openSinceDatePicker}
+                      onClick={openSinceCalendar}
                       disabled={savingSinceDate}
                       aria-label="Edit status start date"
                     >
                       <Edit3 size={14} strokeWidth={1.7} />
                     </button>
-                    <input
-                      ref={sinceDateInputRef}
-                      className="pointer-events-none absolute bottom-2 right-3 h-1 w-1 opacity-0"
-                      type="date"
-                      tabIndex={-1}
-                      value={currentStatusStartDate}
-                      disabled={savingSinceDate}
-                      onChange={(event) => updateSinceDate(event.target.value)}
-                      aria-hidden="true"
-                    />
                   </span>
+                  {sinceCalendarOpen ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 rounded-2xl border border-border bg-surface p-3 shadow-[0_18px_48px_rgba(80,66,44,0.16)]">
+                      <div className="flex min-h-10 items-center justify-between gap-3">
+                        <button
+                          className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                          onClick={(event) => changeSinceCalendarMonth(event, -1)}
+                          aria-label="Previous month"
+                        >
+                          <ChevronLeft size={17} strokeWidth={1.7} />
+                        </button>
+                        <button
+                          className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
+                          type="button"
+                          onClick={toggleSinceCalendarMode}
+                        >
+                          {monthTitle(sinceCalendarMonth)}
+                        </button>
+                        <button
+                          className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                          onClick={(event) => changeSinceCalendarMonth(event, 1)}
+                          aria-label="Next month"
+                        >
+                          <ChevronRight size={17} strokeWidth={1.7} />
+                        </button>
+                      </div>
+                      {sinceCalendarMode === "days" ? (
+                        <>
+                          <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
+                            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                              <span key={`${day}-${index}`}>{day}</span>
+                            ))}
+                          </div>
+                          <div className="mt-1 grid grid-cols-7 gap-1">
+                            {calendarDays(sinceCalendarMonth).map((date, index) =>
+                              date ? (
+                                <button
+                                  key={toInputDate(date)}
+                                  className={cn(
+                                    "focus-ring grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                                    currentStatusStartDate === toInputDate(date)
+                                      ? "bg-accent text-text-primary shadow-sm"
+                                      : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                                  )}
+                                  type="button"
+                                  onClick={(event) => selectSinceDate(event, date)}
+                                >
+                                  {date.getDate()}
+                                </button>
+                              ) : (
+                                <span key={`empty-${index}`} />
+                              )
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-3 space-y-3">
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {nearbyYears(sinceCalendarMonth).map((year) => (
+                              <button
+                                key={year}
+                                className={cn(
+                                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                                  sinceCalendarMonth.getFullYear() === year
+                                    ? "bg-accent text-text-primary shadow-sm"
+                                    : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                                )}
+                                type="button"
+                                onClick={(event) => selectSinceCalendarYear(event, year)}
+                              >
+                                {year}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {MONTH_NAMES.map((month, index) => (
+                              <button
+                                key={month}
+                                className={cn(
+                                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                                  sinceCalendarMonth.getMonth() === index
+                                    ? "bg-accent text-text-primary shadow-sm"
+                                    : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                                )}
+                                type="button"
+                                onClick={(event) => selectSinceCalendarMonth(event, index)}
+                              >
+                                {month}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <Button className="mt-5" variant="soft" onClick={openStatusModal}>
                   <CalendarDays size={17} strokeWidth={1.6} />
@@ -486,11 +687,17 @@ export default function ClientDetailPage() {
       </div>
 
       {statusModalOpen && client ? (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-[#1A1916]/25 p-4 backdrop-blur-sm" onClick={() => setStatusModalOpen(false)}>
+        <div
+          className="fixed inset-0 z-[70] grid place-items-center bg-[#1A1916]/25 p-4 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setStatusModalOpen(false);
+            }
+          }}
+        >
           <div
             className="w-full max-w-[420px] rounded-[20px] border border-border bg-surface p-5 shadow-[0_20px_70px_rgba(48,38,24,0.18)]"
             onClick={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -499,24 +706,131 @@ export default function ClientDetailPage() {
                   Confirm changing {client.name} to {nextStatus}.
                 </p>
               </div>
-              <Button className="min-h-10 px-3" variant="ghost" onClick={() => setStatusModalOpen(false)} aria-label="Close">
+              <Button
+                className="min-h-10 px-3"
+                variant="ghost"
+                onClick={() => {
+                  setStatusModalOpen(false);
+                }}
+                aria-label="Close"
+              >
                 <X size={18} strokeWidth={1.6} />
               </Button>
             </div>
-            <label className="mt-5 block">
+            <div className="mt-5">
               <span className="text-[13px] font-medium text-text-secondary">From what date?</span>
-              <input
-                className="focus-ring mt-2 min-h-11 w-full rounded-xl border border-border bg-page px-3 text-[15px] text-text-primary"
-                type="date"
-                value={statusDate}
-                onChange={(event) => setStatusDate(event.target.value)}
-                onClick={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-              />
-            </label>
+              <div className="mt-2 rounded-2xl border border-border bg-page p-3">
+                <div className="flex min-h-10 items-center justify-between gap-3">
+                  <button
+                    className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => changeCalendarMonth(event, -1)}
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft size={17} strokeWidth={1.7} />
+                  </button>
+                  <button
+                    className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
+                    type="button"
+                    onClick={toggleStatusCalendarMode}
+                  >
+                    {monthTitle(statusCalendarMonth)}
+                  </button>
+                  <button
+                    className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => changeCalendarMonth(event, 1)}
+                    aria-label="Next month"
+                  >
+                    <ChevronRight size={17} strokeWidth={1.7} />
+                  </button>
+                </div>
+                {statusCalendarMode === "days" ? (
+                  <>
+                    <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
+                      {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                        <span key={`${day}-${index}`}>{day}</span>
+                      ))}
+                    </div>
+                    <div className="mt-1 grid grid-cols-7 gap-1">
+                      {calendarDays(statusCalendarMonth).map((date, index) =>
+                        date ? (
+                          <button
+                            key={toInputDate(date)}
+                            className={cn(
+                              "focus-ring grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                              statusDate === toInputDate(date)
+                                ? "bg-accent text-text-primary shadow-sm"
+                                : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                            )}
+                            type="button"
+                            onClick={(event) => selectStatusDate(event, date)}
+                          >
+                            {date.getDate()}
+                          </button>
+                        ) : (
+                          <span key={`empty-${index}`} />
+                        )
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {nearbyYears(statusCalendarMonth).map((year) => (
+                        <button
+                          key={year}
+                          className={cn(
+                            "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                            statusCalendarMonth.getFullYear() === year
+                              ? "bg-accent text-text-primary shadow-sm"
+                              : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                          )}
+                          type="button"
+                          onClick={(event) => selectStatusCalendarYear(event, year)}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {MONTH_NAMES.map((month, index) => (
+                        <button
+                          key={month}
+                          className={cn(
+                            "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                            statusCalendarMonth.getMonth() === index
+                              ? "bg-accent text-text-primary shadow-sm"
+                              : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                          )}
+                          type="button"
+                          onClick={(event) => selectStatusCalendarMonth(event, index)}
+                        >
+                          {month}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             {error ? <p className="mt-3 text-[13px] text-danger">{error}</p> : null}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button variant="ghost" onClick={() => setStatusModalOpen(false)} disabled={savingStatus}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setStatusModalOpen(false);
+                }}
+                disabled={savingStatus}
+              >
                 Cancel
               </Button>
               <Button variant="accent" onClick={changeStatus} disabled={savingStatus || !statusDate}>

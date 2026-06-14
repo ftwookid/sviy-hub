@@ -645,9 +645,9 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       ) : null}
 
       {statusHistory.length > 0 ? (
-        <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
+        <>
           <button
-            className="flex min-h-11 w-full items-center justify-between text-left text-[15px] font-medium text-text-secondary transition hover:text-text-primary"
+            className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition hover:bg-subtle"
             type="button"
             onClick={() => setHistoryOpen((open) => !open)}
           >
@@ -655,7 +655,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
             <ChevronDown className={cn("transition duration-200", historyOpen && "rotate-180")} size={18} strokeWidth={1.6} />
           </button>
           {historyOpen ? (
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3 rounded-[20px] border border-border bg-surface p-4 shadow-card">
               {statusHistory.map((entry) => (
                 <div key={entry.id} className="flex gap-3 rounded-2xl bg-subtle px-4 py-3">
                   <span className={cn("mt-1 h-3 w-3 shrink-0 rounded-full", entry.status === "Active" ? "bg-success" : "bg-text-tertiary")} />
@@ -669,7 +669,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
               ))}
             </div>
           ) : null}
-        </section>
+        </>
       ) : null}
 
       {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}
