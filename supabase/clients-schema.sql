@@ -99,32 +99,44 @@ create index if not exists status_history_client_start_idx on status_history (cl
 create index if not exists status_history_client_current_idx on status_history (client_id) where end_date is null;
 
 -- In Supabase Storage, create a private bucket named "pet-photos".
--- Recommended Storage policies for the private pet-photos bucket:
---
--- create policy "Users can upload their own pet photos"
---   on storage.objects for insert
---   with check (
---     bucket_id = 'pet-photos'
---     and auth.uid()::text = (storage.foldername(name))[1]
---   );
---
--- create policy "Users can view their own pet photos"
---   on storage.objects for select
---   using (
---     bucket_id = 'pet-photos'
---     and auth.uid()::text = (storage.foldername(name))[1]
---   );
---
--- create policy "Users can update their own pet photos"
---   on storage.objects for update
---   using (
---     bucket_id = 'pet-photos'
---     and auth.uid()::text = (storage.foldername(name))[1]
---   );
---
--- create policy "Users can delete their own pet photos"
---   on storage.objects for delete
---   using (
---     bucket_id = 'pet-photos'
---     and auth.uid()::text = (storage.foldername(name))[1]
---   );
+-- Pet photo paths are stored as "{user_id}/pets/{filename}".
+drop policy if exists "Users can upload their own pet photos" on storage.objects;
+drop policy if exists "Users can view their own pet photos" on storage.objects;
+drop policy if exists "Users can update their own pet photos" on storage.objects;
+drop policy if exists "Users can delete their own pet photos" on storage.objects;
+
+create policy "Users can upload their own pet photos"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'pet-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users can view their own pet photos"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'pet-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users can update their own pet photos"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'pet-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  )
+  with check (
+    bucket_id = 'pet-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users can delete their own pet photos"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'pet-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );

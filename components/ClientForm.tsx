@@ -50,6 +50,7 @@ type ChangeSummary = {
 
 const MAX_PET_PHOTO_SIZE = 800;
 const MAX_PET_PHOTO_BYTES = 200 * 1024;
+const HEIC_CONTENT_TYPE = "image/heic";
 
 function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   if (!client) return defaultClientValues();
@@ -167,12 +168,12 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       };
     }
 
-    const compressedPhoto = await compressPetPhoto(pet.photoFile);
+    const uploadPhoto = await preparePetPhotoForUpload(pet.photoFile);
     const originalName = sanitizeFilename(pet.photoFile.name).replace(/\.[^.]+$/, "");
-    const filename = `${Date.now()}-${originalName || "pet-photo"}.jpg`;
+    const filename = `${Date.now()}-${originalName || "pet-photo"}.${uploadPhoto.extension}`;
     const path = `${ownerId}/pets/${filename}`;
-    const { error } = await supabase.storage.from("pet-photos").upload(path, compressedPhoto, {
-      contentType: "image/jpeg",
+    const { error } = await supabase.storage.from("pet-photos").upload(path, uploadPhoto.file, {
+      contentType: uploadPhoto.contentType,
       upsert: false
     });
 
@@ -182,6 +183,27 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       photo_url: path,
       photo_filename: pet.photoFile.name
     };
+  }
+
+  async function preparePetPhotoForUpload(file: File) {
+    if (isHeicPhoto(file)) {
+      return {
+        file,
+        extension: file.name.toLowerCase().endsWith(".heif") ? "heif" : "heic",
+        contentType: file.type || HEIC_CONTENT_TYPE
+      };
+    }
+
+    return {
+      file: await compressPetPhoto(file),
+      extension: "jpg",
+      contentType: "image/jpeg"
+    };
+  }
+
+  function isHeicPhoto(file: File) {
+    const name = file.name.toLowerCase();
+    return file.type === "image/heic" || file.type === "image/heif" || name.endsWith(".heic") || name.endsWith(".heif");
   }
 
   async function compressPetPhoto(file: File) {
