@@ -135,6 +135,29 @@ begin
       using (auth.uid() = user_id or is_admin())
       with check (auth.uid() = user_id or is_admin())';
   end if;
+
+  if to_regclass('public.status_history') is not null then
+    execute 'drop policy if exists "Users and admins can manage status history" on status_history';
+    execute 'drop policy if exists "Users and admins can insert status history" on status_history';
+    execute 'create policy "Users and admins can manage status history"
+      on status_history for all
+      using (
+        exists (
+          select 1
+          from clients
+          where clients.id = status_history.client_id
+            and (clients.user_id = auth.uid() or is_admin())
+        )
+      )
+      with check (
+        exists (
+          select 1
+          from clients
+          where clients.id = status_history.client_id
+            and (clients.user_id = auth.uid() or is_admin())
+        )
+      )';
+  end if;
 end;
 $$;
 

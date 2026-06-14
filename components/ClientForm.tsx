@@ -17,7 +17,7 @@ import {
   selectedDaysFromRecord,
   selectedDaysLabel
 } from "@/lib/clients";
-import { formatCurrency, sanitizeFilename } from "@/lib/formatters";
+import { formatCurrency, formatShortDate, sanitizeFilename } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
 import type {
   ClientFormPet,
@@ -25,12 +25,15 @@ import type {
   ClientPaymentMethod,
   ClientStatus,
   ClientWithPets,
-  PetType
+  PetType,
+  StatusHistory
 } from "@/types/client";
 
 type ClientFormProps = {
   userId: string;
   client?: ClientWithPets | null;
+  hideStatusField?: boolean;
+  statusHistory?: StatusHistory[];
   onSaved: () => void;
   onCancel: () => void;
 };
@@ -44,6 +47,9 @@ type ChangeSummary = {
   before: string;
   after: string;
 };
+
+const MAX_PET_PHOTO_SIZE = 800;
+const MAX_PET_PHOTO_BYTES = 200 * 1024;
 
 function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   if (!client) return defaultClientValues();
@@ -71,12 +77,13 @@ function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   };
 }
 
-export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProps) {
+export function ClientForm({ userId, client, hideStatusField = false, statusHistory = [], onSaved, onCancel }: ClientFormProps) {
   const [values, setValues] = useState<ClientFormValues>(() => valuesFromClient(client));
   const [errors, setErrors] = useState<ClientFormErrors>({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [notesOpen, setNotesOpen] = useState(Boolean(client?.notes));
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmingChanges, setConfirmingChanges] = useState(false);
   const [changeSummary, setChangeSummary] = useState<ChangeSummary[]>([]);
 
@@ -160,9 +167,12 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
       };
     }
 
-    const filename = `${Date.now()}-${sanitizeFilename(pet.photoFile.name)}`;
+    const compressedPhoto = await compressPetPhoto(pet.photoFile);
+    const originalName = sanitizeFilename(pet.photoFile.name).replace(/\.[^.]+$/, "");
+    const filename = `${Date.now()}-${originalName || "pet-photo"}.jpg`;
     const path = `${ownerId}/pets/${filename}`;
-    const { error } = await supabase.storage.from("pet-photos").upload(path, pet.photoFile, {
+    const { error } = await supabase.storage.from("pet-photos").upload(path, compressedPhoto, {
+      contentType: "image/jpeg",
       upsert: false
     });
 
@@ -172,6 +182,83 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
       photo_url: path,
       photo_filename: pet.photoFile.name
     };
+  }
+
+  async function compressPetPhoto(file: File) {
+    const imageUrl = URL.createObjectURL(file);
+
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const nextImage = new Image();
+        nextImage.onload = () => resolve(nextImage);
+        nextImage.onerror = () => reject(new Error("Could not load pet photo."));
+        nextImage.src = imageUrl;
+      });
+
+      const scale = Math.min(1, MAX_PET_PHOTO_SIZE / image.width, MAX_PET_PHOTO_SIZE / image.height);
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not prepare pet photo for upload.");
+
+      context.drawImage(image, 0, 0, width, height);
+
+      let outputCanvas = canvas;
+      let quality = 0.82;
+      let blob = await canvasToJpegBlob(outputCanvas, quality);
+
+      while (blob.size > MAX_PET_PHOTO_BYTES && quality > 0.3) {
+        quality -= 0.08;
+        blob = await canvasToJpegBlob(outputCanvas, quality);
+      }
+
+      while (blob.size > MAX_PET_PHOTO_BYTES && outputCanvas.width > 160 && outputCanvas.height > 160) {
+        outputCanvas = resizeCanvas(outputCanvas, 0.85);
+        quality = 0.72;
+        blob = await canvasToJpegBlob(outputCanvas, quality);
+
+        while (blob.size > MAX_PET_PHOTO_BYTES && quality > 0.3) {
+          quality -= 0.08;
+          blob = await canvasToJpegBlob(outputCanvas, quality);
+        }
+      }
+
+      return blob;
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }
+
+  function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number) {
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Could not compress pet photo."));
+          }
+        },
+        "image/jpeg",
+        quality
+      );
+    });
+  }
+
+  function resizeCanvas(sourceCanvas: HTMLCanvasElement, scale: number) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sourceCanvas.width * scale));
+    canvas.height = Math.max(1, Math.round(sourceCanvas.height * scale));
+
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not resize pet photo.");
+
+    context.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+    return canvas;
   }
 
   function normalizeBlank(value: string | null | undefined) {
@@ -391,27 +478,29 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
             </div>
           </FieldShell>
 
-          <FieldShell label="Status">
-            <div className="grid min-h-11 grid-cols-2 rounded-2xl border border-border bg-subtle p-1">
-              {(["Active", "Paused"] as ClientStatus[]).map((status) => (
-                <button
-                  key={status}
-                  className={cn(
-                    "rounded-xl text-[14px] font-medium transition duration-200 ease-in-out active:scale-[0.98]",
-                    values.status === status
-                      ? status === "Active"
-                        ? "bg-success-soft text-success shadow-sm"
-                        : "bg-surface text-text-secondary shadow-sm"
-                      : "text-text-tertiary"
-                  )}
-                  onClick={() => update("status", status)}
-                  type="button"
-                >
-                  {status}
-                </button>
-              ))}
-            </div>
-          </FieldShell>
+          {!hideStatusField ? (
+            <FieldShell label="Status">
+              <div className="grid min-h-11 grid-cols-2 rounded-2xl border border-border bg-subtle p-1">
+                {(["Active", "Paused"] as ClientStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    className={cn(
+                      "rounded-xl text-[14px] font-medium transition duration-200 ease-in-out active:scale-[0.98]",
+                      values.status === status
+                        ? status === "Active"
+                          ? "bg-success-soft text-success shadow-sm"
+                          : "bg-surface text-text-secondary shadow-sm"
+                        : "text-text-tertiary"
+                    )}
+                    onClick={() => update("status", status)}
+                    type="button"
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </FieldShell>
+          ) : null}
 
           <Select
             label="Service"
@@ -531,6 +620,34 @@ export function ClientForm({ userId, client, onSaved, onCancel }: ClientFormProp
           placeholder="Pet quirks, routines, access notes..."
           onChange={(event) => update("notes", event.target.value)}
         />
+      ) : null}
+
+      {statusHistory.length > 0 ? (
+        <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
+          <button
+            className="flex min-h-11 w-full items-center justify-between text-left text-[15px] font-medium text-text-secondary transition hover:text-text-primary"
+            type="button"
+            onClick={() => setHistoryOpen((open) => !open)}
+          >
+            Status history
+            <ChevronDown className={cn("transition duration-200", historyOpen && "rotate-180")} size={18} strokeWidth={1.6} />
+          </button>
+          {historyOpen ? (
+            <div className="mt-4 space-y-3">
+              {statusHistory.map((entry) => (
+                <div key={entry.id} className="flex gap-3 rounded-2xl bg-subtle px-4 py-3">
+                  <span className={cn("mt-1 h-3 w-3 shrink-0 rounded-full", entry.status === "Active" ? "bg-success" : "bg-text-tertiary")} />
+                  <div>
+                    <div className="text-[14px] font-medium text-text-primary">{entry.status}</div>
+                    <div className="text-[13px] text-text-secondary">
+                      {formatShortDate(entry.start_date)} - {entry.end_date ? formatShortDate(entry.end_date) : "Present"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}

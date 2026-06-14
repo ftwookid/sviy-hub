@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { HeartHandshake, Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientForm } from "@/components/ClientForm";
@@ -16,6 +17,7 @@ import type { ClientStatus, ClientWithPets } from "@/types/client";
 type ClientFilter = ClientStatus | "All";
 
 export default function ClientsPage() {
+  const router = useRouter();
   const { user, isAdmin, authLoading } = useAuthUser();
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +186,7 @@ export default function ClientsPage() {
                 client={client}
                 ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
                 onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
-                onClick={() => openExistingClient(client)}
+                onClick={() => router.push(`/clients/${client.id}`)}
               />
             ))}
           </section>

@@ -23,6 +23,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
   const pathname = usePathname();
   const router = useRouter();
   const initial = user.email?.[0]?.toUpperCase() ?? "S";
+  const isClientDetailPage = /^\/clients\/[^/]+$/.test(pathname);
 
   async function signOut() {
     await supabase?.auth.signOut();
@@ -80,7 +81,14 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
       </aside>
 
       <div className="md:col-start-2">
-        <main className="mx-auto min-h-screen w-full max-w-[980px] px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-6 transition-opacity duration-200 ease-in-out sm:px-6 md:px-8 md:pb-10 md:pt-8">
+        <main
+          className={cn(
+            "mx-auto min-h-screen w-full max-w-[980px] px-4 pt-6 transition-opacity duration-200 ease-in-out sm:px-6 md:px-8 md:pb-10 md:pt-8",
+            isClientDetailPage
+              ? "pb-[calc(72px+env(safe-area-inset-bottom))]"
+              : "pb-[calc(96px+env(safe-area-inset-bottom))]"
+          )}
+        >
           {children}
         </main>
       </div>

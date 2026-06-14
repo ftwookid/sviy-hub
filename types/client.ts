@@ -35,6 +35,15 @@ export type ClientWithPets = Client & {
   pets: Pet[];
 };
 
+export type StatusHistory = {
+  id: string;
+  client_id: string;
+  status: ClientStatus;
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+};
+
 export type ClientFormPet = {
   id?: string;
   name: string;

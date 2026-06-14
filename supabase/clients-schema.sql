@@ -27,8 +27,18 @@ create table if not exists pets (
   photo_filename text
 );
 
+create table if not exists status_history (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references clients(id) on delete cascade,
+  status text not null check (status in ('Active', 'Paused')),
+  start_date date not null,
+  end_date date,
+  created_at timestamptz not null default now()
+);
+
 alter table clients enable row level security;
 alter table pets enable row level security;
+alter table status_history enable row level security;
 
 drop policy if exists "Users can manage their own clients" on clients;
 drop policy if exists "Users and admins can manage clients" on clients;
@@ -44,10 +54,33 @@ create policy "Users and admins can manage pets"
   using (auth.uid() = user_id or is_admin())
   with check (auth.uid() = user_id or is_admin());
 
+drop policy if exists "Users and admins can manage status history" on status_history;
+drop policy if exists "Users and admins can insert status history" on status_history;
+create policy "Users and admins can manage status history"
+  on status_history for all
+  using (
+    exists (
+      select 1
+      from clients
+      where clients.id = status_history.client_id
+        and (clients.user_id = auth.uid() or is_admin())
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from clients
+      where clients.id = status_history.client_id
+        and (clients.user_id = auth.uid() or is_admin())
+    )
+  );
+
 create index if not exists clients_user_status_idx on clients (user_id, status);
 create index if not exists clients_user_name_idx on clients (user_id, name);
 create index if not exists pets_client_idx on pets (client_id);
 create index if not exists pets_user_idx on pets (user_id);
+create index if not exists status_history_client_start_idx on status_history (client_id, start_date desc);
+create index if not exists status_history_client_current_idx on status_history (client_id) where end_date is null;
 
 -- In Supabase Storage, create a private bucket named "pet-photos".
 -- Recommended Storage policies for the private pet-photos bucket:
