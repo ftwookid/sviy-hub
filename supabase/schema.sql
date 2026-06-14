@@ -132,8 +132,24 @@ begin
     execute 'drop policy if exists "Users and admins can manage pets" on pets';
     execute 'create policy "Users and admins can manage pets"
       on pets for all
-      using (auth.uid() = user_id or is_admin())
-      with check (auth.uid() = user_id or is_admin())';
+      using (
+        is_admin()
+        or exists (
+          select 1
+          from clients
+          where clients.id = pets.client_id
+            and clients.user_id = auth.uid()
+        )
+      )
+      with check (
+        is_admin()
+        or exists (
+          select 1
+          from clients
+          where clients.id = pets.client_id
+            and clients.user_id = auth.uid()
+        )
+      )';
   end if;
 
   if to_regclass('public.status_history') is not null then

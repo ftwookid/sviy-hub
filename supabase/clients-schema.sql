@@ -51,8 +51,24 @@ drop policy if exists "Users can manage their own pets" on pets;
 drop policy if exists "Users and admins can manage pets" on pets;
 create policy "Users and admins can manage pets"
   on pets for all
-  using (auth.uid() = user_id or is_admin())
-  with check (auth.uid() = user_id or is_admin());
+  using (
+    is_admin()
+    or exists (
+      select 1
+      from clients
+      where clients.id = pets.client_id
+        and clients.user_id = auth.uid()
+    )
+  )
+  with check (
+    is_admin()
+    or exists (
+      select 1
+      from clients
+      where clients.id = pets.client_id
+        and clients.user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "Users and admins can manage status history" on status_history;
 drop policy if exists "Users and admins can insert status history" on status_history;
