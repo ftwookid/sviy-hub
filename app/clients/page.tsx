@@ -49,21 +49,27 @@ export default function ClientsPage() {
       const userIds = Array.from(new Set(nextClients.map((client) => client.user_id)));
 
       if (session?.access_token) {
-        const response = await fetch("/api/admin/user-labels", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ userIds })
-        });
+        try {
+          const response = await fetch("/api/admin/user-labels", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ userIds })
+          });
 
-        if (response.ok) {
-          const body = (await response.json()) as { labels?: Record<string, string> };
-          setOwnerLabels(body.labels ?? {});
-        } else {
+          if (response.ok) {
+            const body = (await response.json()) as { labels?: Record<string, string> };
+            setOwnerLabels(body.labels ?? {});
+          } else {
+            setOwnerLabels({});
+          }
+        } catch {
           setOwnerLabels({});
         }
+      } else {
+        setOwnerLabels({});
       }
     } else {
       setOwnerLabels({});

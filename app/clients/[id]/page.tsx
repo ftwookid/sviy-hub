@@ -1,40 +1,26 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bird, CalendarDays, Cat, Check, ChevronLeft, ChevronRight, Dog, Edit3, MapPin, Pause, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit3, MapPin, X } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { CategoryTag } from "@/components/CategoryTag";
 import { ClientForm } from "@/components/ClientForm";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
-import { estimateClientEarnings, selectedDaysFromRecord } from "@/lib/clients";
+import { estimateClientEarnings, selectedDaysFromRecord, WEEKS_PER_MONTH } from "@/lib/clients";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
-import type { ClientStatus, ClientWithPets, PetType, PriceHistory, StatusHistory } from "@/types/client";
-
-const petIcons = {
-  Dog,
-  Cat,
-  Bird,
-  Exotic: Sparkles
-};
+import type { ClientPaymentMethod, ClientStatus, ClientWithPets, PriceHistory, StatusHistory } from "@/types/client";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const ESTIMATED_TAX_RATE = 0.28;
+const FINANCIAL_PERIODS = ["week", "month", "year"] as const;
 
-function PetIcon({ type }: { type: PetType }) {
-  const Icon = petIcons[type];
-  return <Icon size={16} strokeWidth={1.6} className="text-text-secondary" />;
-}
-
-function statusTone(status: ClientStatus) {
-  return status === "Active" ? "bg-success-soft text-success" : "bg-subtle text-text-secondary";
-}
+type FinancialPeriod = (typeof FINANCIAL_PERIODS)[number];
 
 function dayBefore(dateValue: string) {
   const date = parseLocalDate(dateValue);
@@ -44,6 +30,10 @@ function dayBefore(dateValue: string) {
 
 function serviceLabel(client: ClientWithPets) {
   return client.service_type === "Custom" ? client.custom_service_type || "Custom" : client.service_type;
+}
+
+function petSummary(client: ClientWithPets) {
+  return client.pets.map((pet) => `${pet.name || pet.type} · ${pet.type}`).join(", ") || "No pets listed";
 }
 
 function currentHistory(client: ClientWithPets | null, history: StatusHistory[]) {
@@ -112,10 +102,6 @@ function mapsUrl(address: string) {
 
 function displayAddress(address: string) {
   return address.replace(/,\s*USA$/i, "");
-}
-
-function earningsBreakdown(gross: number, commission: number) {
-  return `${formatCurrency(gross)} gross${commission > 0 ? `, ${formatCurrency(commission)} Rover fee` : ""}`;
 }
 
 function daysBetweenInclusive(startValue: string, endValue: string) {
@@ -269,9 +255,7 @@ function DateCalendar({
 }
 
 export default function ClientDetailPage() {
-  const sinceCalendarRef = useRef<HTMLDivElement>(null);
   const suppressPriceHistoryClickUntilRef = useRef(0);
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const clientId = params.id;
   const { user, isAdmin, authLoading } = useAuthUser();
@@ -293,11 +277,8 @@ export default function ClientDetailPage() {
   const [statusDate, setStatusDate] = useState(todayInputValue());
   const [statusCalendarMonth, setStatusCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
   const [statusCalendarMode, setStatusCalendarMode] = useState<"days" | "monthYear">("days");
-  const [sinceCalendarOpen, setSinceCalendarOpen] = useState(false);
-  const [sinceCalendarMonth, setSinceCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
-  const [sinceCalendarMode, setSinceCalendarMode] = useState<"days" | "monthYear">("days");
   const [savingStatus, setSavingStatus] = useState(false);
-  const [savingSinceDate, setSavingSinceDate] = useState(false);
+  const [financialPeriod, setFinancialPeriod] = useState<FinancialPeriod>("month");
 
   const loadClient = useCallback(async () => {
     if (!supabase || !user || !clientId) return;
@@ -336,21 +317,7 @@ export default function ClientDetailPage() {
     loadClient();
   }, [loadClient]);
 
-  useEffect(() => {
-    if (!sinceCalendarOpen) return;
-
-    function closeSinceCalendarOnOutsideClick(event: PointerEvent) {
-      if (!sinceCalendarRef.current?.contains(event.target as Node)) {
-        setSinceCalendarOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", closeSinceCalendarOnOutsideClick);
-    return () => document.removeEventListener("pointerdown", closeSinceCalendarOnOutsideClick);
-  }, [sinceCalendarOpen]);
-
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
-  const currentStatusHistory = currentHistory(client, history);
   const currentStatusStartDate = statusStartDate(client, history);
   const selectedDays = client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : [];
   const currentPrice = currentPriceFromHistory(client, priceHistory);
@@ -363,7 +330,6 @@ export default function ClientDetailPage() {
       })
     : null;
   const orderedPriceHistory = useMemo(() => sortedPrices(priceHistory), [priceHistory]);
-  const hasAnyPriceHistory = priceHistory.length > 0;
   const totalEstimate = useMemo(() => {
     if (!client) {
       return {
@@ -421,31 +387,15 @@ export default function ClientDetailPage() {
     setStatusModalOpen(true);
   }
 
+  function selectStatus(status: ClientStatus) {
+    if (status === client?.status) return;
+    openStatusModal();
+  }
+
   function changeCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, offset: number) {
     event.preventDefault();
     event.stopPropagation();
     setStatusCalendarMonth((current) => addMonths(current, offset));
-  }
-
-  function openSinceCalendar(event: React.MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setSinceCalendarMonth(parseLocalDate(currentStatusStartDate));
-    setSinceCalendarMode("days");
-    setSinceCalendarOpen((open) => !open);
-  }
-
-  function changeSinceCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, offset: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    setSinceCalendarMonth((current) => addMonths(current, offset));
-  }
-
-  async function selectSinceDate(event: React.MouseEvent<HTMLButtonElement>, date: Date) {
-    event.preventDefault();
-    event.stopPropagation();
-    await updateSinceDate(toInputDate(date));
-    setSinceCalendarOpen(false);
   }
 
   function selectStatusDate(event: React.MouseEvent<HTMLButtonElement>, date: Date) {
@@ -460,12 +410,6 @@ export default function ClientDetailPage() {
     setStatusCalendarMode((mode) => (mode === "days" ? "monthYear" : "days"));
   }
 
-  function toggleSinceCalendarMode(event: React.MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setSinceCalendarMode((mode) => (mode === "days" ? "monthYear" : "days"));
-  }
-
   function selectStatusCalendarYear(event: React.MouseEvent<HTMLButtonElement>, year: number) {
     event.preventDefault();
     event.stopPropagation();
@@ -477,19 +421,6 @@ export default function ClientDetailPage() {
     event.stopPropagation();
     setStatusCalendarMonth((current) => new Date(current.getFullYear(), month, 1));
     setStatusCalendarMode("days");
-  }
-
-  function selectSinceCalendarYear(event: React.MouseEvent<HTMLButtonElement>, year: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    setSinceCalendarMonth((current) => new Date(year, current.getMonth(), 1));
-  }
-
-  function selectSinceCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, month: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    setSinceCalendarMonth((current) => new Date(current.getFullYear(), month, 1));
-    setSinceCalendarMode("days");
   }
 
   async function changeStatus() {
@@ -538,50 +469,6 @@ export default function ClientDetailPage() {
     loadClient();
   }
 
-  async function updateSinceDate(startDate: string) {
-    if (!supabase || !client || !startDate || startDate === currentStatusStartDate) return;
-    setSavingSinceDate(true);
-    setError("");
-
-    const statusError = currentStatusHistory
-      ? (
-          await supabase
-            .from("status_history")
-            .update({ start_date: startDate })
-            .eq("id", currentStatusHistory.id)
-        ).error
-      : (
-          await supabase.from("status_history").insert({
-            client_id: client.id,
-            status: client.status,
-            start_date: startDate
-          })
-        ).error;
-
-    if (statusError) {
-      setError(statusError.message);
-      setSavingSinceDate(false);
-      return;
-    }
-
-    const previousEntry = timeline.find((entry) => entry.id !== currentStatusHistory?.id && entry.start_date < startDate);
-    if (previousEntry) {
-      const { error: previousError } = await supabase
-        .from("status_history")
-        .update({ end_date: dayBefore(startDate) })
-        .eq("id", previousEntry.id);
-
-      if (previousError) {
-        setError(previousError.message);
-        setSavingSinceDate(false);
-        return;
-      }
-    }
-
-    setSavingSinceDate(false);
-    loadClient();
-  }
-
   async function syncClientCurrentPrice(nextPriceHistory: PriceHistory[]) {
     if (!supabase || !client) return;
     const nextCurrentPrice = currentPriceFromHistory(client, nextPriceHistory);
@@ -599,11 +486,6 @@ export default function ClientDetailPage() {
     setPriceCalendarMonth(parseLocalDate(effectiveDate));
     setPriceCalendarMode("days");
     setPriceModalOpen(true);
-  }
-
-  function openStartingPriceModal() {
-    setSinceCalendarOpen(false);
-    openPriceModal(undefined, currentStatusStartDate);
   }
 
   function togglePriceHistory() {
@@ -707,26 +589,12 @@ export default function ClientDetailPage() {
     loadClient();
   }
 
-  async function deleteClient() {
-    if (!supabase || !client) return;
-    const confirmed = window.confirm(`Delete ${client.name}? This will also remove their pets.`);
-    if (!confirmed) return;
-
-    const { error: deleteError } = await supabase.from("clients").delete().eq("id", client.id);
-    if (deleteError) {
-      window.alert(deleteError.message);
-      return;
-    }
-
-    router.push("/clients");
-  }
-
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
   return (
     <AppShell user={user}>
-      <div className="space-y-7">
+      <div className="space-y-8">
         <Link
           className="inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-[15px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
           href="/clients"
@@ -746,186 +614,110 @@ export default function ClientDetailPage() {
 
         {!loading && client && estimate ? (
           <>
-            <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">{client.name}</h1>
-                <p className="mt-3 flex items-start gap-2 text-[16px] text-text-secondary">
-                  <MapPin className="mt-0.5 shrink-0 text-text-tertiary" size={18} strokeWidth={1.6} />
-                  {client.address ? (
-                    <a className="transition hover:text-text-primary hover:underline" href={mapsUrl(client.address)} target="_blank" rel="noreferrer">
-                      {displayAddress(client.address)}
-                    </a>
-                  ) : (
-                    <span>No address saved</span>
-                  )}
-                </p>
-              </div>
-              <div className="hidden gap-2 sm:flex">
-                {isAdmin && client.status === "Paused" ? (
-                  <Button variant="danger" onClick={deleteClient}>
-                    <Trash2 size={17} strokeWidth={1.6} />
-                    Delete
-                  </Button>
-                ) : null}
-                <Button variant="accent" onClick={() => setEditorOpen(true)}>
-                  <Edit3 size={17} strokeWidth={1.6} />
+            <header className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                  <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">{client.name}</h1>
+                  <div className="grid min-h-9 grid-cols-2 rounded-2xl border border-border bg-subtle p-1">
+                    {(["Active", "Paused"] as ClientStatus[]).map((status) => (
+                      <button
+                        key={status}
+                        className={cn(
+                          "focus-ring min-w-16 rounded-xl px-2.5 text-[12px] font-medium transition duration-150 ease-out",
+                          client.status === status
+                            ? status === "Active"
+                              ? "bg-success-soft text-success shadow-sm"
+                              : "bg-surface text-text-secondary shadow-sm"
+                            : "text-text-tertiary hover:bg-surface hover:text-text-secondary"
+                        )}
+                        type="button"
+                        onClick={() => selectStatus(status)}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button className="min-h-10 shrink-0 px-3 text-[14px]" variant="ghost" onClick={() => setEditorOpen(true)}>
+                  <Edit3 size={16} strokeWidth={1.6} />
                   Edit
                 </Button>
               </div>
+              <div className="grid w-full gap-3 rounded-[20px] bg-subtle p-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.8fr)]">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Pet</div>
+                  <div className="mt-1 flex min-w-0 items-center gap-2 text-text-primary">
+                    <span className="text-[15px]" aria-hidden="true">🐾</span>
+                    <span className="truncate text-[18px] font-medium leading-tight" title={petSummary(client)}>
+                      {petSummary(client)}
+                    </span>
+                  </div>
+                </div>
+                <div className="min-w-0 md:border-l md:border-border md:pl-3">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Details</div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-text-tertiary">
+                    <span>{serviceLabel(client)}</span>
+                    <span>{selectedDays.length}x/week</span>
+                    <span>{client.payment_method}</span>
+                  </div>
+                </div>
+                <div className="min-w-0 md:border-l md:border-border md:pl-3">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Address</div>
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[14px] leading-snug text-text-tertiary">
+                    <MapPin className="shrink-0 text-text-tertiary/70" size={15} strokeWidth={1.6} />
+                    {client.address ? (
+                      <a className="min-w-0 overflow-visible transition hover:text-text-secondary" href={mapsUrl(client.address)} target="_blank" rel="noreferrer">
+                        {displayAddress(client.address)}
+                      </a>
+                    ) : (
+                      <span className="min-w-0">No address saved</span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </header>
 
-            <section className="grid gap-4 lg:grid-cols-3">
-              <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-[18px] font-medium text-text-primary">Current status</h2>
-                  <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium", statusTone(client.status))}>
-                    {client.status === "Active" ? <Check size={14} strokeWidth={1.8} /> : <Pause size={14} strokeWidth={1.8} />}
-                    {client.status}
-                  </span>
-                </div>
-                <div ref={sinceCalendarRef} className="relative mt-4">
-                  <span className="text-[13px] font-medium text-text-tertiary">Since</span>
-                  <span className="relative mt-2 flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-border bg-page px-3 text-[14px] font-medium text-text-primary">
-                    <span>{formatExactDate(currentStatusStartDate)}</span>
-                    <button
-                      className="focus-ring inline-grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
-                      type="button"
-                      onClick={openSinceCalendar}
-                      disabled={savingSinceDate}
-                      aria-label="Edit status start date"
-                    >
-                      <Edit3 size={14} strokeWidth={1.7} />
-                    </button>
-                  </span>
-                  {sinceCalendarOpen ? (
-                    <div className="absolute left-0 right-0 top-[58px] z-50 rounded-2xl bg-surface shadow-[0_18px_48px_rgba(80,66,44,0.16)]">
-                      <DateCalendar
-                        month={sinceCalendarMonth}
-                        mode={sinceCalendarMode}
-                        selectedDate={currentStatusStartDate}
-                        onChangeMonth={changeSinceCalendarMonth}
-                        onToggleMode={toggleSinceCalendarMode}
-                        onSelectDate={selectSinceDate}
-                        onSelectYear={selectSinceCalendarYear}
-                        onSelectMonth={selectSinceCalendarMonth}
-                      />
-                    </div>
-                  ) : null}
-                  {!hasAnyPriceHistory ? (
-                    <p className="mt-2 text-[12px] leading-snug text-text-tertiary">
-                      No price set for this date —{" "}
-                      <button
-                        className="focus-ring rounded-md font-medium text-text-secondary underline underline-offset-2 transition hover:text-text-primary"
-                        type="button"
-                        onClick={openStartingPriceModal}
-                      >
-                        add starting price
-                      </button>
-                    </p>
-                  ) : null}
-                </div>
-                <Button className="mt-5" variant="soft" onClick={openStatusModal}>
-                  <CalendarDays size={17} strokeWidth={1.6} />
-                  Change status
-                </Button>
-              </div>
-
-              <div className="rounded-[20px] border border-border bg-[#FFFEFB] p-5 shadow-card lg:hidden">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="min-w-0">
-                    <h2 className="text-[15px] font-medium leading-snug text-text-primary">Monthly estimate</h2>
-                    <div className="mt-3 flex flex-wrap items-baseline gap-1.5 text-text-primary">
-                      <span className="text-[25px] font-medium leading-none">{formatCurrency(estimate.monthlyNet)}</span>
-                      <span className="text-[13px] font-medium text-text-tertiary">/mo</span>
-                    </div>
-                    <p className="mt-2 text-[12px] leading-snug text-text-secondary">
-                      {formatCurrency(estimate.monthlyGross)} gross
-                      {client.payment_method === "Rover" ? `, ${formatCurrency(estimate.commission)} Rover fee` : ""}
-                    </p>
-                  </div>
-                  <div className="min-w-0 border-l border-border pl-4">
-                    <h2 className="text-[15px] font-medium leading-snug text-text-primary">Total earned</h2>
-                    <div className="mt-3 text-text-primary">
-                      <span className="text-[25px] font-medium leading-none">{formatCurrency(totalEstimate.net)}</span>
-                    </div>
-                    <p className="mt-2 text-[12px] leading-snug text-text-secondary">
-                      since {formatExactDate(currentStatusStartDate)}
-                    </p>
-                    <p className="mt-1 text-[12px] leading-snug text-text-secondary">
-                      {earningsBreakdown(totalEstimate.gross, totalEstimate.commission)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden rounded-[20px] border border-border bg-[#FFFEFB] p-5 shadow-card lg:block">
-                <h2 className="text-[18px] font-medium text-text-primary">Monthly estimate</h2>
-                <div className="mt-4 flex items-baseline gap-2 text-text-primary">
-                  <span className="text-[34px] font-medium leading-none">{formatCurrency(estimate.monthlyNet)}</span>
-                  <span className="text-[14px] font-medium text-text-tertiary">/mo</span>
-                </div>
-                <p className="mt-3 text-[13px] text-text-secondary">
-                  {formatCurrency(estimate.monthlyGross)} gross
-                  {client.payment_method === "Rover" ? `, ${formatCurrency(estimate.commission)} Rover fee` : ""}
-                </p>
-              </div>
-
-              <div className="hidden rounded-[20px] border border-border bg-[#FFFEFB] p-5 shadow-card lg:block">
-                <h2 className="text-[18px] font-medium text-text-primary">Total earned</h2>
-                <div className="mt-4 flex items-baseline gap-2 text-text-primary">
-                  <span className="text-[34px] font-medium leading-none">{formatCurrency(totalEstimate.net)}</span>
-                </div>
-                <p className="mt-3 text-[13px] text-text-secondary">
-                  since {formatExactDate(currentStatusStartDate)}
-                </p>
-                <p className="mt-1 text-[13px] text-text-secondary">
-                  {earningsBreakdown(totalEstimate.gross, totalEstimate.commission)}
-                </p>
-              </div>
-            </section>
-
-            <section className="rounded-[20px] border border-border bg-surface px-4 py-2 shadow-card">
-              <h2 className="text-[18px] font-medium text-text-primary">Pets</h2>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {client.pets.map((pet) => (
-                  <div
-                    key={pet.id}
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-subtle py-1.5 px-3"
-                  >
-                    <span className="grid w-8 h-8 shrink-0 place-items-center rounded-xl bg-surface">
-                      <PetIcon type={pet.type} />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="truncate text-[14px] font-medium leading-tight text-text-primary">{pet.name}</div>
-                      <div className="text-[12px] leading-tight text-text-tertiary">{pet.type}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <FinancialBlock
+              period={financialPeriod}
+              onPeriodChange={setFinancialPeriod}
+              paymentMethod={client.payment_method}
+              gross={estimate.monthlyGross}
+              roverFee={estimate.commission}
+              roverRate={Number(client.rover_commission_rate)}
+              receive={estimate.monthlyNet}
+              totalEarned={totalEstimate.net}
+              sinceDate={currentStatusStartDate}
+            />
 
             <section>
               <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
-                <h2 className="text-[18px] font-medium text-text-primary">Payment info</h2>
-                <div className="mt-4 grid gap-3">
-                  <InfoRow label="Method" value={<CategoryTag category={client.payment_method} />} />
-                  <InfoRow label="Service type" value={serviceLabel(client)} />
-                  <div className="rounded-2xl bg-subtle px-4 py-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[13px] font-medium text-text-tertiary">Price per visit</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-right text-[15px] font-medium text-text-primary">{formatCurrency(currentPrice)}</span>
-                        <button
-                          className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
-                          type="button"
-                          onClick={() => openPriceModal()}
-                        >
-                          Change price
-                        </button>
+                <h2 className="text-[18px] font-semibold text-text-primary">Payment info</h2>
+                <div className="mt-4 rounded-2xl bg-subtle p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl bg-surface px-3 py-2.5">
+                      <div className="text-[12px] font-medium text-text-tertiary">Visits</div>
+                      <div className="mt-1 text-[15px] font-medium text-text-primary">
+                        {selectedDays.length} {selectedDays.length === 1 ? "visit" : "visits"}/week
+                      </div>
+                      <div className="mt-0.5 truncate text-[12px] text-text-tertiary">
+                        {selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"}
                       </div>
                     </div>
+                    <div className="rounded-xl bg-surface px-3 py-2.5">
+                      <div className="text-[12px] font-medium text-text-tertiary">Price per visit</div>
+                      <div className="mt-1 text-[15px] font-medium text-text-primary">{formatCurrency(currentPrice)}</div>
+                      <button
+                        className="focus-ring mt-0.5 rounded-md text-[12px] text-amber-700 transition hover:text-amber-800 hover:underline"
+                        type="button"
+                        onClick={() => openPriceModal()}
+                      >
+                        Change price
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-xl bg-surface px-3 py-2.5">
                     <button
-                      className="mt-2 flex min-h-8 w-full items-center justify-between text-left text-[13px] font-medium text-text-secondary transition duration-150 ease-out hover:text-text-primary"
+                      className="flex min-h-8 w-full items-center justify-between text-left text-[13px] font-medium text-text-secondary transition duration-150 ease-out hover:text-text-primary"
                       type="button"
                       onPointerDown={(event) => {
                         if (event.button !== 0) return;
@@ -979,31 +771,9 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   </div>
-                  <InfoRow
-                    label="Visits per week"
-                    value={
-                      <span style={{ fontWeight: 400 }}>
-                        {selectedDays.length} {selectedDays.length === 1 ? "visit" : "visits"}/week
-                      </span>
-                    }
-                  />
-                  <InfoRow label="Visit days" value={selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"} />
                 </div>
               </div>
             </section>
-
-            <div className="space-y-3 sm:hidden">
-              {isAdmin && client.status === "Paused" ? (
-                <Button className="w-full" variant="danger" onClick={deleteClient}>
-                  <Trash2 size={17} strokeWidth={1.6} />
-                  Delete
-                </Button>
-              ) : null}
-              <Button className="w-full" variant="accent" onClick={() => setEditorOpen(true)}>
-                <Edit3 size={17} strokeWidth={1.6} />
-                Edit
-              </Button>
-            </div>
           </>
         ) : null}
       </div>
@@ -1266,11 +1036,131 @@ export default function ClientDetailPage() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: ReactNode }) {
+function FinancialBlock({
+  period,
+  onPeriodChange,
+  paymentMethod,
+  gross,
+  roverFee,
+  roverRate,
+  receive,
+  totalEarned,
+  sinceDate
+}: {
+  period: FinancialPeriod;
+  onPeriodChange: (period: FinancialPeriod) => void;
+  paymentMethod: ClientPaymentMethod;
+  gross: number;
+  roverFee: number;
+  roverRate: number;
+  receive: number;
+  totalEarned: number;
+  sinceDate: string;
+}) {
+  const periodFactor = period === "week" ? 1 / WEEKS_PER_MONTH : period === "year" ? 12 : 1;
+  const periodLabel = period === "week" ? "week" : period === "year" ? "year" : "mo";
+  const periodGross = gross * periodFactor;
+  const periodRoverFee = roverFee * periodFactor;
+  const periodReceive = receive * periodFactor;
+  const tax = paymentMethod === "Cash" ? 0 : periodReceive * ESTIMATED_TAX_RATE;
+  const takeHome = periodReceive - tax;
+  const roverPercent = Math.round(roverRate * 100);
+
   return (
-    <div className="flex min-h-11 items-center justify-between gap-4 rounded-2xl bg-subtle px-4">
-      <span className="text-[13px] font-medium text-text-tertiary">{label}</span>
-      <span className="text-right text-[15px] font-medium text-text-primary">{value}</span>
+    <section>
+      <div className="rounded-[20px] border border-border bg-stone-50 p-5 shadow-sm">
+        <div className="mb-4 flex justify-end">
+          <div className="grid min-h-9 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+            {FINANCIAL_PERIODS.map((item) => (
+              <button
+                key={item}
+                className={cn(
+                  "focus-ring min-w-14 rounded-xl px-2.5 text-[12px] font-medium transition duration-150 ease-out",
+                  period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:bg-surface hover:text-text-secondary"
+                )}
+                type="button"
+                onClick={() => onPeriodChange(item)}
+              >
+                /{item === "month" ? "mo" : item}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          {paymentMethod === "Rover" ? (
+            <>
+              <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
+              <BreakdownRow label={`- Rover fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
+              <div className="border-t border-stone-200 pt-3">
+                <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
+              </div>
+              <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted />
+            </>
+          ) : null}
+
+          {paymentMethod === "Venmo" ? (
+            <>
+              <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
+              <div className="border-t border-stone-200 pt-3">
+                <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
+              </div>
+              <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted />
+            </>
+          ) : null}
+
+          {paymentMethod === "Cash" ? (
+            <>
+              <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
+              <div className="text-[12px] text-text-tertiary">Cash · not taxable</div>
+            </>
+          ) : null}
+
+          <div className="border-t border-stone-200 pt-3">
+            <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
+          </div>
+        </div>
+        <div className="mt-5 border-t border-stone-200 pt-4">
+          <p className="flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-text-tertiary">
+            <span>Total earned <span className="font-medium text-text-secondary">{formatCurrency(totalEarned)}</span></span>
+            <span>· since {formatExactDate(sinceDate)}</span>
+          </p>
+        </div>
+        <p className="mt-4 text-[11px] text-text-tertiary">Est. tax ~28% effective rate · updates at tax time</p>
+      </div>
+    </section>
+  );
+}
+
+function BreakdownRow({
+  label,
+  value,
+  muted = false,
+  strong = false
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-4",
+        strong && "rounded-2xl bg-white/70 px-3 py-3 shadow-sm"
+      )}
+    >
+      <span className={cn("text-[13px]", muted ? "text-text-tertiary" : "text-text-secondary", strong && "font-medium text-text-primary")}>
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-right tabular-nums",
+          muted && "text-[13px] text-text-tertiary",
+          strong && "text-[24px] font-bold leading-none text-amber-700"
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }
