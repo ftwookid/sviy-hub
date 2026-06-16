@@ -300,7 +300,9 @@ Project path:
 /Users/Shared/Codex/Sviy Hub
 ```
 
-Use `staging` as the default working branch. All normal changes should be committed and pushed to `staging`:
+Use `staging` as the default working branch. The repository-local Git default branch is `staging`, and `origin/HEAD` should point to `origin/staging`.
+
+After every completed task, automatically commit and push all changes to `origin/staging` without waiting for manual approval. Normal changes should follow this flow:
 
 ```bash
 npm run typecheck
@@ -310,6 +312,8 @@ git add <files>
 git commit -m "<message>"
 git push origin staging
 ```
+
+The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically pushes commits made on `staging` to `origin/staging`; commits on other branches are not auto-pushed by the hook.
 
 Only push to `main` when explicitly told `push to main` or `go live`.
 

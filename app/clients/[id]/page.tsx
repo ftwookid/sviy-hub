@@ -1065,6 +1065,8 @@ function FinancialBlock({
   const tax = paymentMethod === "Cash" ? 0 : periodReceive * ESTIMATED_TAX_RATE;
   const takeHome = periodReceive - tax;
   const roverPercent = Math.round(roverRate * 100);
+  const hasPlatformFee = paymentMethod === "Rover";
+  const isTaxable = paymentMethod !== "Cash";
 
   return (
     <section>
@@ -1087,34 +1089,14 @@ function FinancialBlock({
           </div>
         </div>
         <div className="space-y-2">
-          {paymentMethod === "Rover" ? (
-            <>
-              <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
-              <BreakdownRow label={`- Rover fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
-              <div className="border-t border-stone-200 pt-3">
-                <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
-              </div>
-              <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted />
-            </>
+          <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
+          {hasPlatformFee ? (
+            <BreakdownRow label={`- Platform fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
           ) : null}
-
-          {paymentMethod === "Venmo" ? (
-            <>
-              <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
-              <div className="border-t border-stone-200 pt-3">
-                <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
-              </div>
-              <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted />
-            </>
-          ) : null}
-
-          {paymentMethod === "Cash" ? (
-            <>
-              <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
-              <div className="text-[12px] text-text-tertiary">Cash · not taxable</div>
-            </>
-          ) : null}
-
+          <div className="border-t border-stone-200 pt-3">
+            <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
+          </div>
+          {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
           <div className="border-t border-stone-200 pt-3">
             <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
           </div>

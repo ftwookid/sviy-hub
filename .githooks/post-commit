@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+branch="$(git branch --show-current)"
+
+if [ "$branch" != "staging" ]; then
+  echo "post-commit: not on staging; skipping automatic push." >&2
+  exit 0
+fi
+
+git push origin staging
