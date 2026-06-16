@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { LogOut } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
@@ -40,10 +41,9 @@ export default function ProfilePage() {
         </section>
 
         <section className="rounded-[24px] border border-border bg-surface p-5 shadow-card">
-          <div className="flex items-center gap-3">
-            <Sparkles size={19} strokeWidth={1.6} className="text-accent" />
+          <div className="flex items-center gap-4">
+            <Image src="/Logo v2.png" alt="Sviy Hub" width={72} height={72} className="h-[72px] w-[72px] object-contain" />
             <div>
-              <div className="text-[15px] font-medium text-text-primary">Sviy Hub</div>
               <div className="text-[13px] text-text-secondary">Version {versionData.version}</div>
             </div>
           </div>

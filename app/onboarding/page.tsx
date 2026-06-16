@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
@@ -81,7 +82,7 @@ export default function OnboardingPage() {
         className="w-full max-w-[440px] rounded-xl border border-border bg-surface p-5 shadow-card"
       >
         <div>
-          <div className="font-serif text-[32px] italic leading-[1.3] text-accent">Sviy Hub</div>
+          <Image src="/Logo v2.png" alt="Sviy Hub" width={112} height={112} className="h-28 w-28 object-contain" priority />
           <h1 className="mt-5 text-[24px] font-medium leading-tight text-text-primary">Set your nickname</h1>
           <p className="mt-2 text-[15px] text-text-secondary">
             This is how your work will be labeled inside the family hub.

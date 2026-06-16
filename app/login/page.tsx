@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
@@ -61,10 +62,10 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-[400px] rounded-xl border border-border bg-surface p-5 shadow-card"
       >
-        <div className="text-center">
-          <div className="font-serif text-[32px] italic leading-[1.3] text-accent">Sviy Hub</div>
-          <p className="mt-1 text-[15px] text-text-secondary">
-            {mode === "signup" ? "Create your private Sviy Hub account." : "Clients, pets, and expenses, softly organized."}
+        <div className="flex flex-col items-center text-center">
+          <Image src="/Logo v2.png" alt="Sviy Hub" width={128} height={128} className="h-32 w-32 object-contain" priority />
+          <p className="mt-2 text-[15px] text-text-secondary">
+            {mode === "signup" ? "Create your private account." : "Clients, pets, and expenses, softly organized."}
           </p>
         </div>
         <div className="mt-8 space-y-4">

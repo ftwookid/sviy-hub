@@ -175,7 +175,7 @@ export default function ClientsPage() {
             </div>
             <h2 className="mt-5 text-[22px] font-medium text-text-primary">No clients here yet</h2>
             <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
-              Add your first client and Sviy Hub will start estimating visits, taxes, and monthly income.
+              Add your first client and the hub will start estimating visits, taxes, and monthly income.
             </p>
             <Button className="mt-6" variant="accent" onClick={openNewClient}>
               <Plus size={18} strokeWidth={1.6} />
