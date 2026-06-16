@@ -45,7 +45,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex min-h-11 items-center gap-3 rounded-2xl px-3 text-[15px] font-medium transition duration-200 ease-in-out active:scale-[0.99]",
+                  "group flex min-h-11 items-center gap-3 rounded-2xl px-3 text-[15px] font-medium transition duration-150 ease-out",
                   active
                     ? "bg-accent-soft text-text-primary shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
                     : "text-text-secondary hover:bg-surface/80 hover:text-text-primary"
@@ -103,7 +103,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] font-medium transition duration-200 ease-in-out active:scale-[0.97]",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] font-medium transition duration-150 ease-out",
                   active ? "bg-accent-soft text-accent" : "text-text-tertiary hover:bg-subtle hover:text-text-secondary"
                 )}
               >

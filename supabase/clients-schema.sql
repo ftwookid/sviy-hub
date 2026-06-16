@@ -36,9 +36,18 @@ create table if not exists status_history (
   created_at timestamptz not null default now()
 );
 
+create table if not exists price_history (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references clients(id) on delete cascade,
+  price decimal(10,2) not null check (price >= 0),
+  effective_date date not null,
+  created_at timestamptz not null default now()
+);
+
 alter table clients enable row level security;
 alter table pets enable row level security;
 alter table status_history enable row level security;
+alter table price_history enable row level security;
 
 drop policy if exists "Users can manage their own clients" on clients;
 drop policy if exists "Users and admins can manage clients" on clients;
@@ -91,12 +100,45 @@ create policy "Users and admins can manage status history"
     )
   );
 
+drop policy if exists "Users and admins can manage price history" on price_history;
+create policy "Users and admins can manage price history"
+  on price_history for all
+  using (
+    exists (
+      select 1
+      from clients
+      where clients.id = price_history.client_id
+        and (clients.user_id = auth.uid() or is_admin())
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from clients
+      where clients.id = price_history.client_id
+        and (clients.user_id = auth.uid() or is_admin())
+    )
+  );
+
 create index if not exists clients_user_status_idx on clients (user_id, status);
 create index if not exists clients_user_name_idx on clients (user_id, name);
 create index if not exists pets_client_idx on pets (client_id);
 create index if not exists pets_user_idx on pets (user_id);
 create index if not exists status_history_client_start_idx on status_history (client_id, start_date desc);
 create index if not exists status_history_client_current_idx on status_history (client_id) where end_date is null;
+create index if not exists price_history_client_effective_idx on price_history (client_id, effective_date desc);
+
+insert into price_history (client_id, price, effective_date)
+select
+  clients.id,
+  clients.price_per_visit,
+  coalesce(clients.created_at::date, current_date)
+from clients
+where not exists (
+  select 1
+  from price_history
+  where price_history.client_id = clients.id
+);
 
 -- In Supabase Storage, create a private bucket named "pet-photos".
 -- Pet photo paths are stored as "{user_id}/pets/{filename}".

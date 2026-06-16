@@ -141,7 +141,7 @@ export default function DashboardPage() {
 
       {editing ? (
         <div className="fixed inset-0 z-40 bg-black/20">
-          <aside className="ml-auto h-full w-full max-w-[460px] overflow-y-auto bg-page p-4 shadow-card sm:p-6">
+          <aside className="slide-over-panel ml-auto h-full w-full max-w-[460px] overflow-y-auto bg-page p-4 shadow-card sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-[20px] font-medium leading-[1.3] text-text-primary">Edit expense</h2>
               <Button variant="ghost" onClick={() => setEditing(null)} aria-label="Close editor">

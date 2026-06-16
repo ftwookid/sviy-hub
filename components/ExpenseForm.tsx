@@ -205,7 +205,7 @@ export function ExpenseForm({
               <button
                 key={method}
                 className={cn(
-                  "focus-ring rounded-xl text-[13px] transition duration-200 ease-in-out active:scale-[0.98]",
+                  "focus-ring rounded-xl text-[13px] transition duration-150 ease-out",
                   values.payment_method === method
                     ? "bg-surface text-text-primary shadow-sm"
                     : "text-text-secondary hover:bg-[#ECEAE5]"

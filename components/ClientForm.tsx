@@ -463,7 +463,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
                   <Minus size={18} strokeWidth={1.6} />
                 </Button>
               </div>
-              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-[14px] font-medium text-text-secondary transition hover:bg-[#FBFAF7] active:scale-[0.99]">
+              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-[14px] font-medium text-text-secondary transition duration-150 ease-out hover:bg-[#FBFAF7] active:scale-[0.97]">
                 <Camera size={16} strokeWidth={1.6} />
                 {pet.photoFile?.name ?? pet.photo_filename ?? "Add pet photo"}
                 <input className="sr-only" type="file" accept="image/*" onChange={(event) => selectPhoto(index, event)} />
@@ -488,7 +488,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
                 <button
                   key={method}
                   className={cn(
-                    "rounded-xl text-[14px] font-medium transition duration-200 ease-in-out active:scale-[0.98]",
+                    "rounded-xl text-[14px] font-medium transition duration-150 ease-out",
                     values.payment_method === method ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
                   )}
                   onClick={() => update("payment_method", method)}
@@ -507,7 +507,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
                   <button
                     key={status}
                     className={cn(
-                      "rounded-xl text-[14px] font-medium transition duration-200 ease-in-out active:scale-[0.98]",
+                      "rounded-xl text-[14px] font-medium transition duration-150 ease-out",
                       values.status === status
                         ? status === "Active"
                           ? "bg-success-soft text-success shadow-sm"
@@ -585,7 +585,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
                     <button
                       key={day}
                       className={cn(
-                        "min-h-11 rounded-xl text-[13px] font-medium transition duration-200 ease-in-out active:scale-[0.96]",
+                        "min-h-11 rounded-xl text-[13px] font-medium transition duration-150 ease-out",
                         active
                           ? "bg-accent text-text-primary shadow-sm"
                           : "bg-transparent text-text-tertiary hover:bg-surface hover:text-text-secondary"
@@ -628,47 +628,51 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       </section>
 
       <button
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition hover:bg-subtle"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition duration-150 ease-out hover:bg-subtle"
         type="button"
         onClick={() => setNotesOpen((open) => !open)}
       >
         Notes
         <ChevronDown className={cn("transition duration-200", notesOpen && "rotate-180")} size={18} strokeWidth={1.6} />
       </button>
-      {notesOpen ? (
-        <Textarea
-          label="Private notes"
-          value={values.notes}
-          placeholder="Pet quirks, routines, access notes..."
-          onChange={(event) => update("notes", event.target.value)}
-        />
-      ) : null}
+      <div className="collapsible-grid" data-open={notesOpen}>
+        <div>
+          <Textarea
+            label="Private notes"
+            value={values.notes}
+            placeholder="Pet quirks, routines, access notes..."
+            onChange={(event) => update("notes", event.target.value)}
+          />
+        </div>
+      </div>
 
       {statusHistory.length > 0 ? (
         <>
           <button
-            className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition hover:bg-subtle"
+            className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition duration-150 ease-out hover:bg-subtle"
             type="button"
             onClick={() => setHistoryOpen((open) => !open)}
           >
             Status history
             <ChevronDown className={cn("transition duration-200", historyOpen && "rotate-180")} size={18} strokeWidth={1.6} />
           </button>
-          {historyOpen ? (
-            <div className="space-y-3 rounded-[20px] border border-border bg-surface p-4 shadow-card">
-              {statusHistory.map((entry) => (
-                <div key={entry.id} className="flex gap-3 rounded-2xl bg-subtle px-4 py-3">
-                  <span className={cn("mt-1 h-3 w-3 shrink-0 rounded-full", entry.status === "Active" ? "bg-success" : "bg-text-tertiary")} />
-                  <div>
-                    <div className="text-[14px] font-medium text-text-primary">{entry.status}</div>
-                    <div className="text-[13px] text-text-secondary">
-                      {formatShortDate(entry.start_date)} - {entry.end_date ? formatShortDate(entry.end_date) : "Present"}
+          <div className="collapsible-grid" data-open={historyOpen}>
+            <div>
+              <div className="space-y-3 rounded-[20px] border border-border bg-surface p-4 shadow-card">
+                {statusHistory.map((entry) => (
+                  <div key={entry.id} className="flex gap-3 rounded-2xl bg-subtle px-4 py-3">
+                    <span className={cn("mt-1 h-3 w-3 shrink-0 rounded-full", entry.status === "Active" ? "bg-success" : "bg-text-tertiary")} />
+                    <div>
+                      <div className="text-[14px] font-medium text-text-primary">{entry.status}</div>
+                      <div className="text-[13px] text-text-secondary">
+                        {formatShortDate(entry.start_date)} - {entry.end_date ? formatShortDate(entry.end_date) : "Present"}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          ) : null}
+          </div>
         </>
       ) : null}
 

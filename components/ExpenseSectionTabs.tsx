@@ -20,7 +20,7 @@ export function ExpenseSectionTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "flex min-h-9 items-center justify-center rounded-xl px-4 text-[14px] font-medium transition duration-200 ease-in-out active:scale-[0.98]",
+              "flex min-h-9 items-center justify-center rounded-xl px-4 text-[14px] font-medium transition duration-150 ease-out",
               active ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
             )}
           >

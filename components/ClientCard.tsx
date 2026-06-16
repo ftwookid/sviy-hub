@@ -36,10 +36,10 @@ export function ClientCard({
   return (
     <button
       className={cn(
-        "group w-full rounded-[20px] border p-5 text-left transition duration-200 ease-in-out active:scale-[0.99]",
+        "group w-full rounded-[20px] border p-5 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(80,66,44,0.13)]",
         isPaused
           ? "border-border bg-subtle/70 opacity-70 shadow-none hover:border-border-emphasis hover:opacity-85"
-          : "border-border bg-surface shadow-card hover:-translate-y-0.5 hover:border-border-emphasis"
+          : "border-border bg-surface shadow-card hover:border-border-emphasis"
       )}
       onClick={onClick}
       type="button"

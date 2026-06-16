@@ -44,6 +44,14 @@ export type StatusHistory = {
   created_at: string;
 };
 
+export type PriceHistory = {
+  id: string;
+  client_id: string;
+  price: number;
+  effective_date: string;
+  created_at: string;
+};
+
 export type ClientFormPet = {
   id?: string;
   name: string;

@@ -46,7 +46,7 @@ export function ExpenseRow({
 
   return (
     <div
-      className="group rounded-[20px] border border-border bg-surface p-4 shadow-card transition duration-200 ease-in-out hover:-translate-y-0.5 hover:border-border-emphasis active:scale-[0.99]"
+      className="group rounded-[20px] border border-border bg-surface p-4 shadow-card transition duration-200 ease-out hover:-translate-y-0.5 hover:border-border-emphasis"
       onClick={() => setExpanded((value) => !value)}
     >
       <div className="flex items-start gap-4">

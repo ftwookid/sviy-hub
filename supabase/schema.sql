@@ -174,6 +174,28 @@ begin
         )
       )';
   end if;
+
+  if to_regclass('public.price_history') is not null then
+    execute 'drop policy if exists "Users and admins can manage price history" on price_history';
+    execute 'create policy "Users and admins can manage price history"
+      on price_history for all
+      using (
+        exists (
+          select 1
+          from clients
+          where clients.id = price_history.client_id
+            and (clients.user_id = auth.uid() or is_admin())
+        )
+      )
+      with check (
+        exists (
+          select 1
+          from clients
+          where clients.id = price_history.client_id
+            and (clients.user_id = auth.uid() or is_admin())
+        )
+      )';
+  end if;
 end;
 $$;
 

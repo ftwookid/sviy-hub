@@ -12,11 +12,11 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
-import { estimateClientFromRecord, selectedDaysFromRecord } from "@/lib/clients";
+import { estimateClientEarnings, selectedDaysFromRecord } from "@/lib/clients";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
-import type { ClientStatus, ClientWithPets, PetType, StatusHistory } from "@/types/client";
+import type { ClientStatus, ClientWithPets, PetType, PriceHistory, StatusHistory } from "@/types/client";
 
 const petIcons = {
   Dog,
@@ -66,13 +66,6 @@ function formatExactDate(dateValue: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(parseLocalDate(dateValue));
 }
 
-function earningDaysSince(dateValue: string) {
-  const start = parseLocalDate(dateValue);
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.max(0, Math.floor((startOfToday.getTime() - start.getTime()) / 86_400_000) + 1);
-}
-
 function monthTitle(date: Date) {
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
 }
@@ -81,11 +74,22 @@ function calendarDays(monthDate: Date) {
   const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
   const leadingDays = firstDay.getDay();
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+  const populatedDays = leadingDays + daysInMonth;
+  const trailingDays = Math.max(0, 42 - populatedDays);
 
   return [
     ...Array.from({ length: leadingDays }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, index) => new Date(monthDate.getFullYear(), monthDate.getMonth(), index + 1))
+    ...Array.from({ length: daysInMonth }, (_, index) => new Date(monthDate.getFullYear(), monthDate.getMonth(), index + 1)),
+    ...Array.from({ length: trailingDays }, () => null)
   ];
+}
+
+function isToday(date: Date) {
+  return toInputDate(date) === todayInputValue();
+}
+
+function isFutureDate(date: Date) {
+  return toInputDate(date) > todayInputValue();
 }
 
 function addMonths(date: Date, offset: number) {
@@ -114,17 +118,177 @@ function earningsBreakdown(gross: number, commission: number) {
   return `${formatCurrency(gross)} gross${commission > 0 ? `, ${formatCurrency(commission)} Rover fee` : ""}`;
 }
 
+function daysBetweenInclusive(startValue: string, endValue: string) {
+  const start = parseLocalDate(startValue);
+  const end = parseLocalDate(endValue);
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+}
+
+function currentPriceFromHistory(client: ClientWithPets | null, priceHistory: PriceHistory[]) {
+  if (!client) return 0;
+  const today = todayInputValue();
+  const currentEntry = priceHistory
+    .filter((entry) => entry.effective_date <= today)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+  return Number(currentEntry?.price ?? client.price_per_visit);
+}
+
+function sortedPrices(priceHistory: PriceHistory[]) {
+  return priceHistory.slice().sort((a, b) => b.effective_date.localeCompare(a.effective_date));
+}
+
+function DateCalendar({
+  month,
+  mode,
+  selectedDate,
+  onChangeMonth,
+  onToggleMode,
+  onSelectDate,
+  onSelectYear,
+  onSelectMonth
+}: {
+  month: Date;
+  mode: "days" | "monthYear";
+  selectedDate: string;
+  onChangeMonth: (event: React.MouseEvent<HTMLButtonElement>, offset: number) => void;
+  onToggleMode: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onSelectDate: (event: React.MouseEvent<HTMLButtonElement>, date: Date) => void;
+  onSelectYear: (event: React.MouseEvent<HTMLButtonElement>, year: number) => void;
+  onSelectMonth: (event: React.MouseEvent<HTMLButtonElement>, month: number) => void;
+}) {
+  return (
+    <div className="mt-2 rounded-2xl border border-border bg-page p-3">
+      <div className="flex min-h-10 items-center justify-between gap-3">
+        <button
+          className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+          type="button"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => onChangeMonth(event, -1)}
+          aria-label="Previous month"
+        >
+          <ChevronLeft size={17} strokeWidth={1.7} />
+        </button>
+        <button
+          className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
+          type="button"
+          onClick={onToggleMode}
+        >
+          {monthTitle(month)}
+        </button>
+        <button
+          className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+          type="button"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => onChangeMonth(event, 1)}
+          aria-label="Next month"
+        >
+          <ChevronRight size={17} strokeWidth={1.7} />
+        </button>
+      </div>
+      {mode === "days" ? (
+        <>
+          <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
+            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+              <span key={`${day}-${index}`}>{day}</span>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {calendarDays(month).map((date, index) =>
+              date ? (
+                <button
+                  key={toInputDate(date)}
+                  className={cn(
+                    "focus-ring relative grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                    selectedDate === toInputDate(date)
+                      ? "bg-accent text-text-primary shadow-sm"
+                      : "text-text-secondary hover:bg-subtle hover:text-text-primary",
+                    isFutureDate(date) && selectedDate !== toInputDate(date) && "text-text-tertiary opacity-40 hover:opacity-70"
+                  )}
+                  type="button"
+                  onClick={(event) => onSelectDate(event, date)}
+                >
+                  {date.getDate()}
+                  {isToday(date) ? (
+                    <span
+                      className={cn(
+                        "absolute bottom-1 h-1 w-1 rounded-full",
+                        selectedDate === toInputDate(date) ? "bg-text-primary" : "bg-accent"
+                      )}
+                    />
+                  ) : null}
+                </button>
+              ) : (
+                <span key={`empty-${index}`} className="h-9" />
+              )
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-4 gap-1.5">
+            {nearbyYears(month).map((year) => (
+              <button
+                key={year}
+                className={cn(
+                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                  month.getFullYear() === year ? "bg-accent text-text-primary shadow-sm" : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                )}
+                type="button"
+                onClick={(event) => onSelectYear(event, year)}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {MONTH_NAMES.map((monthName, index) => (
+              <button
+                key={monthName}
+                className={cn(
+                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                  month.getMonth() === index ? "bg-accent text-text-primary shadow-sm" : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                )}
+                type="button"
+                onClick={(event) => onSelectMonth(event, index)}
+              >
+                {monthName}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const sinceCalendarRef = useRef<HTMLDivElement>(null);
+  const suppressPriceHistoryClickUntilRef = useRef(0);
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const clientId = params.id;
   const { user, isAdmin, authLoading } = useAuthUser();
   const [client, setClient] = useState<ClientWithPets | null>(null);
   const [history, setHistory] = useState<StatusHistory[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [priceModalOpen, setPriceModalOpen] = useState(false);
+  const [editingPrice, setEditingPrice] = useState<PriceHistory | null>(null);
+  const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
+  const [priceValue, setPriceValue] = useState("");
+  const [priceEffectiveDate, setPriceEffectiveDate] = useState(todayInputValue());
+  const [priceCalendarMonth, setPriceCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
+  const [priceCalendarMode, setPriceCalendarMode] = useState<"days" | "monthYear">("days");
+  const [savingPrice, setSavingPrice] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusDate, setStatusDate] = useState(todayInputValue());
   const [statusCalendarMonth, setStatusCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
@@ -143,9 +307,14 @@ export default function ClientDetailPage() {
     let clientQuery = supabase.from("clients").select("*, pets(*)").eq("id", clientId);
     if (!isAdmin) clientQuery = clientQuery.eq("user_id", user.id);
 
-    const [{ data: clientData, error: clientError }, { data: historyData, error: historyError }] = await Promise.all([
+    const [
+      { data: clientData, error: clientError },
+      { data: historyData, error: historyError },
+      { data: priceData, error: priceError }
+    ] = await Promise.all([
       clientQuery.single(),
-      supabase.from("status_history").select("*").eq("client_id", clientId).order("start_date", { ascending: false })
+      supabase.from("status_history").select("*").eq("client_id", clientId).order("start_date", { ascending: false }),
+      supabase.from("price_history").select("*").eq("client_id", clientId).order("effective_date", { ascending: false })
     ]);
 
     if (clientError) {
@@ -156,7 +325,8 @@ export default function ClientDetailPage() {
       const nextClient = clientData as ClientWithPets & { pets: ClientWithPets["pets"] | null };
       setClient({ ...nextClient, pets: nextClient.pets ?? [] });
       setHistory((historyData ?? []) as StatusHistory[]);
-      if (historyError) setError(historyError.message);
+      setPriceHistory((priceData ?? []) as PriceHistory[]);
+      if (historyError || priceError) setError(historyError?.message ?? priceError?.message ?? "");
     }
 
     setLoading(false);
@@ -180,10 +350,20 @@ export default function ClientDetailPage() {
   }, [sinceCalendarOpen]);
 
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
-  const estimate = client ? estimateClientFromRecord(client) : null;
   const currentStatusHistory = currentHistory(client, history);
   const currentStatusStartDate = statusStartDate(client, history);
   const selectedDays = client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : [];
+  const currentPrice = currentPriceFromHistory(client, priceHistory);
+  const estimate = client
+    ? estimateClientEarnings({
+        pricePerVisit: currentPrice,
+        visitsPerWeek: selectedDays.length,
+        paymentMethod: client.payment_method,
+        commissionRate: Number(client.rover_commission_rate)
+      })
+    : null;
+  const orderedPriceHistory = useMemo(() => sortedPrices(priceHistory), [priceHistory]);
+  const hasAnyPriceHistory = priceHistory.length > 0;
   const totalEstimate = useMemo(() => {
     if (!client) {
       return {
@@ -193,16 +373,43 @@ export default function ClientDetailPage() {
       };
     }
 
-    const days = earningDaysSince(currentStatusStartDate);
-    const weeks = days / 7;
-    const gross = Number(client.price_per_visit) * selectedDays.length * weeks;
+    const today = todayInputValue();
+    const ascendingPrices = priceHistory
+      .slice()
+      .sort((a, b) => a.effective_date.localeCompare(b.effective_date));
+    const fallbackPrice = {
+      id: "current",
+      client_id: client.id,
+      price: Number(client.price_per_visit),
+      effective_date: currentStatusStartDate,
+      created_at: client.created_at
+    };
+    const seededPrices =
+      ascendingPrices.length === 0 || ascendingPrices[0].effective_date > currentStatusStartDate
+        ? [fallbackPrice, ...ascendingPrices]
+        : ascendingPrices;
+
+    let gross = 0;
+
+    for (let index = 0; index < seededPrices.length; index += 1) {
+      const entry = seededPrices[index];
+      const nextEntry = seededPrices[index + 1];
+      const periodStart = entry.effective_date < currentStatusStartDate ? currentStatusStartDate : entry.effective_date;
+      const periodEnd = nextEntry ? dayBefore(nextEntry.effective_date) : today;
+
+      if (periodEnd >= currentStatusStartDate && periodStart <= today && periodEnd >= periodStart) {
+        const days = daysBetweenInclusive(periodStart, periodEnd);
+        gross += Number(entry.price) * selectedDays.length * (days / 7);
+      }
+    }
+
     const commission = client.payment_method === "Rover" ? gross * Number(client.rover_commission_rate) : 0;
     return {
       gross,
       commission,
       net: gross - commission
     };
-  }, [client, currentStatusStartDate, selectedDays.length]);
+  }, [client, currentStatusStartDate, priceHistory, selectedDays.length]);
 
   const timeline = useMemo(() => history.slice().sort((a, b) => b.start_date.localeCompare(a.start_date)), [history]);
 
@@ -375,6 +582,131 @@ export default function ClientDetailPage() {
     loadClient();
   }
 
+  async function syncClientCurrentPrice(nextPriceHistory: PriceHistory[]) {
+    if (!supabase || !client) return;
+    const nextCurrentPrice = currentPriceFromHistory(client, nextPriceHistory);
+    await supabase
+      .from("clients")
+      .update({ price_per_visit: Number(nextCurrentPrice.toFixed(2)), updated_at: new Date().toISOString() })
+      .eq("id", client.id);
+  }
+
+  function openPriceModal(entry?: PriceHistory, prefilledDate?: string) {
+    const effectiveDate = entry?.effective_date ?? prefilledDate ?? todayInputValue();
+    setEditingPrice(entry ?? null);
+    setPriceValue(entry ? String(entry.price) : String(currentPrice || ""));
+    setPriceEffectiveDate(effectiveDate);
+    setPriceCalendarMonth(parseLocalDate(effectiveDate));
+    setPriceCalendarMode("days");
+    setPriceModalOpen(true);
+  }
+
+  function openStartingPriceModal() {
+    setSinceCalendarOpen(false);
+    openPriceModal(undefined, currentStatusStartDate);
+  }
+
+  function togglePriceHistory() {
+    setPriceHistoryOpen((open) => !open);
+  }
+
+  function closePriceModal() {
+    setPriceModalOpen(false);
+    setEditingPrice(null);
+    setPriceValue("");
+    setPriceEffectiveDate(todayInputValue());
+  }
+
+  function changePriceCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, offset: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPriceCalendarMonth((current) => addMonths(current, offset));
+  }
+
+  function selectPriceDate(event: React.MouseEvent<HTMLButtonElement>, date: Date) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPriceEffectiveDate(toInputDate(date));
+  }
+
+  function togglePriceCalendarMode(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPriceCalendarMode((mode) => (mode === "days" ? "monthYear" : "days"));
+  }
+
+  function selectPriceCalendarYear(event: React.MouseEvent<HTMLButtonElement>, year: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPriceCalendarMonth((current) => new Date(year, current.getMonth(), 1));
+  }
+
+  function selectPriceCalendarMonth(event: React.MouseEvent<HTMLButtonElement>, month: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPriceCalendarMonth((current) => new Date(current.getFullYear(), month, 1));
+    setPriceCalendarMode("days");
+  }
+
+  async function savePriceHistory() {
+    if (!supabase || !client) return;
+    const nextPrice = Number(priceValue);
+    if (!priceEffectiveDate || !Number.isFinite(nextPrice) || nextPrice < 0) {
+      setError("Enter a valid price and effective date.");
+      return;
+    }
+
+    setSavingPrice(true);
+    setError("");
+
+    const payload = {
+      client_id: client.id,
+      price: Number(nextPrice.toFixed(2)),
+      effective_date: priceEffectiveDate
+    };
+
+    const { error: priceError } = editingPrice
+      ? await supabase.from("price_history").update(payload).eq("id", editingPrice.id)
+      : await supabase.from("price_history").insert(payload);
+
+    if (priceError) {
+      setError(priceError.message);
+      setSavingPrice(false);
+      return;
+    }
+
+    const nextHistory = editingPrice
+      ? priceHistory.map((entry) => (entry.id === editingPrice.id ? { ...entry, ...payload } : entry))
+      : [
+          ...priceHistory,
+          {
+            id: "new",
+            created_at: new Date().toISOString(),
+            ...payload
+          }
+        ];
+
+    await syncClientCurrentPrice(nextHistory as PriceHistory[]);
+    setSavingPrice(false);
+    closePriceModal();
+    loadClient();
+  }
+
+  async function deletePriceHistory(entry: PriceHistory) {
+    if (!supabase) return;
+    const confirmed = window.confirm(`Delete ${formatCurrency(entry.price)} from ${formatExactDate(entry.effective_date)}?`);
+    if (!confirmed) return;
+
+    const { error: deleteError } = await supabase.from("price_history").delete().eq("id", entry.id);
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    await syncClientCurrentPrice(priceHistory.filter((item) => item.id !== entry.id));
+    loadClient();
+  }
+
   async function deleteClient() {
     if (!supabase || !client) return;
     const confirmed = window.confirm(`Delete ${client.name}? This will also remove their pets.`);
@@ -466,108 +798,30 @@ export default function ClientDetailPage() {
                     </button>
                   </span>
                   {sinceCalendarOpen ? (
-                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 rounded-2xl border border-border bg-surface p-3 shadow-[0_18px_48px_rgba(80,66,44,0.16)]">
-                      <div className="flex min-h-10 items-center justify-between gap-3">
-                        <button
-                          className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
-                          type="button"
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => changeSinceCalendarMonth(event, -1)}
-                          aria-label="Previous month"
-                        >
-                          <ChevronLeft size={17} strokeWidth={1.7} />
-                        </button>
-                        <button
-                          className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
-                          type="button"
-                          onClick={toggleSinceCalendarMode}
-                        >
-                          {monthTitle(sinceCalendarMonth)}
-                        </button>
-                        <button
-                          className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
-                          type="button"
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => changeSinceCalendarMonth(event, 1)}
-                          aria-label="Next month"
-                        >
-                          <ChevronRight size={17} strokeWidth={1.7} />
-                        </button>
-                      </div>
-                      {sinceCalendarMode === "days" ? (
-                        <>
-                          <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
-                            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-                              <span key={`${day}-${index}`}>{day}</span>
-                            ))}
-                          </div>
-                          <div className="mt-1 grid grid-cols-7 gap-1">
-                            {calendarDays(sinceCalendarMonth).map((date, index) =>
-                              date ? (
-                                <button
-                                  key={toInputDate(date)}
-                                  className={cn(
-                                    "focus-ring grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
-                                    currentStatusStartDate === toInputDate(date)
-                                      ? "bg-accent text-text-primary shadow-sm"
-                                      : "text-text-secondary hover:bg-subtle hover:text-text-primary"
-                                  )}
-                                  type="button"
-                                  onClick={(event) => selectSinceDate(event, date)}
-                                >
-                                  {date.getDate()}
-                                </button>
-                              ) : (
-                                <span key={`empty-${index}`} />
-                              )
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="mt-3 space-y-3">
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {nearbyYears(sinceCalendarMonth).map((year) => (
-                              <button
-                                key={year}
-                                className={cn(
-                                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
-                                  sinceCalendarMonth.getFullYear() === year
-                                    ? "bg-accent text-text-primary shadow-sm"
-                                    : "text-text-secondary hover:bg-subtle hover:text-text-primary"
-                                )}
-                                type="button"
-                                onClick={(event) => selectSinceCalendarYear(event, year)}
-                              >
-                                {year}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {MONTH_NAMES.map((month, index) => (
-                              <button
-                                key={month}
-                                className={cn(
-                                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
-                                  sinceCalendarMonth.getMonth() === index
-                                    ? "bg-accent text-text-primary shadow-sm"
-                                    : "text-text-secondary hover:bg-subtle hover:text-text-primary"
-                                )}
-                                type="button"
-                                onClick={(event) => selectSinceCalendarMonth(event, index)}
-                              >
-                                {month}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                    <div className="absolute left-0 right-0 top-[58px] z-50 rounded-2xl bg-surface shadow-[0_18px_48px_rgba(80,66,44,0.16)]">
+                      <DateCalendar
+                        month={sinceCalendarMonth}
+                        mode={sinceCalendarMode}
+                        selectedDate={currentStatusStartDate}
+                        onChangeMonth={changeSinceCalendarMonth}
+                        onToggleMode={toggleSinceCalendarMode}
+                        onSelectDate={selectSinceDate}
+                        onSelectYear={selectSinceCalendarYear}
+                        onSelectMonth={selectSinceCalendarMonth}
+                      />
                     </div>
+                  ) : null}
+                  {!hasAnyPriceHistory ? (
+                    <p className="mt-2 text-[12px] leading-snug text-text-tertiary">
+                      No price set for this date —{" "}
+                      <button
+                        className="focus-ring rounded-md font-medium text-text-secondary underline underline-offset-2 transition hover:text-text-primary"
+                        type="button"
+                        onClick={openStartingPriceModal}
+                      >
+                        add starting price
+                      </button>
+                    </p>
                   ) : null}
                 </div>
                 <Button className="mt-5" variant="soft" onClick={openStatusModal}>
@@ -656,7 +910,75 @@ export default function ClientDetailPage() {
                 <div className="mt-4 grid gap-3">
                   <InfoRow label="Method" value={<CategoryTag category={client.payment_method} />} />
                   <InfoRow label="Service type" value={serviceLabel(client)} />
-                  <InfoRow label="Price per visit" value={formatCurrency(client.price_per_visit)} />
+                  <div className="rounded-2xl bg-subtle px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[13px] font-medium text-text-tertiary">Price per visit</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-right text-[15px] font-medium text-text-primary">{formatCurrency(currentPrice)}</span>
+                        <button
+                          className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
+                          type="button"
+                          onClick={() => openPriceModal()}
+                        >
+                          Change price
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      className="mt-2 flex min-h-8 w-full items-center justify-between text-left text-[13px] font-medium text-text-secondary transition duration-150 ease-out hover:text-text-primary"
+                      type="button"
+                      onPointerDown={(event) => {
+                        if (event.button !== 0) return;
+                        suppressPriceHistoryClickUntilRef.current = Date.now() + 750;
+                        togglePriceHistory();
+                      }}
+                      onClick={() => {
+                        if (Date.now() < suppressPriceHistoryClickUntilRef.current) {
+                          suppressPriceHistoryClickUntilRef.current = 0;
+                          return;
+                        }
+
+                        togglePriceHistory();
+                      }}
+                    >
+                      Price history
+                      <ChevronRight className={cn("transition duration-200", priceHistoryOpen && "rotate-90")} size={15} strokeWidth={1.7} />
+                    </button>
+                    <div className="collapsible-grid" data-open={priceHistoryOpen}>
+                      <div>
+                        <div className="mt-2 space-y-2">
+                          {orderedPriceHistory.length > 0 ? (
+                            orderedPriceHistory.map((entry) => (
+                              <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2">
+                                <div>
+                                  <div className="text-[14px] font-medium text-text-primary">{formatCurrency(entry.price)}</div>
+                                  <div className="text-[12px] text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                                    type="button"
+                                    onClick={() => openPriceModal(entry)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger-soft"
+                                    type="button"
+                                    onClick={() => deletePriceHistory(entry)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-[13px] text-text-tertiary">No price history yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <InfoRow
                     label="Visits per week"
                     value={
@@ -685,6 +1007,66 @@ export default function ClientDetailPage() {
           </>
         ) : null}
       </div>
+
+      {priceModalOpen && client ? (
+        <div
+          className="fixed inset-0 z-[70] grid place-items-center bg-[#1A1916]/25 p-4 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closePriceModal();
+          }}
+        >
+          <div
+            className="w-full max-w-[420px] rounded-[20px] border border-border bg-surface p-5 shadow-[0_20px_70px_rgba(48,38,24,0.18)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[22px] font-medium text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
+                <p className="mt-1 text-[14px] text-text-secondary">Set the price and when it took effect.</p>
+              </div>
+              <Button className="min-h-10 px-3" variant="ghost" onClick={closePriceModal} aria-label="Close">
+                <X size={18} strokeWidth={1.6} />
+              </Button>
+            </div>
+            <div className="mt-5 grid gap-4">
+              <label>
+                <span className="text-[13px] font-medium text-text-secondary">Price per visit</span>
+                <input
+                  className="focus-ring mt-2 min-h-11 w-full rounded-xl border border-border bg-page px-3 text-[15px] text-text-primary"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={priceValue}
+                  onChange={(event) => setPriceValue(event.target.value)}
+                />
+              </label>
+              <div>
+                <span className="text-[13px] font-medium text-text-secondary">Effective date</span>
+                <DateCalendar
+                  month={priceCalendarMonth}
+                  mode={priceCalendarMode}
+                  selectedDate={priceEffectiveDate}
+                  onChangeMonth={changePriceCalendarMonth}
+                  onToggleMode={togglePriceCalendarMode}
+                  onSelectDate={selectPriceDate}
+                  onSelectYear={selectPriceCalendarYear}
+                  onSelectMonth={selectPriceCalendarMonth}
+                />
+              </div>
+            </div>
+            {error ? <p className="mt-3 text-[13px] text-danger">{error}</p> : null}
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button variant="ghost" onClick={closePriceModal} disabled={savingPrice}>
+                Cancel
+              </Button>
+              <Button variant="accent" onClick={savePriceHistory} disabled={savingPrice || !priceValue || !priceEffectiveDate}>
+                {savingPrice ? "Saving..." : editingPrice ? "Update price" : "Save price"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {statusModalOpen && client ? (
         <div
@@ -766,18 +1148,27 @@ export default function ClientDetailPage() {
                           <button
                             key={toInputDate(date)}
                             className={cn(
-                              "focus-ring grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                              "focus-ring relative grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
                               statusDate === toInputDate(date)
                                 ? "bg-accent text-text-primary shadow-sm"
-                                : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                                : "text-text-secondary hover:bg-subtle hover:text-text-primary",
+                              isFutureDate(date) && statusDate !== toInputDate(date) && "text-text-tertiary opacity-40 hover:opacity-70"
                             )}
                             type="button"
                             onClick={(event) => selectStatusDate(event, date)}
                           >
                             {date.getDate()}
+                            {isToday(date) ? (
+                              <span
+                                className={cn(
+                                  "absolute bottom-1 h-1 w-1 rounded-full",
+                                  statusDate === toInputDate(date) ? "bg-text-primary" : "bg-accent"
+                                )}
+                              />
+                            ) : null}
                           </button>
                         ) : (
-                          <span key={`empty-${index}`} />
+                          <span key={`empty-${index}`} className="h-9" />
                         )
                       )}
                     </div>
@@ -844,7 +1235,7 @@ export default function ClientDetailPage() {
       {editorOpen && client ? (
         <div className="fixed inset-0 z-[60] bg-[#1A1916]/20 backdrop-blur-sm" onClick={() => setEditorOpen(false)}>
           <aside
-            className="ml-auto flex h-full w-full max-w-[620px] flex-col overflow-y-auto bg-page p-4 shadow-[0_20px_70px_rgba(48,38,24,0.18)] sm:p-6"
+            className="slide-over-panel ml-auto flex h-full w-full max-w-[620px] flex-col overflow-y-auto bg-page p-4 shadow-[0_20px_70px_rgba(48,38,24,0.18)] sm:p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-start justify-between gap-4">
