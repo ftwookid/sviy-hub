@@ -292,26 +292,28 @@ For Google Places autocomplete testing, use:
 http://localhost:3000
 ```
 
-## Current Git State
+## Git Workflow
 
-Recent work includes uncommitted changes for:
+Project path:
 
-- Client owner labels now prefer profile nicknames instead of email.
-- Client cards no longer show redundant `Estimated monthly` text because `/mo` is shown next to the amount.
-- Admin delete icons are limited to Paused client cards only.
-- Paused card hover behavior was adjusted so the delete icon does not visually jump.
-- Edit Client updates now require a confirmation modal with old/new changed values.
-- Current uncommitted work includes these app fixes plus this `CLAUDE.md` context refresh.
+```text
+/Users/Shared/Codex/Sviy Hub
+```
 
-Before pushing again, run:
+Use `staging` as the default working branch. All normal changes should be committed and pushed to `staging`:
 
 ```bash
 npm run typecheck
 npm run lint
 git status
+git add <files>
+git commit -m "<message>"
+git push origin staging
 ```
 
-Then commit and push to `main`.
+Only push to `main` when explicitly told `push to main` or `go live`.
+
+The `staging` branch deploys automatically to a Vercel Preview environment.
 
 ## Next Step
 
