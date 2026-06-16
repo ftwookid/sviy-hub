@@ -1,0 +1,53 @@
+name: Daily version bump
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Check midnight Pacific
+        id: pacific_time
+        run: |
+          if [ "$(TZ=America/Los_Angeles date +%H:%M)" != "00:00" ]; then
+            echo "is_midnight=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "is_midnight=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.pacific_time.outputs.is_midnight == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Check for commits yesterday Pacific
+        if: steps.pacific_time.outputs.is_midnight == 'true' || github.event_name == 'workflow_dispatch'
+        id: commits
+        run: |
+          START="$(TZ=America/Los_Angeles date -d 'yesterday 00:00:00' --iso-8601=seconds)"
+          END="$(TZ=America/Los_Angeles date -d 'today 00:00:00' --iso-8601=seconds)"
+          COUNT="$(git log --since="$START" --until="$END" --invert-grep --grep='^chore: bump daily version$' --format=%H | wc -l | tr -d ' ')"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Bump minor version
+        if: steps.commits.outputs.count != '' && steps.commits.outputs.count != '0'
+        run: node scripts/bump-version.mjs minor
+
+      - name: Commit version bump
+        if: steps.commits.outputs.count != '' && steps.commits.outputs.count != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git commit -m "chore: bump daily version"
+          git push origin main
