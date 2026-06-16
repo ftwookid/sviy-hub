@@ -6,6 +6,7 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
+import versionData from "@/version.json";
 
 export default function ProfilePage() {
   const { user, authLoading } = useAuthUser();
@@ -43,7 +44,7 @@ export default function ProfilePage() {
             <Sparkles size={19} strokeWidth={1.6} className="text-accent" />
             <div>
               <div className="text-[15px] font-medium text-text-primary">Sviy Hub</div>
-              <div className="text-[13px] text-text-secondary">Version 0.1.0</div>
+              <div className="text-[13px] text-text-secondary">Version {versionData.version}</div>
             </div>
           </div>
           <div className="mt-5 rounded-2xl bg-subtle p-4 text-[14px] text-text-secondary">

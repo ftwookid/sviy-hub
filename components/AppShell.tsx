@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { CreditCard, UserRound, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
@@ -33,8 +34,8 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
   return (
     <div className="min-h-screen bg-page text-text-primary md:grid md:grid-cols-[240px_1fr]">
       <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-border bg-[#F7F4EE]/90 px-4 py-5 backdrop-blur-xl md:flex md:flex-col">
-        <Link href="/" className="px-3 font-serif text-[27px] italic leading-[1.2] text-accent">
-          Sviy Hub
+        <Link href="/" className="flex h-36 w-36 items-center justify-center self-center rounded-xl">
+          <Image src="/Logo v2.png" alt="Sviy Hub" width={144} height={144} className="h-36 w-36 object-contain" priority />
         </Link>
         <nav className="mt-8 space-y-1">
           {navItems.map((item) => {

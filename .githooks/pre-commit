@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+version_parts="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\)".*/\1 \2 \3/p' version.json | head -n 1)"
+
+if [ -z "$version_parts" ]; then
+  echo "Invalid version format in version.json. Expected X.Y.Z." >&2
+  exit 1
+fi
+
+set -- $version_parts
+patch=$(( $3 + 1 ))
+
+printf '{\n  "version": "%s.%s.%s"\n}\n' "$1" "$2" "$patch" > version.json
+git add version.json

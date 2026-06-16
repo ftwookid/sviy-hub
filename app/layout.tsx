@@ -17,7 +17,30 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Sviy Hub",
-  description: "Clients, pets, and expenses, softly organized."
+  description: "Clients, pets, and expenses, softly organized.",
+  icons: {
+    icon: [
+      {
+        url: "/favicon v2.png",
+        sizes: "1254x1254",
+        type: "image/png"
+      }
+    ],
+    shortcut: [
+      {
+        url: "/favicon v2.png",
+        sizes: "1254x1254",
+        type: "image/png"
+      }
+    ],
+    apple: [
+      {
+        url: "/favicon v2.png",
+        sizes: "180x180",
+        type: "image/png"
+      }
+    ]
+  }
 };
 
 export default function RootLayout({
