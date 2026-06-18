@@ -691,23 +691,23 @@ export default function ClientDetailPage() {
 
             <section>
               <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
-                <h2 className="text-[18px] font-semibold text-text-primary">Payment info</h2>
-                <div className="mt-4 rounded-2xl bg-subtle p-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl bg-surface px-3 py-2.5">
-                      <div className="text-[12px] font-medium text-text-tertiary">Visits</div>
-                      <div className="mt-1 text-[15px] font-medium text-text-primary">
+                <h2 className="text-[16px] font-semibold text-text-primary">Payment info</h2>
+                <div className="mt-3 rounded-xl bg-subtle p-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg bg-surface px-3 py-2">
+                      <div className="text-[11px] font-medium text-text-tertiary">Visits</div>
+                      <div className="mt-0.5 text-[14px] font-semibold text-text-primary">
                         {selectedDays.length} {selectedDays.length === 1 ? "visit" : "visits"}/week
                       </div>
-                      <div className="mt-0.5 truncate text-[12px] text-text-tertiary">
+                      <div className="truncate text-[11px] text-text-tertiary">
                         {selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"}
                       </div>
                     </div>
-                    <div className="rounded-xl bg-surface px-3 py-2.5">
-                      <div className="text-[12px] font-medium text-text-tertiary">Price per visit</div>
-                      <div className="mt-1 text-[15px] font-medium text-text-primary">{formatCurrency(currentPrice)}</div>
+                    <div className="rounded-lg bg-surface px-3 py-2">
+                      <div className="text-[11px] font-medium text-text-tertiary">Price per visit</div>
+                      <div className="mt-0.5 text-[14px] font-semibold text-text-primary">{formatCurrency(currentPrice)}</div>
                       <button
-                        className="focus-ring mt-0.5 rounded-md text-[12px] text-amber-700 transition hover:text-amber-800 hover:underline"
+                        className="focus-ring rounded-md text-[11px] text-amber-700 transition hover:text-amber-800 hover:underline"
                         type="button"
                         onClick={() => openPriceModal()}
                       >
@@ -715,9 +715,9 @@ export default function ClientDetailPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-3 rounded-xl bg-surface px-3 py-2.5">
+                  <div className="mt-2 rounded-lg bg-surface px-3 py-2">
                     <button
-                      className="flex min-h-8 w-full items-center justify-between text-left text-[13px] font-medium text-text-secondary transition duration-150 ease-out hover:text-text-primary"
+                      className="flex min-h-7 w-full items-center justify-between text-left text-[12px] font-medium text-text-secondary transition duration-150 ease-out hover:text-text-primary"
                       type="button"
                       onPointerDown={(event) => {
                         if (event.button !== 0) return;
@@ -1070,8 +1070,9 @@ function FinancialBlock({
 
   return (
     <section>
-      <div className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-        <div className="px-4 pb-3 pt-3 sm:px-5">
+      <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[16px] font-semibold text-text-primary">Financial overview</h2>
           <div className="flex justify-end">
             <div className="grid h-7 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
               {FINANCIAL_PERIODS.map((item) => (
@@ -1089,17 +1090,19 @@ function FinancialBlock({
               ))}
             </div>
           </div>
+        </div>
 
-          <div className="mt-1.5 space-y-0">
+        <div className="mt-3 rounded-xl bg-subtle px-3 py-2.5">
+          <div className="space-y-0">
             <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
             {hasPlatformFee ? (
               <BreakdownRow label={`- Platform fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
             ) : null}
           </div>
 
-          <div className="my-2 border-y border-border py-2.5">
-            <div className="text-[11px] font-semibold text-text-secondary">You receive/{periodLabel}</div>
-            <div className="mt-0.5 text-[40px] font-bold leading-none text-amber-700 tabular-nums sm:text-[44px]">
+          <div className="my-1.5 flex min-h-10 items-baseline justify-between gap-4 border-y border-border py-1.5">
+            <div className="text-[12px] font-semibold text-text-secondary">You receive/{periodLabel}</div>
+            <div className="text-right text-[24px] font-bold leading-none text-amber-700 tabular-nums">
               {formatCurrency(periodReceive)}
             </div>
           </div>
@@ -1110,13 +1113,11 @@ function FinancialBlock({
           </div>
         </div>
 
-        <div className="border-t border-border bg-subtle/45 px-4 py-2 sm:px-5">
-          <p className="flex flex-wrap items-center gap-x-1.5 text-[10px] leading-4 text-text-tertiary">
-            <span>Total earned <span className="font-medium text-text-secondary">{formatCurrency(totalEarned)}</span></span>
-            <span>· since {formatExactDate(sinceDate)}</span>
-            {isTaxable ? <span>· Est. tax uses a ~28% effective rate</span> : null}
-          </p>
-        </div>
+        <p className="mt-2.5 flex flex-wrap items-center gap-x-1.5 text-[10px] leading-4 text-text-tertiary">
+          <span>Total earned <span className="font-medium text-text-secondary">{formatCurrency(totalEarned)}</span></span>
+          <span>· since {formatExactDate(sinceDate)}</span>
+          {isTaxable ? <span>· Est. tax uses a ~28% effective rate</span> : null}
+        </p>
       </div>
     </section>
   );
@@ -1132,13 +1133,13 @@ function BreakdownRow({
   muted?: boolean;
 }) {
   return (
-    <div className="flex min-h-6 items-center justify-between gap-4">
+    <div className="flex min-h-7 items-center justify-between gap-4">
       <span className={cn("text-[11px] leading-5", muted ? "text-text-tertiary" : "font-medium text-text-secondary")}>
         {label}
       </span>
       <span
         className={cn(
-          "text-right text-[12px] font-semibold leading-5 tabular-nums text-text-primary",
+          "text-right text-[13px] font-semibold leading-5 tabular-nums text-text-primary",
           muted && "font-normal text-text-tertiary"
         )}
       >
