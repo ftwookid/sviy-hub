@@ -1092,37 +1092,39 @@ function FinancialBlock({
           </div>
         </div>
 
-        <div className="mt-3 rounded-xl bg-subtle px-3 py-2.5">
-          <div className="space-y-0">
+        <div className="mt-3 divide-y divide-border rounded-xl bg-subtle px-3">
+          <div className="py-2">
             <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
             {hasPlatformFee ? (
-              <>
+              <div className="mt-1">
                 <BreakdownRow label="- Platform fee" value={`- ${formatCurrency(periodRoverFee)}`} muted />
                 <FinancialHelper>Rover fee · {roverPercent}% of gross</FinancialHelper>
-              </>
+              </div>
             ) : null}
           </div>
 
-          <div className="my-1.5 flex min-h-10 items-baseline justify-between gap-4 border-y border-border py-1.5">
-            <div className="text-[11px] font-medium leading-5 text-text-secondary">You receive/{periodLabel}</div>
-            <div className="text-right text-[24px] font-bold leading-none text-amber-700 tabular-nums">
-              {formatCurrency(periodReceive)}
-            </div>
+          <div className="py-2">
+            <BreakdownRow
+              label={`You receive/${periodLabel}`}
+              value={formatCurrency(periodReceive)}
+              emphasized
+            />
           </div>
 
-          <div className="space-y-0">
+          <div className="py-2">
             {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
-            <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
+            <div className={isTaxable ? "mt-1" : undefined}>
+              <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
+            </div>
             {!isTaxable ? <FinancialHelper>Cash · not taxable</FinancialHelper> : null}
           </div>
         </div>
 
-        <div className="mt-2.5 space-y-0.5 text-[10px] leading-4 text-text-tertiary">
-          <p>
-            Total earned <span className="font-medium text-text-secondary">{formatCurrency(totalEarned)}</span>
-            <span> · since {formatExactDate(sinceDate)}</span>
-          </p>
-          {isTaxable ? <p>Est. tax ~28% effective rate · updates at tax time</p> : null}
+        <div className="mt-3 space-y-1">
+          <FinancialHelper>
+            Total earned {formatCurrency(totalEarned)} · since {formatExactDate(sinceDate)}
+          </FinancialHelper>
+          {isTaxable ? <FinancialHelper>Est. tax ~28% effective rate · updates at tax time</FinancialHelper> : null}
         </div>
       </div>
     </section>
@@ -1130,27 +1132,30 @@ function FinancialBlock({
 }
 
 function FinancialHelper({ children }: { children: React.ReactNode }) {
-  return <p className="-mt-0.5 pb-1 text-[10px] leading-4 text-text-tertiary">{children}</p>;
+  return <p className="mt-0.5 text-[10px] font-normal leading-4 text-text-tertiary">{children}</p>;
 }
 
 function BreakdownRow({
   label,
   value,
-  muted = false
+  muted = false,
+  emphasized = false
 }: {
   label: string;
   value: string;
   muted?: boolean;
+  emphasized?: boolean;
 }) {
   return (
     <div className="flex min-h-7 items-center justify-between gap-4">
-      <span className={cn("text-[11px] font-medium leading-5", muted ? "text-text-tertiary" : "text-text-secondary")}>
+      <span className="text-[11px] font-medium leading-5 text-text-secondary">
         {label}
       </span>
       <span
         className={cn(
           "text-right text-[13px] font-semibold leading-5 tabular-nums text-text-primary",
-          muted && "font-normal text-text-tertiary"
+          muted && "font-normal text-text-tertiary",
+          emphasized && "text-[20px] font-bold text-amber-700"
         )}
       >
         {value}
