@@ -1097,14 +1097,14 @@ function FinancialBlock({
             ) : null}
           </div>
 
-          <div className="my-2.5 rounded-xl border border-amber-200 bg-accent-soft/70 px-3.5 py-3">
-            <div className="text-[11px] font-semibold text-amber-800">You receive/{periodLabel}</div>
+          <div className="my-2 border-y border-border py-2.5">
+            <div className="text-[11px] font-semibold text-text-secondary">You receive/{periodLabel}</div>
             <div className="mt-0.5 text-[40px] font-bold leading-none text-amber-700 tabular-nums sm:text-[44px]">
               {formatCurrency(periodReceive)}
             </div>
           </div>
 
-          <div className="space-y-0 border-t border-border pt-1.5">
+          <div className="space-y-0">
             {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
             <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
           </div>
