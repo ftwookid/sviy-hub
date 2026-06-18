@@ -1071,42 +1071,46 @@ function FinancialBlock({
   return (
     <section>
       <div className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-        <div className="flex justify-end border-b border-border bg-subtle/60 px-4 py-2.5">
-          <div className="grid min-h-8 grid-cols-3 rounded-xl border border-border bg-surface/70 p-0.5">
-            {FINANCIAL_PERIODS.map((item) => (
-              <button
-                key={item}
-                className={cn(
-                  "focus-ring min-w-14 rounded-[9px] px-2.5 text-[11px] font-medium transition duration-150 ease-out",
-                  period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
-                )}
-                type="button"
-                onClick={() => onPeriodChange(item)}
-              >
-                /{item === "month" ? "mo" : item}
-              </button>
-            ))}
+        <div className="px-4 pb-3 pt-3 sm:px-5">
+          <div className="flex justify-end">
+            <div className="grid h-7 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
+              {FINANCIAL_PERIODS.map((item) => (
+                <button
+                  key={item}
+                  className={cn(
+                    "focus-ring min-w-14 rounded-md px-2 text-[10px] font-medium leading-none transition duration-150 ease-out",
+                    period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
+                  )}
+                  type="button"
+                  onClick={() => onPeriodChange(item)}
+                >
+                  /{item === "month" ? "mo" : item}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="px-4 py-3.5 sm:px-5">
-          <div className="space-y-0.5">
+
+          <div className="mt-1.5 space-y-0">
             <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
             {hasPlatformFee ? (
               <BreakdownRow label={`- Platform fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
             ) : null}
           </div>
 
-          <div className="my-3 border-y border-amber-200/70 bg-accent-soft/55 px-3 py-2.5">
-            <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
+          <div className="my-2.5 rounded-xl border border-amber-200 bg-accent-soft/70 px-3.5 py-3">
+            <div className="text-[11px] font-semibold text-amber-800">You receive/{periodLabel}</div>
+            <div className="mt-0.5 text-[40px] font-bold leading-none text-amber-700 tabular-nums sm:text-[44px]">
+              {formatCurrency(periodReceive)}
+            </div>
           </div>
 
-          <div className="space-y-0.5">
+          <div className="space-y-0 border-t border-border pt-1.5">
             {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
             <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
           </div>
         </div>
 
-        <div className="border-t border-border bg-subtle/45 px-4 py-2.5 sm:px-5">
+        <div className="border-t border-border bg-subtle/45 px-4 py-2 sm:px-5">
           <p className="flex flex-wrap items-center gap-x-1.5 text-[10px] leading-4 text-text-tertiary">
             <span>Total earned <span className="font-medium text-text-secondary">{formatCurrency(totalEarned)}</span></span>
             <span>· since {formatExactDate(sinceDate)}</span>
@@ -1121,29 +1125,21 @@ function FinancialBlock({
 function BreakdownRow({
   label,
   value,
-  muted = false,
-  strong = false
+  muted = false
 }: {
   label: string;
   value: string;
   muted?: boolean;
-  strong?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "flex min-h-7 items-baseline justify-between gap-4 py-0.5",
-        strong && "min-h-10 py-0"
-      )}
-    >
-      <span className={cn("text-[12px]", muted ? "text-text-tertiary" : "font-medium text-text-secondary", strong && "text-[13px] font-semibold text-amber-800")}>
+    <div className="flex min-h-6 items-center justify-between gap-4">
+      <span className={cn("text-[11px] leading-5", muted ? "text-text-tertiary" : "font-medium text-text-secondary")}>
         {label}
       </span>
       <span
         className={cn(
-          "text-right text-[13px] font-semibold tabular-nums text-text-primary",
-          muted && "font-normal text-text-tertiary",
-          strong && "text-[25px] font-bold leading-none text-amber-700"
+          "text-right text-[12px] font-semibold leading-5 tabular-nums text-text-primary",
+          muted && "font-normal text-text-tertiary"
         )}
       >
         {value}
