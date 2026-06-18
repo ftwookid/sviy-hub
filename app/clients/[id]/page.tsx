@@ -1070,15 +1070,15 @@ function FinancialBlock({
 
   return (
     <section>
-      <div className="rounded-[20px] border border-border bg-stone-50 p-5 shadow-sm">
-        <div className="mb-4 flex justify-end">
-          <div className="grid min-h-9 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+      <div className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
+        <div className="flex justify-end border-b border-border bg-subtle/60 px-4 py-2.5">
+          <div className="grid min-h-8 grid-cols-3 rounded-xl border border-border bg-surface/70 p-0.5">
             {FINANCIAL_PERIODS.map((item) => (
               <button
                 key={item}
                 className={cn(
-                  "focus-ring min-w-14 rounded-xl px-2.5 text-[12px] font-medium transition duration-150 ease-out",
-                  period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:bg-surface hover:text-text-secondary"
+                  "focus-ring min-w-14 rounded-[9px] px-2.5 text-[11px] font-medium transition duration-150 ease-out",
+                  period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
                 )}
                 type="button"
                 onClick={() => onPeriodChange(item)}
@@ -1088,26 +1088,31 @@ function FinancialBlock({
             ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
-          {hasPlatformFee ? (
-            <BreakdownRow label={`- Platform fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
-          ) : null}
-          <div className="border-t border-stone-200 pt-3">
+        <div className="px-4 py-3.5 sm:px-5">
+          <div className="space-y-0.5">
+            <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
+            {hasPlatformFee ? (
+              <BreakdownRow label={`- Platform fee (${roverPercent}%)`} value={`- ${formatCurrency(periodRoverFee)}`} muted />
+            ) : null}
+          </div>
+
+          <div className="my-3 border-y border-amber-200/70 bg-accent-soft/55 px-3 py-2.5">
             <BreakdownRow label={`You receive/${periodLabel}`} value={formatCurrency(periodReceive)} strong />
           </div>
-          {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
-          <div className="border-t border-stone-200 pt-3">
+
+          <div className="space-y-0.5">
+            {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
             <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
           </div>
         </div>
-        <div className="mt-5 border-t border-stone-200 pt-4">
-          <p className="flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-text-tertiary">
+
+        <div className="border-t border-border bg-subtle/45 px-4 py-2.5 sm:px-5">
+          <p className="flex flex-wrap items-center gap-x-1.5 text-[10px] leading-4 text-text-tertiary">
             <span>Total earned <span className="font-medium text-text-secondary">{formatCurrency(totalEarned)}</span></span>
             <span>· since {formatExactDate(sinceDate)}</span>
+            {isTaxable ? <span>· Est. tax uses a ~28% effective rate</span> : null}
           </p>
         </div>
-        <p className="mt-4 text-[11px] text-text-tertiary">Est. tax ~28% effective rate · updates at tax time</p>
       </div>
     </section>
   );
@@ -1127,18 +1132,18 @@ function BreakdownRow({
   return (
     <div
       className={cn(
-        "flex items-baseline justify-between gap-4",
-        strong && "rounded-2xl bg-white/70 px-3 py-3 shadow-sm"
+        "flex min-h-7 items-baseline justify-between gap-4 py-0.5",
+        strong && "min-h-10 py-0"
       )}
     >
-      <span className={cn("text-[13px]", muted ? "text-text-tertiary" : "text-text-secondary", strong && "font-medium text-text-primary")}>
+      <span className={cn("text-[12px]", muted ? "text-text-tertiary" : "font-medium text-text-secondary", strong && "text-[13px] font-semibold text-amber-800")}>
         {label}
       </span>
       <span
         className={cn(
-          "text-right tabular-nums",
-          muted && "text-[13px] text-text-tertiary",
-          strong && "text-[24px] font-bold leading-none text-amber-700"
+          "text-right text-[13px] font-semibold tabular-nums text-text-primary",
+          muted && "font-normal text-text-tertiary",
+          strong && "text-[25px] font-bold leading-none text-amber-700"
         )}
       >
         {value}
