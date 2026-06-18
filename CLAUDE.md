@@ -300,7 +300,7 @@ Project path:
 /Users/Shared/Codex/Sviy Hub
 ```
 
-Use `staging` as the default working branch. The repository-local Git default branch is `staging`, and `origin/HEAD` should point to `origin/staging`.
+Use `staging` as the default working branch. All normal commits go to `staging`, which deploys automatically to the Vercel preview environment. The repository-local Git default branch and default push ref are both `staging`, and `origin/HEAD` should point to `origin/staging`.
 
 After every completed task, automatically commit and push all changes to `origin/staging` without waiting for manual approval. Normal changes should follow this flow:
 
@@ -315,9 +315,22 @@ git push origin staging
 
 The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically pushes commits made on `staging` to `origin/staging`; commits on other branches are not auto-pushed by the hook.
 
-Only push to `main` when explicitly told `push to main` or `go live`.
+Only deploy production when explicitly told `push live`. To do that, fast-forward `main` from the tested `staging` branch, push `main` to `origin`, and then return the local workspace to `staging`:
 
-The `staging` branch deploys automatically to a Vercel Preview environment.
+```bash
+git checkout main
+git merge --ff-only staging
+git push origin main
+git checkout staging
+```
+
+`main` deploys to the production URL:
+
+```text
+https://sviy-hub.vercel.app
+```
+
+Do not commit normal task work directly to `main`, and do not treat requests to `commit and push` as production deployment unless the user explicitly says `push live`.
 
 ## Next Step
 
