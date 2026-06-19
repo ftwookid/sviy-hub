@@ -232,18 +232,6 @@ with check (auth.uid() = user_id or is_admin())
 - Includes sign out button.
 - Leaves space for future settings.
 
-### Mileage Section
-
-- Added `/mileage` and a Mileage item to desktop and mobile navigation.
-- MileIQ CSV uploads derive the month from detailed trip dates rather than the filename.
-- Only `Business` category trips are imported; all other categories are ignored.
-- Deduction values are calculated from each trip's `miles × rate` values in the file.
-- Exact duplicate files are detected with a SHA-256 content hash.
-- Partial-month and same-month replacements require clear month-specific confirmation.
-- Uploads are immutable versions; one version per user/month is active and older versions can be restored.
-- Dashboards include business miles, deduction value, trip count, average trip, monthly trends, weekday patterns, filters, and recent trips.
-- Run `supabase/mileage-schema.sql` in Supabase before using this section.
-
 ### Address Autocomplete
 
 - Added `components/AddressAutocomplete.tsx`.
@@ -273,18 +261,15 @@ with check (auth.uid() = user_id or is_admin())
 - `app/onboarding/page.tsx`: Post-signup nickname onboarding screen.
 - `app/login/page.tsx`: Sign-in/sign-up entry point.
 - `app/profile/page.tsx`: Profile section.
-- `app/mileage/page.tsx`: Mileage import, analytics, filtering, and upload history.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
 - `components/ClientCard.tsx`: Client card UI.
 - `lib/useAuthUser.ts`: Auth user and profile role loading.
 - `lib/clients.ts`: Client constants and earnings calculations.
-- `lib/mileage.ts`: MileIQ CSV parsing, period derivation, and content hashing.
 - `types/client.ts`: Client and pet TypeScript types.
 - `supabase/clients-schema.sql`: SQL for client/pet tables and admin-aware RLS.
 - `supabase/schema.sql`: Expenses schema plus profiles table, admin helper functions, triggers, and admin-aware RLS.
-- `supabase/mileage-schema.sql`: Versioned mileage uploads, granular trips, indexes, and per-user/admin RLS.
 
 ## Verification Completed
 

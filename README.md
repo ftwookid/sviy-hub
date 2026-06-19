@@ -60,8 +60,3 @@ Then open `http://localhost:3000`.
 - Reports page with Schedule C category totals.
 - Monthly CSS bar chart.
 - CSV export for the selected tax year.
-- Mileage section with MileIQ CSV import, business-trip filtering, deduction calculations, analytics, and version rollback.
-
-## Mileage database setup
-
-Run `supabase/mileage-schema.sql` in the Supabase SQL Editor before using the Mileage section. The schema stores immutable upload versions and individual Business trips. Each user has one active version per month, while older versions remain available for rollback.
