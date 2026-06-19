@@ -126,6 +126,7 @@ export default function MileagePage() {
   const [destination, setDestination] = useState("");
   const [timeStart, setTimeStart] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
+  const [visibleDriveCount, setVisibleDriveCount] = useState(12);
   const [restoringId, setRestoringId] = useState("");
 
   const loadMileage = useCallback(async () => {
@@ -310,6 +311,10 @@ export default function MileagePage() {
     });
   }, [destination, driveFilter, maxMiles, minMiles, periodTrips, timeEnd, timeStart]);
 
+  useEffect(() => {
+    setVisibleDriveCount(12);
+  }, [destination, driveFilter, listTrips.length, maxMiles, minMiles, period, selectedMonth, selectedYear, timeEnd, timeStart]);
+
   const insight = useMemo(() => {
     if (!periodTrips.length || !busiestWeekday) return "Import a month to start uncovering patterns in your business driving.";
     const share = businessMiles ? Math.round((busiestWeekday.miles / businessMiles) * 100) : 0;
@@ -373,20 +378,20 @@ export default function MileagePage() {
       <div className="space-y-7">
         <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-[38px] font-medium leading-[1.05] tracking-[-0.02em] text-text-primary">Mileage</h1>
+            <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">Mileage</h1>
             <p className="mt-2 max-w-xl text-[16px] text-text-secondary">
               Business driving, tax deductions, and the patterns behind every mile.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="inline-grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+            <div className="grid h-7 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
               {(["month", "year", "all"] as Period[]).map((value) => (
                 <button
                   key={value}
                   type="button"
                   className={cn(
-                    "min-h-9 rounded-xl px-3 text-[13px] font-medium transition",
-                    period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                    "focus-ring min-w-14 rounded-md px-2 text-[10px] font-medium leading-none transition duration-150 ease-out",
+                    period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
                   )}
                   onClick={() => setPeriod(value)}
                 >
@@ -395,7 +400,7 @@ export default function MileagePage() {
               ))}
             </div>
             <Button variant="accent" onClick={() => setImportOpen(true)}>
-              <Plus size={17} />
+              <Plus size={18} strokeWidth={1.6} />
               Import month
             </Button>
           </div>
@@ -445,12 +450,12 @@ export default function MileagePage() {
             <section className="grid gap-4 md:grid-cols-2">
               <article className="rounded-[28px] border border-border bg-surface p-5 shadow-card sm:p-7">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.07em] text-text-tertiary">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
                     Business miles · {periodLabel}
                   </span>
                   <Route size={20} strokeWidth={1.5} className="text-accent" />
                 </div>
-                <div className="mt-6 text-[52px] font-medium leading-none tracking-[-0.045em] text-text-primary sm:text-[64px]">
+                <div className="mt-5 text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">
                   {businessMiles.toFixed(1)}
                 </div>
                 <p className="mt-4 text-[13px] text-text-secondary">
@@ -460,12 +465,12 @@ export default function MileagePage() {
 
               <article className="rounded-[28px] border border-border bg-[#F5EFE3] p-5 shadow-card sm:p-7">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.07em] text-text-tertiary">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
                     Tax deduction · {periodLabel}
                   </span>
                   <Sparkles size={20} strokeWidth={1.5} className="text-accent" />
                 </div>
-                <div className="mt-6 text-[52px] font-medium leading-none tracking-[-0.045em] text-text-primary sm:text-[64px]">
+                <div className="mt-5 text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">
                   {formatCurrency(deduction)}
                 </div>
                 <p className="mt-4 text-[13px] text-text-secondary">
@@ -499,7 +504,7 @@ export default function MileagePage() {
             <aside className="flex items-start gap-3 rounded-[18px] border-l-[3px] border-accent bg-accent-soft/55 px-4 py-4 sm:px-5">
               <Sparkles size={18} className="mt-0.5 shrink-0 text-accent" />
               <div>
-                <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#8A6A2D]">What stands out</div>
+                <div className="text-[11px] font-medium uppercase tracking-[0.04em] text-text-secondary">What stands out</div>
                 <p className="mt-1 text-[14px] leading-relaxed text-text-secondary">{insight}</p>
               </div>
             </aside>
@@ -507,7 +512,7 @@ export default function MileagePage() {
             <section className="rounded-[24px] border border-border bg-surface p-5 shadow-card sm:p-6">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-[19px] font-medium text-text-primary">Daily miles · {periodLabel}</h2>
+                  <h2 className="text-[18px] font-medium text-text-primary">Daily miles · {periodLabel}</h2>
                   <p className="mt-1 text-[12px] text-text-tertiary">Hover over any day for the exact mileage.</p>
                 </div>
                 <div className="text-right text-[12px] text-text-secondary">{activeDates.size} driving days</div>
@@ -530,7 +535,7 @@ export default function MileagePage() {
                         {tooltipDate(day.date)} · {day.miles.toFixed(1)} mi
                       </div>
                       {index % Math.max(1, Math.ceil(dailyData.length / 8)) === 0 ? (
-                        <span className="absolute -bottom-5 left-0 text-[9px] text-text-tertiary">{compactDate(day.date)}</span>
+                        <span className="absolute -bottom-5 left-0 text-[11px] text-text-tertiary">{compactDate(day.date)}</span>
                       ) : null}
                     </div>
                   ))}
@@ -572,7 +577,7 @@ export default function MileagePage() {
                   {areaData.slice(0, 6).map((area, index) => (
                     <div key={area.area}>
                       <div className="flex items-center gap-3">
-                        <span className="w-4 text-[10px] font-medium text-text-tertiary">{index + 1}</span>
+                        <span className="w-4 text-[11px] font-medium text-text-tertiary">{index + 1}</span>
                         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-text-primary">{area.area}</span>
                         <span className="text-[11px] text-text-secondary">{area.miles.toFixed(1)} mi</span>
                       </div>
@@ -592,8 +597,8 @@ export default function MileagePage() {
             <section className="rounded-[24px] border border-border bg-surface p-5 shadow-card sm:p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <h2 className="text-[19px] font-medium text-text-primary">
-                    Drives · {listTrips.length} of {periodTrips.length}
+                  <h2 className="text-[18px] font-medium text-text-primary">
+                    Drives · {Math.min(visibleDriveCount, listTrips.length)} of {periodTrips.length}
                   </h2>
                   <p className="mt-1 text-[12px] text-text-tertiary">Business drives in {periodLabel}</p>
                 </div>
@@ -603,21 +608,17 @@ export default function MileagePage() {
                     ["short", "Short (<2mi)"],
                     ["long", "Long (>10mi)"]
                   ] as Array<[DriveFilter, string]>).map(([value, label]) => (
-                    <button
+                    <Button
                       key={value}
                       type="button"
-                      className={cn(
-                        "min-h-9 rounded-full border px-3 text-[12px] font-medium transition",
-                        driveFilter === value
-                          ? "border-text-primary bg-text-primary text-white"
-                          : "border-border bg-subtle text-text-secondary hover:border-border-emphasis"
-                      )}
+                      className="min-h-9 px-3 text-[13px]"
+                      variant={driveFilter === value ? "primary" : "soft"}
                       onClick={() => setDriveFilter(value)}
                     >
                       {label}
-                    </button>
+                    </Button>
                   ))}
-                  <Button className="min-h-9 rounded-full px-3 text-[12px]" variant="ghost" onClick={() => setAdvanced(!advanced)}>
+                  <Button className="min-h-9 px-3 text-[13px]" variant="ghost" onClick={() => setAdvanced(!advanced)}>
                     <SlidersHorizontal size={14} />
                     Advanced filters
                     {advanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -646,7 +647,7 @@ export default function MileagePage() {
 
               {listTrips.length ? (
                 <div className="mt-5 divide-y divide-border">
-                  {listTrips.slice(0, 100).map((trip) => {
+                  {listTrips.slice(0, visibleDriveCount).map((trip) => {
                     const date = dateFromTimestamp(trip.start_at);
                     return (
                       <div
@@ -666,6 +667,17 @@ export default function MileagePage() {
                       </div>
                     );
                   })}
+                  {visibleDriveCount < listTrips.length ? (
+                    <div className="pt-4 text-center">
+                      <Button
+                        className="min-h-10 px-3 text-[14px]"
+                        variant="soft"
+                        onClick={() => setVisibleDriveCount((count) => count + 12)}
+                      >
+                        Show more
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-5 rounded-2xl bg-subtle py-10 text-center text-[13px] text-text-secondary">

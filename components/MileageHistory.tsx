@@ -63,7 +63,7 @@ export function MileageHistory({
     <section>
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-[20px] font-medium text-text-primary">Imported months</h2>
+          <h2 className="text-[18px] font-medium text-text-primary">Imported months</h2>
           <p className="mt-1 text-[12px] text-text-tertiary">Manage confirmed data, source files, and prior versions.</p>
         </div>
         <span className="text-[12px] text-text-tertiary">{monthGroups.length} months</span>
@@ -80,7 +80,7 @@ export function MileageHistory({
                     <h3 className="text-[16px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]",
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium",
                         current.is_complete ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
                       )}
                     >
@@ -88,8 +88,8 @@ export function MileageHistory({
                     </span>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]",
-                        current.is_active ? "bg-accent-soft text-[#8A6A2D]" : "bg-subtle text-text-tertiary"
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium",
+                        current.is_active ? "bg-accent-soft text-text-primary" : "bg-subtle text-text-tertiary"
                       )}
                     >
                       {current.is_active ? "Confirmed" : "Pending"}
@@ -102,17 +102,17 @@ export function MileageHistory({
                 </div>
 
                 <div>
-                  <div className="text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">Trips</div>
+                  <div className="text-[11px] font-medium text-text-tertiary">Trips</div>
                   <div className="mt-1 text-[14px] font-medium text-text-primary">{current.business_trip_count}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">Miles</div>
+                  <div className="text-[11px] font-medium text-text-tertiary">Miles</div>
                   <div className="mt-1 text-[14px] font-medium text-text-primary">
                     {Number(current.business_miles).toFixed(1)}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">Deduction</div>
+                  <div className="text-[11px] font-medium text-text-tertiary">Deduction</div>
                   <div className="mt-1 text-[14px] font-medium text-success">{formatCurrency(current.deduction_value)}</div>
                 </div>
 
@@ -180,7 +180,7 @@ export function MileageHistory({
                           <div className="flex items-center gap-2 text-[12px] font-medium text-text-primary">
                             {timestamp(version.uploaded_at)}
                             {version.is_active ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-success">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-success">
                                 <Check size={12} />
                                 Active
                               </span>

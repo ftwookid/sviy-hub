@@ -202,21 +202,21 @@ export function MileageUploader({
           >
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-7">
               <div>
-                <h2 className="text-[25px] font-medium leading-tight tracking-[-0.01em] text-text-primary">
+                <h2 className="text-[22px] font-medium text-text-primary">
                   Log a MileIQ month
                 </h2>
                 <p className="mt-1 text-[14px] text-text-secondary">
                   Add the export and Sviy Hub will identify the month, validate it, and calculate everything automatically.
                 </p>
               </div>
-              <Button variant="ghost" className="h-10 min-h-10 w-10 shrink-0 p-0" onClick={onClose} aria-label="Close">
-                <X size={19} />
+              <Button className="min-h-10 px-3" variant="ghost" onClick={onClose} aria-label="Close">
+                <X size={18} strokeWidth={1.6} />
               </Button>
             </div>
 
             <div className="grid sm:grid-cols-2">
               <div className="p-5 sm:p-7">
-                <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                   <Upload size={15} className="text-accent" />
                   Upload CSV
                 </div>
@@ -258,7 +258,7 @@ export function MileageUploader({
 
               <div className="border-t border-border bg-[#FBF9F5] p-5 sm:border-l sm:border-t-0 sm:p-7">
                 <label
-                  className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary"
+                  className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary"
                   htmlFor="mileage-csv"
                 >
                   <FileSpreadsheet size={15} className="text-accent" />
@@ -308,7 +308,7 @@ export function MileageUploader({
                   )}
                 </div>
                 <div>
-                  <h2 className="text-[21px] font-medium leading-tight text-text-primary">
+                  <h2 className="text-[22px] font-medium text-text-primary">
                     {preview.duplicate ? "This file was already uploaded" : warning?.title ?? preview.parsed.periodLabel}
                   </h2>
                   <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
@@ -318,9 +318,9 @@ export function MileageUploader({
                   </p>
                 </div>
               </div>
-              <button type="button" className="text-text-tertiary" onClick={() => setPreview(null)} aria-label="Close">
-                <X size={20} />
-              </button>
+              <Button className="min-h-10 px-3" variant="ghost" onClick={() => setPreview(null)} aria-label="Close">
+                <X size={18} strokeWidth={1.6} />
+              </Button>
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
