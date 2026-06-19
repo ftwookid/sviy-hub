@@ -142,7 +142,7 @@ export default function MileagePage() {
   const [destination, setDestination] = useState("");
   const [timeStart, setTimeStart] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
-  const [visibleDriveCount, setVisibleDriveCount] = useState(12);
+  const [drivePage, setDrivePage] = useState(0);
   const [restoringId, setRestoringId] = useState("");
 
   const loadMileage = useCallback(async () => {
@@ -358,8 +358,11 @@ export default function MileagePage() {
   }, [destination, driveFilter, maxMiles, minMiles, periodTrips, timeEnd, timeStart]);
 
   useEffect(() => {
-    setVisibleDriveCount(12);
+    setDrivePage(0);
   }, [destination, driveFilter, listTrips.length, maxMiles, minMiles, period, selectedMonth, selectedYear, timeEnd, timeStart]);
+  const drivesPerPage = 8;
+  const drivePageCount = Math.max(1, Math.ceil(listTrips.length / drivesPerPage));
+  const visibleTrips = listTrips.slice(drivePage * drivesPerPage, (drivePage + 1) * drivesPerPage);
 
   const insight = useMemo(() => {
     if (!periodTrips.length || !busiestWeekday) return "Import a month to start uncovering patterns in your business driving.";
@@ -422,72 +425,71 @@ export default function MileagePage() {
   return (
     <AppShell user={user}>
       <div className="space-y-7">
-        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">Mileage</h1>
             <p className="mt-2 max-w-xl text-[16px] text-text-secondary">
               Business driving, tax deductions, and the patterns behind every mile.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex min-h-11 max-w-full items-center gap-2 overflow-x-auto">
-              <div className="grid h-7 shrink-0 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
-                {(["month", "year", "all"] as Period[]).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={cn(
-                      "focus-ring min-w-14 rounded-md px-2 text-[10px] font-medium leading-none transition duration-150 ease-out",
-                      period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
-                    )}
-                    onClick={() => setPeriod(value)}
-                  >
-                    {value === "all" ? "All time" : value[0].toUpperCase() + value.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="w-40 shrink-0">
-                {period === "month" ? (
-                  <select
-                    aria-label="Showing month"
-                    className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis"
-                    value={selectedMonth}
-                    onChange={(event) => setSelectedMonth(event.target.value)}
-                  >
-                    {availableMonths.length ? (
-                      availableMonths.map((month) => (
-                        <option key={month} value={month}>
-                          {monthName(month)}
-                        </option>
-                      ))
-                    ) : (
-                      <option value={selectedMonth}>{monthName(selectedMonth)}</option>
-                    )}
-                  </select>
-                ) : period === "year" ? (
-                  <select
-                    aria-label="Showing year"
-                    className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis"
-                    value={selectedYear}
-                    onChange={(event) => setSelectedYear(Number(event.target.value))}
-                  >
-                    {availableYears.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div aria-hidden="true" className="min-h-11" />
-                )}
-              </div>
-            </div>
-            <Button variant="accent" onClick={() => setImportOpen(true)}>
-              <Plus size={18} strokeWidth={1.6} />
-              Import month
-            </Button>
-          </div>
+          <Button className="shrink-0" variant="accent" onClick={() => setImportOpen(true)}>
+            <Plus size={18} strokeWidth={1.6} />
+            Import month
+          </Button>
         </header>
+
+        <div className="flex min-h-14 items-center gap-3 overflow-x-auto rounded-[20px] border border-border bg-surface px-3 py-2 shadow-card">
+          <div className="inline-grid min-h-11 shrink-0 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+            {(["month", "year", "all"] as Period[]).map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={cn(
+                  "focus-ring min-h-9 min-w-16 rounded-xl px-3 text-[14px] font-medium transition duration-150 ease-out",
+                  period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                )}
+                onClick={() => setPeriod(value)}
+              >
+                {value === "all" ? "All time" : value[0].toUpperCase() + value.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="w-48 shrink-0">
+            {period === "month" ? (
+              <select
+                aria-label="Showing month"
+                className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+              >
+                {availableMonths.length ? (
+                  availableMonths.map((month) => (
+                    <option key={month} value={month}>
+                      {monthName(month)}
+                    </option>
+                  ))
+                ) : (
+                  <option value={selectedMonth}>{monthName(selectedMonth)}</option>
+                )}
+              </select>
+            ) : period === "year" ? (
+              <select
+                aria-label="Showing year"
+                className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis"
+                value={selectedYear}
+                onChange={(event) => setSelectedYear(Number(event.target.value))}
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex min-h-11 items-center px-3 text-[14px] text-text-tertiary">All imported mileage</div>
+            )}
+          </div>
+        </div>
 
         {schemaError ? (
           <section className="rounded-[24px] border border-warning/20 bg-warning-soft p-5">
@@ -505,32 +507,32 @@ export default function MileagePage() {
         ) : (
           <>
             <section className="grid gap-4 md:grid-cols-2">
-              <article className="rounded-[28px] border border-border bg-surface p-5 shadow-card sm:p-7">
+              <article className="rounded-[24px] border border-border bg-surface p-5 shadow-card">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
                     Business miles · {periodLabel}
                   </span>
                   <Route size={20} strokeWidth={1.5} className="text-accent" />
                 </div>
-                <div className="mt-5 text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">
+                <div className="mt-3 text-[34px] font-medium leading-[1.08] tracking-[-0.01em] text-text-primary">
                   {businessMiles.toFixed(1)}
                 </div>
-                <p className="mt-4 text-[13px] text-text-secondary">
+                <p className="mt-2 text-[13px] text-text-secondary">
                   {periodTrips.length} drives across {activeDates.size} active {activeDates.size === 1 ? "day" : "days"}
                 </p>
               </article>
 
-              <article className="rounded-[28px] border border-border bg-[#F5EFE3] p-5 shadow-card sm:p-7">
+              <article className="rounded-[24px] border border-border bg-[#F5EFE3] p-5 shadow-card">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
                     Tax deduction · {periodLabel}
                   </span>
                   <Sparkles size={20} strokeWidth={1.5} className="text-accent" />
                 </div>
-                <div className="mt-5 text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">
+                <div className="mt-3 text-[34px] font-medium leading-[1.08] tracking-[-0.01em] text-text-primary">
                   {formatCurrency(deduction)}
                 </div>
-                <p className="mt-4 text-[13px] text-text-secondary">
+                <p className="mt-2 text-[13px] text-text-secondary">
                   {rateLabel} · read directly from your MileIQ file
                 </p>
               </article>
@@ -585,21 +587,33 @@ export default function MileagePage() {
                     gridTemplateColumns: `repeat(${Math.max(chartData.length, 1)}, minmax(0, 1fr))`,
                     minWidth:
                       period === "month"
-                        ? "680px"
+                        ? "860px"
                         : period === "year"
                           ? "100%"
                           : `${Math.max(100, chartData.length * 52)}px`
                   }}
                 >
                   {chartData.map((item) => (
-                    <div key={item.key} className="group relative flex h-full min-w-0 items-end">
+                    <div
+                      key={item.key}
+                      className="group relative flex h-full min-w-0 flex-col justify-end"
+                      title={`${item.tooltipLabel} · ${item.miles.toFixed(1)} mi`}
+                    >
+                      <span
+                        className={cn(
+                          "mb-1 text-center text-[10px] font-medium",
+                          item.miles ? "text-text-secondary" : "text-transparent"
+                        )}
+                      >
+                        {item.miles ? item.miles.toFixed(1) : "0"}
+                      </span>
                       <div
                         className={cn(
                           "w-full rounded-t-[5px] transition",
                           item.miles ? "bg-accent group-hover:bg-[#B79250]" : "bg-subtle"
                         )}
                         style={{
-                          height: item.miles ? `max(8px, ${(item.miles / maxChartMiles) * 100}%)` : "2px"
+                          height: item.miles ? `max(8px, ${(item.miles / maxChartMiles) * 88}%)` : "2px"
                         }}
                       />
                       <div className="pointer-events-none absolute left-1/2 top-2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-text-primary px-2.5 py-1.5 text-[11px] text-white shadow-lg group-hover:block">
@@ -669,7 +683,7 @@ export default function MileagePage() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <h2 className="text-[18px] font-medium text-text-primary">
-                    Drives · {Math.min(visibleDriveCount, listTrips.length)} of {periodTrips.length}
+                    Drives · {listTrips.length}
                   </h2>
                   <p className="mt-1 text-[12px] text-text-tertiary">Business drives in {periodLabel}</p>
                 </div>
@@ -718,34 +732,53 @@ export default function MileagePage() {
 
               {listTrips.length ? (
                 <div className="mt-5 divide-y divide-border">
-                  {listTrips.slice(0, visibleDriveCount).map((trip) => {
+                  {visibleTrips.map((trip) => {
                     const date = dateFromTimestamp(trip.start_at);
                     return (
                       <div
                         key={trip.id}
-                        className="grid grid-cols-[56px_34px_minmax(0,1fr)_64px_78px] items-center gap-2 py-3.5 text-[12px] sm:grid-cols-[76px_42px_minmax(0,1fr)_80px_92px]"
+                        className="grid grid-cols-[56px_34px_minmax(0,1fr)_64px_78px] items-center gap-2 py-3 text-[12px] sm:grid-cols-[76px_42px_minmax(0,1fr)_80px_92px]"
                       >
                         <span className="font-medium text-text-primary">
                           {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date)}
                         </span>
                         <span className="text-text-tertiary">{WEEKDAYS[date.getDay()].slice(0, 3)}</span>
-                        <span className="flex min-w-0 items-center gap-2 text-text-secondary">
+                        <span className="flex min-w-0 items-start gap-2 text-text-secondary">
                           <ArrowRight size={14} className="shrink-0 text-accent" />
-                          <span className="truncate">{destinationArea(trip.stop_location)}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-text-primary">
+                              {destinationArea(trip.stop_location)}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-text-tertiary">
+                              {trip.stop_location || "Destination address unavailable"}
+                            </span>
+                          </span>
                         </span>
                         <span className="text-right font-medium text-text-primary">{Number(trip.miles).toFixed(1)} mi</span>
                         <span className="text-right font-medium text-success">{formatCurrency(trip.deduction_value)}</span>
                       </div>
                     );
                   })}
-                  {visibleDriveCount < listTrips.length ? (
-                    <div className="pt-4 text-center">
+                  {drivePageCount > 1 ? (
+                    <div className="flex items-center justify-between gap-3 pt-4">
                       <Button
-                        className="min-h-10 px-3 text-[14px]"
-                        variant="soft"
-                        onClick={() => setVisibleDriveCount((count) => count + 12)}
+                        className="min-h-9 px-3 text-[13px]"
+                        variant="ghost"
+                        disabled={drivePage === 0}
+                        onClick={() => setDrivePage((page) => Math.max(0, page - 1))}
                       >
-                        Show more
+                        Previous
+                      </Button>
+                      <span className="text-[12px] text-text-tertiary">
+                        {drivePage + 1} of {drivePageCount}
+                      </span>
+                      <Button
+                        className="min-h-9 px-3 text-[13px]"
+                        variant="ghost"
+                        disabled={drivePage >= drivePageCount - 1}
+                        onClick={() => setDrivePage((page) => Math.min(drivePageCount - 1, page + 1))}
+                      >
+                        Next
                       </Button>
                     </div>
                   ) : null}

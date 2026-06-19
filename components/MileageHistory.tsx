@@ -56,7 +56,8 @@ export function MileageHistory({
       deltaMiles: 0,
       deltaDeduction: 0,
       ytdMiles: 0,
-      ytdDeduction: 0
+      ytdDeduction: 0,
+      hasPrevious: false
     }));
 
     const byYear = new Map<string, typeof grouped>();
@@ -74,9 +75,10 @@ export function MileageHistory({
       yearGroups
         .slice()
         .sort((a, b) => a.periodMonth.localeCompare(b.periodMonth))
-        .forEach((group) => {
+        .forEach((group, index) => {
           const monthMiles = Number(group.current.business_miles);
           const monthDeduction = Number(group.current.deduction_value);
+          group.hasPrevious = index > 0;
           group.deltaMiles = monthMiles - previousMiles;
           group.deltaDeduction = monthDeduction - previousDeduction;
           ytdMiles += monthMiles;
@@ -116,11 +118,11 @@ export function MileageHistory({
 
       <div className="space-y-3">
         {monthGroups.map(
-          ({ periodMonth, versions, current, deltaMiles, deltaDeduction, ytdMiles, ytdDeduction }) => {
+          ({ periodMonth, versions, current, deltaMiles, deltaDeduction, ytdMiles, ytdDeduction, hasPrevious }) => {
           const expanded = expandedMonth === periodMonth;
           return (
             <article key={periodMonth} className="relative rounded-[22px] border border-border bg-surface shadow-card">
-              <div className="grid gap-4 p-4 sm:grid-cols-[1.25fr_.55fr_.7fr_.8fr_1.35fr_auto] sm:items-center sm:p-5">
+              <div className="grid gap-4 p-4 sm:grid-cols-[1.25fr_.55fr_.7fr_.8fr_1fr_1.1fr_auto] sm:items-center sm:p-5">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[16px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
@@ -162,13 +164,22 @@ export function MileageHistory({
                   <div className="mt-1 text-[14px] font-medium text-success">{formatCurrency(current.deduction_value)}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-medium text-text-tertiary">Progress</div>
+                  <div className="text-[11px] font-medium text-text-tertiary">Vs previous</div>
+                  {hasPrevious ? (
+                    <>
+                      <div className="mt-1 text-[12px] font-medium text-text-primary">{signedMiles(deltaMiles)}</div>
+                      <div className="mt-0.5 text-[11px] text-text-tertiary">{signedCurrency(deltaDeduction)}</div>
+                    </>
+                  ) : (
+                    <div className="mt-1 text-[12px] text-text-tertiary">Starting month</div>
+                  )}
+                </div>
+                <div className="rounded-xl bg-subtle px-3 py-2">
+                  <div className="text-[11px] font-medium text-text-tertiary">{periodMonth.slice(0, 4)} YTD</div>
                   <div className="mt-1 text-[12px] font-medium text-text-primary">
-                    {signedMiles(deltaMiles)} · {signedCurrency(deltaDeduction)}
+                    {ytdMiles.toFixed(1)} mi
                   </div>
-                  <div className="mt-0.5 text-[11px] text-text-tertiary">
-                    YTD {ytdMiles.toFixed(1)} mi · {formatCurrency(ytdDeduction)}
-                  </div>
+                  <div className="mt-0.5 text-[11px] text-success">{formatCurrency(ytdDeduction)}</div>
                 </div>
 
                 <div className="absolute right-3 top-3 sm:static">
