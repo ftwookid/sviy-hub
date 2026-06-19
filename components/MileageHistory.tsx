@@ -22,6 +22,16 @@ function timestamp(value: string) {
   }).format(new Date(value));
 }
 
+function signedMiles(value: number) {
+  const sign = value >= 0 ? "+" : "−";
+  return `${sign}${Math.abs(value).toFixed(1)} mi`;
+}
+
+function signedCurrency(value: number) {
+  const sign = value >= 0 ? "+" : "−";
+  return `${sign}${formatCurrency(Math.abs(value))}`;
+}
+
 export function MileageHistory({
   uploads,
   restoringId,
@@ -39,11 +49,46 @@ export function MileageHistory({
     uploads.forEach((upload) => {
       groups.set(upload.period_month, [...(groups.get(upload.period_month) ?? []), upload]);
     });
-    return Array.from(groups.entries()).map(([periodMonth, versions]) => ({
+    const grouped = Array.from(groups.entries()).map(([periodMonth, versions]) => ({
       periodMonth,
       versions,
-      current: versions.find((version) => version.is_active) ?? versions[0]
+      current: versions.find((version) => version.is_active) ?? versions[0],
+      deltaMiles: 0,
+      deltaDeduction: 0,
+      ytdMiles: 0,
+      ytdDeduction: 0
     }));
+
+    const byYear = new Map<string, typeof grouped>();
+    grouped.forEach((group) => {
+      const year = group.periodMonth.slice(0, 4);
+      byYear.set(year, [...(byYear.get(year) ?? []), group]);
+    });
+
+    byYear.forEach((yearGroups) => {
+      let previousMiles = 0;
+      let previousDeduction = 0;
+      let ytdMiles = 0;
+      let ytdDeduction = 0;
+
+      yearGroups
+        .slice()
+        .sort((a, b) => a.periodMonth.localeCompare(b.periodMonth))
+        .forEach((group) => {
+          const monthMiles = Number(group.current.business_miles);
+          const monthDeduction = Number(group.current.deduction_value);
+          group.deltaMiles = monthMiles - previousMiles;
+          group.deltaDeduction = monthDeduction - previousDeduction;
+          ytdMiles += monthMiles;
+          ytdDeduction += monthDeduction;
+          group.ytdMiles = ytdMiles;
+          group.ytdDeduction = ytdDeduction;
+          previousMiles = monthMiles;
+          previousDeduction = monthDeduction;
+        });
+    });
+
+    return grouped.sort((a, b) => b.periodMonth.localeCompare(a.periodMonth));
   }, [uploads]);
 
   function download(upload: MileageUpload) {
@@ -70,11 +115,12 @@ export function MileageHistory({
       </div>
 
       <div className="space-y-3">
-        {monthGroups.map(({ periodMonth, versions, current }) => {
+        {monthGroups.map(
+          ({ periodMonth, versions, current, deltaMiles, deltaDeduction, ytdMiles, ytdDeduction }) => {
           const expanded = expandedMonth === periodMonth;
           return (
             <article key={periodMonth} className="relative rounded-[22px] border border-border bg-surface shadow-card">
-              <div className="grid gap-4 p-4 sm:grid-cols-[1.25fr_.8fr_.8fr_.9fr_auto] sm:items-center sm:p-5">
+              <div className="grid gap-4 p-4 sm:grid-cols-[1.25fr_.55fr_.7fr_.8fr_1.35fr_auto] sm:items-center sm:p-5">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[16px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
@@ -114,6 +160,15 @@ export function MileageHistory({
                 <div>
                   <div className="text-[11px] font-medium text-text-tertiary">Deduction</div>
                   <div className="mt-1 text-[14px] font-medium text-success">{formatCurrency(current.deduction_value)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-text-tertiary">Progress</div>
+                  <div className="mt-1 text-[12px] font-medium text-text-primary">
+                    {signedMiles(deltaMiles)} · {signedCurrency(deltaDeduction)}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-text-tertiary">
+                    YTD {ytdMiles.toFixed(1)} mi · {formatCurrency(ytdDeduction)}
+                  </div>
                 </div>
 
                 <div className="absolute right-3 top-3 sm:static">

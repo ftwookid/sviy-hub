@@ -43,10 +43,6 @@ function dateKey(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function compactDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(dateFromTimestamp(value));
-}
-
 function tooltipDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(
     dateFromTimestamp(value)
@@ -64,13 +60,22 @@ function destinationArea(value: string | null) {
     .split(",")
     .map((piece) => piece.trim())
     .filter(Boolean);
-  if (pieces.length === 1) return pieces[0];
+  const neighborhoodPattern =
+    /\b(?:northwest|southwest|northeast|southeast|north|south|east|west)\s+portland\b/i;
+  const namedPortlandArea = pieces.find((piece) => neighborhoodPattern.test(piece));
+  if (namedPortlandArea) return namedPortlandArea;
 
-  const withoutCountry = pieces.filter((piece) => !/^(usa|united states)$/i.test(piece));
-  const last = withoutCountry[withoutCountry.length - 1] ?? "";
-  const looksLikeState = /^[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?$/i.test(last);
-  if (looksLikeState && withoutCountry.length > 1) return withoutCountry[withoutCountry.length - 2];
-  return withoutCountry[withoutCountry.length - 1] || pieces[0];
+  const candidates = pieces.filter((piece) => {
+    if (/^(?:usa|united states)$/i.test(piece)) return false;
+    if (/^\d{5}(?:-\d{4})?$/.test(piece)) return false;
+    if (/^[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?$/i.test(piece)) return false;
+    if (/^(?:oregon|washington)(?:\s+\d{5}(?:-\d{4})?)?$/i.test(piece)) return false;
+    if (/^portland(?:\s+(?:or|oregon))?(?:\s+\d{5}(?:-\d{4})?)?$/i.test(piece)) return false;
+    if (/^\d+\s/.test(piece)) return false;
+    return true;
+  });
+
+  return candidates[0] ?? pieces.find((piece) => !/\d{5}/.test(piece)) ?? "Area not named";
 }
 
 function daysBetween(start: Date, end: Date) {
@@ -82,6 +87,17 @@ function daysBetween(start: Date, end: Date) {
     cursor.setDate(cursor.getDate() + 1);
   }
   return days;
+}
+
+function monthsBetween(start: Date, end: Date) {
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  const months: Date[] = [];
+  while (cursor <= last) {
+    months.push(new Date(cursor));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return months;
 }
 
 function SecondaryStat({
@@ -257,8 +273,38 @@ export default function MileagePage() {
       miles: totals.get(dateKey(date)) ?? 0
     }));
   }, [periodBounds.end, periodBounds.start, periodTrips]);
-  const maxDailyMiles = Math.max(...dailyData.map((day) => day.miles), 1);
   const biggestDay = dailyData.slice().sort((a, b) => b.miles - a.miles)[0];
+
+  const chartData = useMemo(() => {
+    if (period === "month") {
+      return dailyData.map((day) => ({
+        key: day.date,
+        axisLabel: String(dateFromTimestamp(day.date).getDate()),
+        tooltipLabel: tooltipDate(day.date),
+        miles: day.miles
+      }));
+    }
+
+    const totals = new Map<string, number>();
+    periodTrips.forEach((trip) => {
+      const key = trip.start_at.slice(0, 7);
+      totals.set(key, (totals.get(key) ?? 0) + Number(trip.miles));
+    });
+
+    return monthsBetween(periodBounds.start, periodBounds.end).map((date) => {
+      const key = dateKey(date).slice(0, 7);
+      return {
+        key,
+        axisLabel:
+          period === "all"
+            ? `${new Intl.DateTimeFormat("en-US", { month: "short" }).format(date)} ’${String(date.getFullYear()).slice(2)}`
+            : new Intl.DateTimeFormat("en-US", { month: "short" }).format(date),
+        tooltipLabel: new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date),
+        miles: totals.get(key) ?? 0
+      };
+    });
+  }, [dailyData, period, periodBounds.end, periodBounds.start, periodTrips]);
+  const maxChartMiles = Math.max(...chartData.map((item) => item.miles), 1);
 
   const weekdayData = useMemo(
     () =>
@@ -384,20 +430,57 @@ export default function MileagePage() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="grid h-7 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
-              {(["month", "year", "all"] as Period[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={cn(
-                    "focus-ring min-w-14 rounded-md px-2 text-[10px] font-medium leading-none transition duration-150 ease-out",
-                    period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
-                  )}
-                  onClick={() => setPeriod(value)}
-                >
-                  {value === "all" ? "All time" : value[0].toUpperCase() + value.slice(1)}
-                </button>
-              ))}
+            <div className="flex min-h-11 max-w-full items-center gap-2 overflow-x-auto">
+              <div className="grid h-7 shrink-0 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
+                {(["month", "year", "all"] as Period[]).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={cn(
+                      "focus-ring min-w-14 rounded-md px-2 text-[10px] font-medium leading-none transition duration-150 ease-out",
+                      period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
+                    )}
+                    onClick={() => setPeriod(value)}
+                  >
+                    {value === "all" ? "All time" : value[0].toUpperCase() + value.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="w-40 shrink-0">
+                {period === "month" ? (
+                  <select
+                    aria-label="Showing month"
+                    className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis"
+                    value={selectedMonth}
+                    onChange={(event) => setSelectedMonth(event.target.value)}
+                  >
+                    {availableMonths.length ? (
+                      availableMonths.map((month) => (
+                        <option key={month} value={month}>
+                          {monthName(month)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value={selectedMonth}>{monthName(selectedMonth)}</option>
+                    )}
+                  </select>
+                ) : period === "year" ? (
+                  <select
+                    aria-label="Showing year"
+                    className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[14px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis"
+                    value={selectedYear}
+                    onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div aria-hidden="true" className="min-h-11" />
+                )}
+              </div>
             </div>
             <Button variant="accent" onClick={() => setImportOpen(true)}>
               <Plus size={18} strokeWidth={1.6} />
@@ -415,32 +498,6 @@ export default function MileagePage() {
             </p>
             <p className="mt-2 text-[11px] text-warning">{schemaError}</p>
           </section>
-        ) : null}
-
-        {period !== "all" ? (
-          <div className="max-w-[230px]">
-            {period === "month" ? (
-              <Select label="Showing month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
-                {availableMonths.length ? (
-                  availableMonths.map((month) => (
-                    <option key={month} value={month}>
-                      {monthName(month)}
-                    </option>
-                  ))
-                ) : (
-                  <option value={selectedMonth}>{monthName(selectedMonth)}</option>
-                )}
-              </Select>
-            ) : (
-              <Select label="Showing year" value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </div>
         ) : null}
 
         {loading ? (
@@ -512,31 +569,45 @@ export default function MileagePage() {
             <section className="rounded-[24px] border border-border bg-surface p-5 shadow-card sm:p-6">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-[18px] font-medium text-text-primary">Daily miles · {periodLabel}</h2>
-                  <p className="mt-1 text-[12px] text-text-tertiary">Hover over any day for the exact mileage.</p>
+                  <h2 className="text-[18px] font-medium text-text-primary">
+                    {period === "month" ? "Daily" : "Monthly"} miles · {periodLabel}
+                  </h2>
+                  <p className="mt-1 text-[12px] text-text-tertiary">
+                    Hover over any bar for the exact period and mileage.
+                  </p>
                 </div>
                 <div className="text-right text-[12px] text-text-secondary">{activeDates.size} driving days</div>
               </div>
               <div className="mt-6 overflow-x-auto pb-6">
                 <div
-                  className="flex h-56 items-end gap-1.5 border-b border-border px-1"
-                  style={{ minWidth: period === "month" ? "100%" : `${Math.max(900, dailyData.length * 9)}px` }}
+                  className="grid h-56 items-end gap-1.5 border-b border-border px-1"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.max(chartData.length, 1)}, minmax(0, 1fr))`,
+                    minWidth:
+                      period === "month"
+                        ? "680px"
+                        : period === "year"
+                          ? "100%"
+                          : `${Math.max(100, chartData.length * 52)}px`
+                  }}
                 >
-                  {dailyData.map((day, index) => (
-                    <div key={day.date} className="group relative flex h-full min-w-0 flex-1 items-end">
+                  {chartData.map((item) => (
+                    <div key={item.key} className="group relative flex h-full min-w-0 items-end">
                       <div
                         className={cn(
                           "w-full rounded-t-[5px] transition",
-                          day.miles ? "bg-accent group-hover:bg-[#B79250]" : "bg-subtle"
+                          item.miles ? "bg-accent group-hover:bg-[#B79250]" : "bg-subtle"
                         )}
-                        style={{ height: day.miles ? `${Math.max(4, (day.miles / maxDailyMiles) * 100)}%` : "2px" }}
+                        style={{
+                          height: item.miles ? `max(8px, ${(item.miles / maxChartMiles) * 100}%)` : "2px"
+                        }}
                       />
                       <div className="pointer-events-none absolute left-1/2 top-2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-text-primary px-2.5 py-1.5 text-[11px] text-white shadow-lg group-hover:block">
-                        {tooltipDate(day.date)} · {day.miles.toFixed(1)} mi
+                        {item.tooltipLabel} · {item.miles.toFixed(1)} mi
                       </div>
-                      {index % Math.max(1, Math.ceil(dailyData.length / 8)) === 0 ? (
-                        <span className="absolute -bottom-5 left-0 text-[11px] text-text-tertiary">{compactDate(day.date)}</span>
-                      ) : null}
+                      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-text-tertiary">
+                        {item.axisLabel}
+                      </span>
                     </div>
                   ))}
                 </div>
