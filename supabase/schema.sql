@@ -209,6 +209,9 @@ $$;
 --     and auth.uid()::text = (storage.foldername(name))[1]
 --   );
 --
+-- Also run supabase/mileage-schema.sql to install the Mileage tables, indexes,
+-- row-level security policies, and immutable upload-version storage.
+--
 -- create policy "Users can view their own receipts"
 --   on storage.objects for select
 --   using (
