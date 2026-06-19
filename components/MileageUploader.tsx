@@ -60,11 +60,15 @@ function warningCopy(preview: Preview) {
 export function MileageUploader({
   userId,
   uploads,
-  onSaved
+  onSaved,
+  open,
+  onClose
 }: {
   userId: string;
   uploads: MileageUpload[];
   onSaved: (message: string) => void;
+  open: boolean;
+  onClose: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -178,85 +182,116 @@ export function MileageUploader({
     setPreview(null);
     setPastedCsv("");
     onSaved(`${target.parsed.periodLabel} mileage logged`);
+    onClose();
   }
 
   const warning = preview ? warningCopy(preview) : null;
 
+  if (!open && !preview) return null;
+
   return (
     <>
-      <section className="overflow-hidden rounded-[28px] border border-border bg-surface shadow-card">
-        <div className="grid lg:grid-cols-[1.05fr_.95fr]">
-          <div className="p-5 sm:p-7">
-            <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent-soft">
-                <Upload size={20} strokeWidth={1.6} className="text-accent" />
-              </div>
+      {open ? (
+        <div
+          className="fixed inset-0 z-[60] grid place-items-end bg-[#1A1916]/25 p-0 backdrop-blur-sm sm:place-items-center sm:p-5"
+          onClick={onClose}
+        >
+          <section
+            className="slide-over-panel max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-[30px] bg-page shadow-[0_24px_80px_rgba(40,31,20,.2)] sm:rounded-[30px]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-7">
               <div>
-                <h2 className="text-[19px] font-medium text-text-primary">Log a MileIQ month</h2>
-                <p className="text-[13px] text-text-secondary">Drop the export here. The month and totals are automatic.</p>
+                <h2 className="text-[25px] font-medium leading-tight tracking-[-0.01em] text-text-primary">
+                  Log a MileIQ month
+                </h2>
+                <p className="mt-1 text-[14px] text-text-secondary">
+                  Add the export and Sviy Hub will identify the month, validate it, and calculate everything automatically.
+                </p>
               </div>
+              <Button variant="ghost" className="h-10 min-h-10 w-10 shrink-0 p-0" onClick={onClose} aria-label="Close">
+                <X size={19} />
+              </Button>
             </div>
 
-            <button
-              type="button"
-              className={cn(
-                "focus-ring mt-5 flex min-h-36 w-full flex-col items-center justify-center rounded-[22px] border border-dashed px-5 text-center transition",
-                dragging ? "border-accent bg-accent-soft/70" : "border-border-emphasis bg-subtle/65 hover:bg-subtle"
-              )}
-              onClick={() => inputRef.current?.click()}
-              onDragEnter={(event) => {
-                event.preventDefault();
-                setDragging(true);
-              }}
-              onDragOver={(event) => event.preventDefault()}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDragging(false);
-                handleFile(event.dataTransfer.files[0]);
-              }}
-            >
-              <FileSpreadsheet size={28} strokeWidth={1.4} className="text-accent" />
-              <span className="mt-2 text-[15px] font-medium text-text-primary">Choose or drop a CSV</span>
-              <span className="mt-1 text-[12px] text-text-tertiary">Only Business trips will be kept</span>
-            </button>
-            <input
-              ref={inputRef}
-              className="hidden"
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(event) => handleFile(event.target.files?.[0])}
-            />
-          </div>
+            <div className="grid sm:grid-cols-2">
+              <div className="p-5 sm:p-7">
+                <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                  <Upload size={15} className="text-accent" />
+                  Upload CSV
+                </div>
+                <button
+                  type="button"
+                  className={cn(
+                    "focus-ring mt-3 flex min-h-52 w-full flex-col items-center justify-center rounded-[22px] border border-dashed px-5 text-center transition",
+                    dragging ? "border-accent bg-accent-soft/70" : "border-border-emphasis bg-surface hover:bg-subtle"
+                  )}
+                  onClick={() => inputRef.current?.click()}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragging(false);
+                    handleFile(event.dataTransfer.files[0]);
+                  }}
+                >
+                  <div className="grid h-14 w-14 place-items-center rounded-[20px] bg-accent-soft">
+                    <FileSpreadsheet size={25} strokeWidth={1.4} className="text-accent" />
+                  </div>
+                  <span className="mt-3 text-[15px] font-medium text-text-primary">Choose or drop a CSV</span>
+                  <span className="mt-1 max-w-[220px] text-[12px] leading-relaxed text-text-tertiary">
+                    MileIQ export only. Non-Business trips are ignored.
+                  </span>
+                </button>
+                <input
+                  ref={inputRef}
+                  className="hidden"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(event) => handleFile(event.target.files?.[0])}
+                />
+              </div>
 
-          <div className="border-t border-border bg-[#FBF9F5] p-5 sm:p-7 lg:border-l lg:border-t-0">
-            <label className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary" htmlFor="mileage-csv">
-              Or paste CSV contents
-            </label>
-            <textarea
-              id="mileage-csv"
-              className="focus-ring mt-2 min-h-32 w-full resize-y rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] text-text-primary placeholder:text-text-tertiary"
-              value={pastedCsv}
-              placeholder="Paste the complete MileIQ export here…"
-              onChange={(event) => setPastedCsv(event.target.value)}
-            />
-            <Button
-              className="mt-3 w-full"
-              variant="soft"
-              disabled={!pastedCsv.trim() || saving}
-              onClick={() => inspect(pastedCsv, "pasted-mileiq-export.csv")}
-            >
-              Read pasted CSV
-            </Button>
-          </div>
+              <div className="border-t border-border bg-[#FBF9F5] p-5 sm:border-l sm:border-t-0 sm:p-7">
+                <label
+                  className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary"
+                  htmlFor="mileage-csv"
+                >
+                  <FileSpreadsheet size={15} className="text-accent" />
+                  Paste raw CSV
+                </label>
+                <textarea
+                  id="mileage-csv"
+                  className="focus-ring mt-3 min-h-52 w-full resize-y rounded-[22px] border border-border bg-surface px-4 py-3 text-[13px] text-text-primary placeholder:text-text-tertiary"
+                  value={pastedCsv}
+                  placeholder="Paste the complete MileIQ export here…"
+                  onChange={(event) => setPastedCsv(event.target.value)}
+                />
+                <Button
+                  className="mt-3 w-full"
+                  variant="soft"
+                  disabled={!pastedCsv.trim() || saving}
+                  onClick={() => inspect(pastedCsv, "pasted-mileiq-export.csv")}
+                >
+                  Read pasted CSV
+                </Button>
+              </div>
+            </div>
+            {error ? (
+              <div className="border-t border-danger/10 bg-danger-soft px-5 py-3 text-[13px] text-danger sm:px-7">
+                {error}
+              </div>
+            ) : null}
+          </section>
         </div>
-        {error ? (
-          <div className="border-t border-danger/10 bg-danger-soft px-5 py-3 text-[13px] text-danger sm:px-7">{error}</div>
-        ) : null}
-      </section>
+      ) : null}
 
       {preview ? (
-        <div className="fixed inset-0 z-[70] grid place-items-end bg-[#1A1916]/25 p-0 backdrop-blur-sm sm:place-items-center sm:p-5">
+        <div className="fixed inset-0 z-[70] grid place-items-end bg-[#1A1916]/30 p-0 backdrop-blur-sm sm:place-items-center sm:p-5">
           <section className="w-full max-w-lg rounded-t-[28px] bg-page p-5 shadow-[0_24px_80px_rgba(40,31,20,.2)] sm:rounded-[28px] sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex gap-3">
