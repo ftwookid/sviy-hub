@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { CreditCard, UserRound, UsersRound } from "lucide-react";
+import { CarFront, CreditCard, UserRound, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { cn } from "@/lib/cn";
@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 const navItems = [
   { label: "Expenses", href: "/", icon: CreditCard },
   { label: "Clients", href: "/clients", icon: UsersRound },
+  { label: "Mileage", href: "/mileage", icon: CarFront },
   { label: "Profile", href: "/profile", icon: UserRound }
 ];
 
@@ -95,7 +96,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
       </div>
 
       <nav className="fixed inset-x-3 bottom-3 z-50 rounded-[24px] border border-white/70 bg-surface/78 px-2 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 shadow-[0_18px_48px_rgba(80,66,44,0.16)] backdrop-blur-2xl md:hidden">
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.href);

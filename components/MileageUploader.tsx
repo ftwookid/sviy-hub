@@ -1,0 +1,329 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/formatters";
+import { hashMileageCsv, parseMileageCsv } from "@/lib/mileageCsv";
+import { supabase } from "@/lib/supabase";
+import type { MileageUpload, ParsedMileageCsv } from "@/types/mileage";
+
+type Preview = {
+  parsed: ParsedMileageCsv;
+  hash: string;
+  text: string;
+  filename: string;
+  existing: MileageUpload | null;
+  duplicate: MileageUpload | null;
+};
+
+function formatLoggedAt(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function warningCopy(preview: Preview) {
+  const { parsed, existing } = preview;
+  if (!existing && !parsed.isComplete) {
+    return {
+      title: `${parsed.periodLabel} appears incomplete`,
+      body: `Trips run from ${parsed.coverageStart} through ${parsed.coverageEnd}. You can log this partial month now and replace it later.`
+    };
+  }
+  if (existing?.is_complete && !parsed.isComplete) {
+    return {
+      title: `${parsed.periodLabel} is already fully logged`,
+      body: `The active version has ${existing.business_trip_count} Business trips and ${Number(existing.business_miles).toFixed(1)} miles. This new file ends on ${parsed.coverageEnd} with only ${parsed.businessTrips.length} Business trips. It may be the wrong file.`
+    };
+  }
+  if (existing && !existing.is_complete && parsed.isComplete) {
+    return {
+      title: `Replace the partial ${parsed.periodLabel} data?`,
+      body: `The current version was marked incomplete. This file reaches ${parsed.coverageEnd} and looks like the complete month.`
+    };
+  }
+  if (existing) {
+    return {
+      title: `${parsed.periodLabel} already has data`,
+      body: `This is a different file for the same month. The active version has ${existing.business_trip_count} Business trips and ${Number(existing.business_miles).toFixed(1)} miles; this one has ${parsed.businessTrips.length} trips and ${parsed.businessMiles.toFixed(1)} miles. Confirm only if you intend to replace it.`
+    };
+  }
+  return null;
+}
+
+export function MileageUploader({
+  userId,
+  uploads,
+  onSaved
+}: {
+  userId: string;
+  uploads: MileageUpload[];
+  onSaved: (message: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [pastedCsv, setPastedCsv] = useState("");
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function inspect(text: string, filename: string) {
+    setError("");
+    try {
+      const [parsed, hash] = await Promise.all([Promise.resolve(parseMileageCsv(text)), hashMileageCsv(text)]);
+      const duplicate = uploads.find((upload) => upload.content_hash === hash) ?? null;
+      const existing = uploads.find((upload) => upload.period_month === parsed.periodMonth && upload.is_active) ?? null;
+      const nextPreview = { parsed, hash, text, filename, existing, duplicate };
+      setPreview(nextPreview);
+
+      if (!duplicate && parsed.isComplete && !existing) {
+        await save(nextPreview);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The CSV could not be read.");
+    }
+  }
+
+  async function handleFile(file?: File) {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setError("Choose a CSV exported from MileIQ.");
+      return;
+    }
+    await inspect(await file.text(), file.name);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function save(target = preview) {
+    if (!target || !supabase || target.duplicate) return;
+    setSaving(true);
+    setError("");
+
+    const { data: upload, error: uploadError } = await supabase
+      .from("mileage_uploads")
+      .insert({
+        user_id: userId,
+        period_month: target.parsed.periodMonth,
+        original_filename: target.filename,
+        content_hash: target.hash,
+        raw_csv: target.text,
+        coverage_start: target.parsed.coverageStart,
+        coverage_end: target.parsed.coverageEnd,
+        is_complete: target.parsed.isComplete,
+        is_active: false,
+        business_trip_count: target.parsed.businessTrips.length,
+        business_miles: target.parsed.businessMiles,
+        deduction_value: target.parsed.deductionValue
+      })
+      .select("id")
+      .single();
+
+    if (uploadError || !upload) {
+      setError(uploadError?.message ?? "The upload could not be saved.");
+      setSaving(false);
+      return;
+    }
+
+    const tripRows = target.parsed.businessTrips.map((trip) => ({
+      ...trip,
+      upload_id: upload.id,
+      user_id: userId
+    }));
+    const { error: tripsError } = await supabase.from("mileage_trips").insert(tripRows);
+    if (tripsError) {
+      await supabase.from("mileage_uploads").delete().eq("id", upload.id);
+      setError(tripsError.message);
+      setSaving(false);
+      return;
+    }
+
+    if (target.existing) {
+      const { error: deactivateError } = await supabase
+        .from("mileage_uploads")
+        .update({ is_active: false })
+        .eq("id", target.existing.id);
+      if (deactivateError) {
+        await supabase.from("mileage_uploads").delete().eq("id", upload.id);
+        setError(deactivateError.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    const { error: activateError } = await supabase
+      .from("mileage_uploads")
+      .update({ is_active: true, activated_at: new Date().toISOString() })
+      .eq("id", upload.id);
+
+    if (activateError) {
+      if (target.existing) {
+        await supabase
+          .from("mileage_uploads")
+          .update({ is_active: true, activated_at: target.existing.activated_at })
+          .eq("id", target.existing.id);
+      }
+      await supabase.from("mileage_uploads").delete().eq("id", upload.id);
+      setError(activateError.message);
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
+    setPreview(null);
+    setPastedCsv("");
+    onSaved(`${target.parsed.periodLabel} mileage logged`);
+  }
+
+  const warning = preview ? warningCopy(preview) : null;
+
+  return (
+    <>
+      <section className="overflow-hidden rounded-[28px] border border-border bg-surface shadow-card">
+        <div className="grid lg:grid-cols-[1.05fr_.95fr]">
+          <div className="p-5 sm:p-7">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent-soft">
+                <Upload size={20} strokeWidth={1.6} className="text-accent" />
+              </div>
+              <div>
+                <h2 className="text-[19px] font-medium text-text-primary">Log a MileIQ month</h2>
+                <p className="text-[13px] text-text-secondary">Drop the export here. The month and totals are automatic.</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={cn(
+                "focus-ring mt-5 flex min-h-36 w-full flex-col items-center justify-center rounded-[22px] border border-dashed px-5 text-center transition",
+                dragging ? "border-accent bg-accent-soft/70" : "border-border-emphasis bg-subtle/65 hover:bg-subtle"
+              )}
+              onClick={() => inputRef.current?.click()}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                handleFile(event.dataTransfer.files[0]);
+              }}
+            >
+              <FileSpreadsheet size={28} strokeWidth={1.4} className="text-accent" />
+              <span className="mt-2 text-[15px] font-medium text-text-primary">Choose or drop a CSV</span>
+              <span className="mt-1 text-[12px] text-text-tertiary">Only Business trips will be kept</span>
+            </button>
+            <input
+              ref={inputRef}
+              className="hidden"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(event) => handleFile(event.target.files?.[0])}
+            />
+          </div>
+
+          <div className="border-t border-border bg-[#FBF9F5] p-5 sm:p-7 lg:border-l lg:border-t-0">
+            <label className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary" htmlFor="mileage-csv">
+              Or paste CSV contents
+            </label>
+            <textarea
+              id="mileage-csv"
+              className="focus-ring mt-2 min-h-32 w-full resize-y rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] text-text-primary placeholder:text-text-tertiary"
+              value={pastedCsv}
+              placeholder="Paste the complete MileIQ export here…"
+              onChange={(event) => setPastedCsv(event.target.value)}
+            />
+            <Button
+              className="mt-3 w-full"
+              variant="soft"
+              disabled={!pastedCsv.trim() || saving}
+              onClick={() => inspect(pastedCsv, "pasted-mileiq-export.csv")}
+            >
+              Read pasted CSV
+            </Button>
+          </div>
+        </div>
+        {error ? (
+          <div className="border-t border-danger/10 bg-danger-soft px-5 py-3 text-[13px] text-danger sm:px-7">{error}</div>
+        ) : null}
+      </section>
+
+      {preview ? (
+        <div className="fixed inset-0 z-[70] grid place-items-end bg-[#1A1916]/25 p-0 backdrop-blur-sm sm:place-items-center sm:p-5">
+          <section className="w-full max-w-lg rounded-t-[28px] bg-page p-5 shadow-[0_24px_80px_rgba(40,31,20,.2)] sm:rounded-[28px] sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div
+                  className={cn(
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-2xl",
+                    preview.duplicate ? "bg-success-soft" : warning ? "bg-warning-soft" : "bg-accent-soft"
+                  )}
+                >
+                  {preview.duplicate ? (
+                    <CheckCircle2 size={21} className="text-success" />
+                  ) : (
+                    <AlertTriangle size={21} className={warning ? "text-warning" : "text-accent"} />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-[21px] font-medium leading-tight text-text-primary">
+                    {preview.duplicate ? "This file was already uploaded" : warning?.title ?? preview.parsed.periodLabel}
+                  </h2>
+                  <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
+                    {preview.duplicate
+                      ? `${preview.parsed.periodLabel} was logged on ${formatLoggedAt(preview.duplicate.uploaded_at)}. Nothing was changed.`
+                      : warning?.body}
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="text-text-tertiary" onClick={() => setPreview(null)} aria-label="Close">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <div className="rounded-2xl bg-surface p-3">
+                <div className="text-[11px] text-text-tertiary">Business trips</div>
+                <div className="mt-1 text-[18px] font-medium">{preview.parsed.businessTrips.length}</div>
+              </div>
+              <div className="rounded-2xl bg-surface p-3">
+                <div className="text-[11px] text-text-tertiary">Miles</div>
+                <div className="mt-1 text-[18px] font-medium">{preview.parsed.businessMiles.toFixed(1)}</div>
+              </div>
+              <div className="rounded-2xl bg-surface p-3">
+                <div className="text-[11px] text-text-tertiary">Deduction</div>
+                <div className="mt-1 text-[18px] font-medium">{formatCurrency(preview.parsed.deductionValue)}</div>
+              </div>
+            </div>
+            <p className="mt-3 text-[12px] text-text-tertiary">
+              {preview.parsed.ignoredTripCount} non-Business trips ignored · rate read from each trip
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <Button className="flex-1" variant="ghost" onClick={() => setPreview(null)}>
+                {preview.duplicate ? "Close" : "Cancel"}
+              </Button>
+              {!preview.duplicate ? (
+                <Button
+                  className="flex-1"
+                  variant={preview.existing?.is_complete && !preview.parsed.isComplete ? "danger" : "accent"}
+                  disabled={saving}
+                  onClick={() => save()}
+                >
+                  {saving ? "Saving…" : preview.existing ? `Replace ${preview.parsed.periodLabel}` : `Log ${preview.parsed.periodLabel}`}
+                </Button>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
+}
