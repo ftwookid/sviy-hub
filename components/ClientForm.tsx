@@ -17,7 +17,7 @@ import {
   selectedDaysFromRecord,
   selectedDaysLabel
 } from "@/lib/clients";
-import { formatCurrency, formatShortDate, sanitizeFilename } from "@/lib/formatters";
+import { formatCurrency, formatShortDate, sanitizeFilename, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
 import type {
   ClientFormPet,
@@ -39,7 +39,7 @@ type ClientFormProps = {
 };
 
 type ClientFormErrors = Partial<
-  Record<"name" | "address" | "payment_method" | "price_per_visit" | "pets" | "selected_days", string>
+  Record<"name" | "address" | "regular_since" | "payment_method" | "price_per_visit" | "pets" | "selected_days", string>
 >;
 
 type ChangeSummary = {
@@ -57,6 +57,7 @@ function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   return {
     name: client.name,
     address: client.address,
+    regular_since: toInputDate(new Date(client.created_at)),
     pets:
       client.pets.length > 0
         ? client.pets.map((pet) => ({
@@ -142,6 +143,7 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
     const nextErrors: ClientFormErrors = {};
     if (!values.name.trim()) nextErrors.name = "Client name is required.";
     if (!values.address.trim()) nextErrors.address = "Address is required.";
+    if (!client && !values.regular_since) nextErrors.regular_since = "Choose when this client became regular.";
     if (!values.pets.length) {
       nextErrors.pets = "Add at least one pet.";
     } else if (values.pets.some((pet) => !pet.name.trim() || !pet.type)) {
@@ -379,6 +381,25 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
         if (petsError) throw petsError;
       }
 
+      if (!client) {
+        const regularSince = values.regular_since;
+        const [{ error: statusError }, { error: priceError }] = await Promise.all([
+          supabase.from("status_history").insert({
+            client_id: clientId,
+            status: values.status,
+            start_date: regularSince
+          }),
+          supabase.from("price_history").insert({
+            client_id: clientId,
+            price: Number(Number(values.price_per_visit || 0).toFixed(2)),
+            effective_date: regularSince
+          })
+        ]);
+
+        if (statusError) throw statusError;
+        if (priceError) throw priceError;
+      }
+
       onSaved();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Something went wrong while saving.");
@@ -425,6 +446,15 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
           placeholder="Search by address or building name"
           onChange={(nextAddress) => update("address", nextAddress)}
         />
+        {!client ? (
+          <Input
+            label="Regular since"
+            type="date"
+            value={values.regular_since}
+            error={errors.regular_since}
+            onChange={(event) => update("regular_since", event.target.value)}
+          />
+        ) : null}
       </div>
 
       <div className="space-y-3">

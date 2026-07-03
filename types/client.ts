@@ -64,6 +64,7 @@ export type ClientFormPet = {
 export type ClientFormValues = {
   name: string;
   address: string;
+  regular_since: string;
   pets: ClientFormPet[];
   payment_method: ClientPaymentMethod;
   status: ClientStatus;

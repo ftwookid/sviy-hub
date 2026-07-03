@@ -1,4 +1,5 @@
 import type { ClientFormValues, ClientPaymentMethod, ClientWithPets, PetType } from "@/types/client";
+import { todayInputValue } from "@/lib/formatters";
 
 export const CLIENT_PAYMENT_METHODS: ClientPaymentMethod[] = ["Rover", "Venmo", "Cash"];
 export const PET_TYPES: PetType[] = ["Dog", "Cat", "Bird", "Exotic"];
@@ -58,6 +59,7 @@ export function defaultClientValues(): ClientFormValues {
   return {
     name: "",
     address: "",
+    regular_since: todayInputValue(),
     pets: [],
     payment_method: "Rover",
     status: "Active",
