@@ -22,25 +22,21 @@ type ClientView = "performance" | "regular" | "house-sitting";
 const clientViews: Array<{
   id: ClientView;
   label: string;
-  description: string;
   icon: typeof BarChart3;
 }> = [
   {
     id: "performance",
     label: "Performance",
-    description: "Dashboards, charts, metrics, and customer analytics.",
     icon: BarChart3
   },
   {
     id: "regular",
     label: "Regular customers",
-    description: "Customer profiles, pets, routines, and current status.",
     icon: UsersRound
   },
   {
     id: "house-sitting",
     label: "House Sitting",
-    description: "A dedicated workflow for overnight and home care stays.",
     icon: Home
   }
 ];
@@ -147,8 +143,6 @@ function ClientsPageContent() {
   }, [clients, filter]);
 
   const activeView = getClientView(searchParams.get("view"));
-  const activeViewDetails = clientViews.find((view) => view.id === activeView) ?? clientViews[0];
-
   function changeClientView(view: ClientView) {
     const nextParams = new URLSearchParams(searchParams.toString());
     if (view === "performance") {
@@ -190,78 +184,59 @@ function ClientsPageContent() {
 
   return (
     <AppShell user={user}>
-      <div className="space-y-7">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">Clients</h1>
-            <p className="mt-2 max-w-xl text-[16px] text-text-secondary">
-              Performance, customer records, and house sitting work in one soft little command center.
-            </p>
-          </div>
+      <div className="space-y-5">
+        <header className="flex items-center justify-between gap-3">
+          <h1 className="text-[34px] font-medium leading-none tracking-[-0.01em] text-text-primary">Clients</h1>
           <Button className="hidden sm:inline-flex" variant="accent" onClick={openNewClient}>
             <Plus size={18} strokeWidth={1.6} />
             Add client
           </Button>
         </header>
 
-        <nav className="grid gap-2 sm:grid-cols-3" aria-label="Client sections">
-          {clientViews.map((view) => {
-            const Icon = view.icon;
-            const selected = activeView === view.id;
-            return (
-              <button
-                key={view.id}
-                className={cn(
-                  "focus-ring flex min-h-[86px] items-start gap-3 rounded-[18px] border p-3 text-left transition duration-150 ease-out",
-                  selected
-                    ? "border-border-emphasis bg-surface text-text-primary shadow-card"
-                    : "border-border bg-subtle/70 text-text-secondary hover:border-border-emphasis hover:bg-surface/80 hover:text-text-primary"
-                )}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => changeClientView(view.id)}
-              >
-                <span
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <nav
+            className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 lg:w-fit"
+            aria-label="Client sections"
+          >
+            {clientViews.map((view) => {
+              const Icon = view.icon;
+              const selected = activeView === view.id;
+              return (
+                <button
+                  key={view.id}
                   className={cn(
-                    "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
-                    selected ? "bg-accent-soft text-accent" : "bg-surface text-text-tertiary"
+                    "focus-ring flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 text-center text-[12px] font-medium leading-tight transition duration-150 ease-out sm:min-h-9 sm:px-3 sm:text-[14px]",
+                    selected ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
                   )}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => changeClientView(view.id)}
                 >
-                  <Icon size={19} strokeWidth={1.6} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[15px] font-medium leading-tight">{view.label}</span>
-                  <span className="mt-1 block text-[12px] leading-snug text-text-tertiary">{view.description}</span>
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+                  <Icon size={16} strokeWidth={1.6} className={selected ? "text-accent" : "text-text-tertiary"} />
+                  <span>{view.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        <div>
-          <div className="flex flex-col gap-1">
-            <h2 className="text-[24px] font-medium leading-tight text-text-primary">{activeViewDetails.label}</h2>
-            <p className="max-w-2xl text-[14px] text-text-secondary">{activeViewDetails.description}</p>
-          </div>
+          {activeView !== "house-sitting" ? (
+            <div className="grid min-h-10 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
+              {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
+                <button
+                  key={item}
+                  className={cn(
+                    "min-h-8 rounded-xl px-3 text-[13px] font-medium transition duration-150 ease-out",
+                    filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                  )}
+                  type="button"
+                  onClick={() => setFilter(item)}
+                >
+                  {item} {counts[item]}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-
-        {activeView !== "house-sitting" ? (
-          <div className="inline-grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
-            {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
-              <button
-                key={item}
-                className={cn(
-                  "min-h-9 rounded-xl px-3 text-[14px] font-medium transition duration-150 ease-out",
-                  filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
-                )}
-                type="button"
-                onClick={() => setFilter(item)}
-              >
-                {item} {counts[item]}
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         {activeView === "house-sitting" ? (
           <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
