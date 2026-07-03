@@ -739,24 +739,24 @@ export default function ClientDetailPage() {
             />
 
             <section>
-              <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
-                <h2 className="text-[16px] font-semibold text-text-primary">Payment info</h2>
-                <div className="mt-3 rounded-xl bg-subtle p-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-lg bg-surface px-3 py-2">
+              <div className="rounded-[18px] border border-border bg-surface p-3 shadow-card sm:p-4">
+                <h2 className="px-1 text-[15px] font-semibold text-text-primary">Payment info</h2>
+                <div className="mt-2 rounded-xl bg-subtle p-2">
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    <div className="rounded-lg bg-surface px-2.5 py-1.5">
                       <div className="text-[11px] font-medium text-text-tertiary">Visits</div>
-                      <div className="mt-0.5 text-[14px] font-semibold text-text-primary">
+                      <div className="text-[14px] font-semibold leading-5 text-text-primary">
                         {selectedDays.length} {selectedDays.length === 1 ? "visit" : "visits"}/week
                       </div>
-                      <div className="truncate text-[11px] text-text-tertiary">
+                      <div className="truncate text-[11px] leading-4 text-text-tertiary">
                         {selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"}
                       </div>
                     </div>
-                    <div className="rounded-lg bg-surface px-3 py-2">
+                    <div className="rounded-lg bg-surface px-2.5 py-1.5">
                       <div className="text-[11px] font-medium text-text-tertiary">Price per visit</div>
-                      <div className="mt-0.5 text-[14px] font-semibold text-text-primary">{formatCurrency(currentPrice)}</div>
+                      <div className="text-[14px] font-semibold leading-5 text-text-primary">{formatCurrency(currentPrice)}</div>
                       <button
-                        className="focus-ring rounded-md text-[11px] text-amber-700 transition hover:text-amber-800 hover:underline"
+                        className="focus-ring rounded-md text-[11px] leading-4 text-amber-700 transition hover:text-amber-800 hover:underline"
                         type="button"
                         onClick={() => openPriceModal()}
                       >
@@ -764,12 +764,12 @@ export default function ClientDetailPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 rounded-lg bg-surface px-3 py-2">
-                    <div className="flex min-h-7 items-center justify-between gap-3">
+                  <div className="mt-1.5 rounded-lg bg-surface px-2.5 py-1.5">
+                    <div className="flex min-h-6 items-center justify-between gap-3">
                       <div className="text-[12px] font-medium text-text-secondary">Price history</div>
                       {hasMorePriceHistory ? (
                         <button
-                          className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                          className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
                           type="button"
                           onPointerDown={(event) => {
                             if (event.button !== 0) return;
@@ -790,17 +790,17 @@ export default function ClientDetailPage() {
                         </button>
                       ) : null}
                     </div>
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-1.5 space-y-1.5">
                       {visiblePriceHistory.length > 0 ? (
                         visiblePriceHistory.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2">
+                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-2.5 py-1.5">
                             <div>
-                              <div className="text-[14px] font-medium text-text-primary">{formatCurrency(entry.price)}</div>
-                              <div className="text-[12px] text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                              <div className="text-[13px] font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
+                              <div className="text-[11px] leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
                             </div>
                             <div className="flex items-center gap-1">
                               <button
-                                className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                                className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
                                 type="button"
                                 onClick={() => openPriceModal(entry)}
                               >
@@ -808,7 +808,7 @@ export default function ClientDetailPage() {
                               </button>
                               {!entry.isFallback ? (
                                 <button
-                                  className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger-soft"
+                                  className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-danger transition hover:bg-danger-soft"
                                   type="button"
                                   onClick={() => deletePriceHistory(entry)}
                                 >
