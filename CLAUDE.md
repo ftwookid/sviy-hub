@@ -349,6 +349,7 @@ major.feature.patch
 - Change the first number only for structural app-wide changes, such as a new sidebar-level product area, core navigation model change, or a crucial shift in the overall app logic.
 - Change the second number for major feature additions inside the current structure, such as a new analytics section, complex reporting block, or a substantial new workflow inside an existing tab.
 - Change the last number for fixes, UI polish, copy updates, and other minor changes.
+- When the first or second number changes, reset the last number and start the new version line at `.1`. For example, moving from `3.1.x` to `3.2.x` should land as `3.2.1`.
 
 The repo pre-commit hook always increments the last number in `version.json` and stages it automatically. When setting a structural or major-feature version before commit, account for that hook so the committed version still follows the intended version family.
 
