@@ -19,6 +19,7 @@ import type { ClientPaymentMethod, ClientStatus, ClientWithPets, PriceHistory, S
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const ESTIMATED_TAX_RATE = 0.28;
 const FINANCIAL_PERIODS = ["week", "month", "year"] as const;
+const COMPACT_PRICE_HISTORY_COUNT = 5;
 
 type FinancialPeriod = (typeof FINANCIAL_PERIODS)[number];
 type PriceHistoryRow = PriceHistory & {
@@ -147,6 +148,18 @@ function seededPriceHistory(client: ClientWithPets | null, priceHistory: PriceHi
 
 function sortedPrices(priceHistory: PriceHistoryRow[]) {
   return priceHistory.slice().sort((a, b) => b.effective_date.localeCompare(a.effective_date));
+}
+
+function moneyToCents(value: number | string) {
+  const normalized = String(value).replace(/[$,\s]/g, "");
+  const numberValue = Number(normalized);
+  if (!Number.isFinite(numberValue)) return Number.NaN;
+
+  return Math.round((numberValue + Number.EPSILON) * 100);
+}
+
+function centsToMoney(cents: number) {
+  return cents / 100;
 }
 
 function DateCalendar({
@@ -303,7 +316,7 @@ export default function ClientDetailPage() {
   const [statusCalendarMonth, setStatusCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
   const [statusCalendarMode, setStatusCalendarMode] = useState<"days" | "monthYear">("days");
   const [savingStatus, setSavingStatus] = useState(false);
-  const [financialPeriod, setFinancialPeriod] = useState<FinancialPeriod>("month");
+  const [financialPeriod, setFinancialPeriod] = useState<FinancialPeriod>("week");
 
   const loadClient = useCallback(async () => {
     if (!supabase || !user || !clientId) return;
@@ -358,6 +371,8 @@ export default function ClientDetailPage() {
     () => sortedPrices(seededPriceHistory(client, priceHistory, currentStatusStartDate)),
     [client, currentStatusStartDate, priceHistory]
   );
+  const visiblePriceHistory = priceHistoryOpen ? orderedPriceHistory : orderedPriceHistory.slice(0, COMPACT_PRICE_HISTORY_COUNT);
+  const hasMorePriceHistory = orderedPriceHistory.length > COMPACT_PRICE_HISTORY_COUNT;
   const totalEstimate = useMemo(() => {
     if (!client) {
       return {
@@ -489,7 +504,7 @@ export default function ClientDetailPage() {
     const nextCurrentPrice = currentPriceFromHistory(client, nextPriceHistory);
     await supabase
       .from("clients")
-      .update({ price_per_visit: Number(nextCurrentPrice.toFixed(2)), updated_at: new Date().toISOString() })
+      .update({ price_per_visit: centsToMoney(moneyToCents(nextCurrentPrice)), updated_at: new Date().toISOString() })
       .eq("id", client.id);
   }
 
@@ -547,8 +562,8 @@ export default function ClientDetailPage() {
 
   async function savePriceHistory() {
     if (!supabase || !client) return;
-    const nextPrice = Number(priceValue);
-    if (!priceEffectiveDate || !Number.isFinite(nextPrice) || nextPrice < 0) {
+    const nextPriceCents = moneyToCents(priceValue);
+    if (!priceEffectiveDate || !Number.isFinite(nextPriceCents) || nextPriceCents < 0) {
       setError("Enter a valid price and effective date.");
       return;
     }
@@ -558,13 +573,19 @@ export default function ClientDetailPage() {
 
     const payload = {
       client_id: client.id,
-      price: Number(nextPrice.toFixed(2)),
+      price: centsToMoney(nextPriceCents),
       effective_date: priceEffectiveDate
     };
 
-    const { error: priceError } = editingPrice
-      ? await supabase.from("price_history").update(payload).eq("id", editingPrice.id)
-      : await supabase.from("price_history").insert(payload);
+    const sameDayEntry = priceHistory.find(
+      (entry) => entry.effective_date === priceEffectiveDate && entry.id !== editingPrice?.id
+    );
+
+    const { error: priceError } = sameDayEntry
+      ? await supabase.from("price_history").update(payload).eq("id", sameDayEntry.id)
+      : editingPrice
+        ? await supabase.from("price_history").update(payload).eq("id", editingPrice.id)
+        : await supabase.from("price_history").insert(payload);
 
     if (priceError) {
       setError(priceError.message);
@@ -572,8 +593,21 @@ export default function ClientDetailPage() {
       return;
     }
 
-    const nextHistory = editingPrice
-      ? priceHistory.map((entry) => (entry.id === editingPrice.id ? { ...entry, ...payload } : entry))
+    if (sameDayEntry && editingPrice && sameDayEntry.id !== editingPrice.id) {
+      const { error: deleteMergedError } = await supabase.from("price_history").delete().eq("id", editingPrice.id);
+      if (deleteMergedError) {
+        setError(deleteMergedError.message);
+        setSavingPrice(false);
+        return;
+      }
+    }
+
+    const nextHistory = sameDayEntry
+      ? priceHistory
+          .filter((entry) => entry.id !== editingPrice?.id)
+          .map((entry) => (entry.id === sameDayEntry.id ? { ...entry, ...payload } : entry))
+      : editingPrice
+        ? priceHistory.map((entry) => (entry.id === editingPrice.id ? { ...entry, ...payload } : entry))
       : [
           ...priceHistory,
           {
@@ -731,63 +765,69 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                   <div className="mt-2 rounded-lg bg-surface px-3 py-2">
-                    <button
-                      className="flex min-h-7 w-full items-center justify-between text-left text-[12px] font-medium text-text-secondary transition duration-150 ease-out hover:text-text-primary"
-                      type="button"
-                      onPointerDown={(event) => {
-                        if (event.button !== 0) return;
-                        suppressPriceHistoryClickUntilRef.current = Date.now() + 750;
-                        togglePriceHistory();
-                      }}
-                      onClick={() => {
-                        if (Date.now() < suppressPriceHistoryClickUntilRef.current) {
-                          suppressPriceHistoryClickUntilRef.current = 0;
-                          return;
-                        }
+                    <div className="flex min-h-7 items-center justify-between gap-3">
+                      <div className="text-[12px] font-medium text-text-secondary">Price history</div>
+                      {hasMorePriceHistory ? (
+                        <button
+                          className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                          type="button"
+                          onPointerDown={(event) => {
+                            if (event.button !== 0) return;
+                            suppressPriceHistoryClickUntilRef.current = Date.now() + 750;
+                            togglePriceHistory();
+                          }}
+                          onClick={() => {
+                            if (Date.now() < suppressPriceHistoryClickUntilRef.current) {
+                              suppressPriceHistoryClickUntilRef.current = 0;
+                              return;
+                            }
 
-                        togglePriceHistory();
-                      }}
-                    >
-                      Price history
-                      <ChevronRight className={cn("transition duration-200", priceHistoryOpen && "rotate-90")} size={15} strokeWidth={1.7} />
-                    </button>
-                    <div className="collapsible-grid" data-open={priceHistoryOpen}>
-                      <div>
-                        <div className="mt-2 space-y-2">
-                          {orderedPriceHistory.length > 0 ? (
-                            orderedPriceHistory.map((entry) => (
-                              <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2">
-                                <div>
-                                  <div className="text-[14px] font-medium text-text-primary">{formatCurrency(entry.price)}</div>
-                                  <div className="text-[12px] text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
-                                    type="button"
-                                    onClick={() => openPriceModal(entry)}
-                                  >
-                                    Edit
-                                  </button>
-                                  {!entry.isFallback ? (
-                                    <button
-                                      className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger-soft"
-                                      type="button"
-                                      onClick={() => deletePriceHistory(entry)}
-                                    >
-                                      Delete
-                                    </button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-[13px] text-text-tertiary">No price history yet.</p>
-                          )}
-                        </div>
-                      </div>
+                            togglePriceHistory();
+                          }}
+                        >
+                          {priceHistoryOpen ? "Show less" : `Show all ${orderedPriceHistory.length}`}
+                          <ChevronRight className={cn("transition duration-200", priceHistoryOpen && "rotate-90")} size={14} strokeWidth={1.7} />
+                        </button>
+                      ) : null}
                     </div>
-                  </div>
+                    <div className="mt-2 space-y-2">
+                      {visiblePriceHistory.length > 0 ? (
+                        visiblePriceHistory.map((entry) => (
+                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2">
+                            <div>
+                              <div className="text-[14px] font-medium text-text-primary">{formatCurrency(entry.price)}</div>
+                              <div className="text-[12px] text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                                type="button"
+                                onClick={() => openPriceModal(entry)}
+                              >
+                                Edit
+                              </button>
+                              {!entry.isFallback ? (
+                                <button
+                                  className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger-soft"
+                                  type="button"
+                                  onClick={() => deletePriceHistory(entry)}
+                                >
+                                  Delete
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[13px] text-text-tertiary">No price history yet.</p>
+                      )}
+                    </div>
+                    {!priceHistoryOpen && hasMorePriceHistory ? (
+                      <p className="mt-2 text-[11px] text-text-tertiary">
+                        Showing newest {COMPACT_PRICE_HISTORY_COUNT} of {orderedPriceHistory.length}
+                      </p>
+                    ) : null}
+                        </div>
                 </div>
               </div>
             </section>

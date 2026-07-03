@@ -32,7 +32,7 @@ export default function ClientsPage() {
     setLoading(true);
     let query = supabase
       .from("clients")
-      .select("*, pets(*)")
+      .select("*, pets(*), price_history(*)")
       .order("name", { ascending: true });
 
     if (!isAdmin) query = query.eq("user_id", user.id);
@@ -40,7 +40,7 @@ export default function ClientsPage() {
     const { data } = await query;
 
     const nextClients = ((data ?? []) as Array<ClientWithPets & { pets: ClientWithPets["pets"] | null }>).map(
-      (client) => ({ ...client, pets: client.pets ?? [] })
+      (client) => ({ ...client, pets: client.pets ?? [], price_history: client.price_history ?? [] })
     );
 
     if (isAdmin && nextClients.length > 0) {

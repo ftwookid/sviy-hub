@@ -33,6 +33,7 @@ export type Pet = {
 
 export type ClientWithPets = Client & {
   pets: Pet[];
+  price_history?: PriceHistory[];
 };
 
 export type StatusHistory = {

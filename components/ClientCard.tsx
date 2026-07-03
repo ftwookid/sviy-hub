@@ -2,7 +2,7 @@
 
 import { Clock, Home, PawPrint, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, todayInputValue } from "@/lib/formatters";
 import { estimateClientFromRecord } from "@/lib/clients";
 import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
 
@@ -33,6 +33,15 @@ function paymentMethodTone(method: ClientPaymentMethod) {
   return "bg-blue-100 text-blue-700";
 }
 
+function currentPrice(client: ClientWithPets) {
+  const today = todayInputValue();
+  const currentEntry = (client.price_history ?? [])
+    .filter((entry) => entry.effective_date <= today)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+  return Number(currentEntry?.price ?? client.price_per_visit);
+}
+
 export function ClientCard({
   client,
   ownerLabel,
@@ -44,7 +53,7 @@ export function ClientCard({
   onDelete?: () => void;
   onClick: () => void;
 }) {
-  const estimate = estimateClientFromRecord(client);
+  const estimate = estimateClientFromRecord({ ...client, price_per_visit: currentPrice(client) });
   const isPaused = client.status === "Paused";
   const pets = petNames(client);
   const service = serviceLabel(client);
