@@ -156,6 +156,14 @@ function seededPriceHistory(client: ClientWithPets | null, priceHistory: PriceHi
   return ascendingPrices;
 }
 
+function earningStartDate(statusStart: string, priceHistory: PriceHistory[]) {
+  const earliestPriceDate = priceHistory
+    .map((entry) => entry.effective_date)
+    .sort((a, b) => a.localeCompare(b))[0];
+
+  return earliestPriceDate && earliestPriceDate < statusStart ? earliestPriceDate : statusStart;
+}
+
 function sortedPrices(priceHistory: PriceHistoryRow[]) {
   return priceHistory.slice().sort((a, b) => b.effective_date.localeCompare(a.effective_date));
 }
@@ -367,6 +375,7 @@ export default function ClientDetailPage() {
 
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
   const currentStatusStartDate = statusStartDate(client, history);
+  const currentEarningStartDate = earningStartDate(currentStatusStartDate, priceHistory);
   const selectedDays = useMemo(
     () => (client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : []),
     [client]
@@ -381,8 +390,8 @@ export default function ClientDetailPage() {
       })
     : null;
   const orderedPriceHistory = useMemo(
-    () => sortedPrices(seededPriceHistory(client, priceHistory, currentStatusStartDate)),
-    [client, currentStatusStartDate, priceHistory]
+    () => sortedPrices(seededPriceHistory(client, priceHistory, currentEarningStartDate)),
+    [client, currentEarningStartDate, priceHistory]
   );
   const visiblePriceHistory = priceHistoryOpen ? orderedPriceHistory : orderedPriceHistory.slice(0, COMPACT_PRICE_HISTORY_COUNT);
   const hasMorePriceHistory = orderedPriceHistory.length > COMPACT_PRICE_HISTORY_COUNT;
@@ -396,17 +405,17 @@ export default function ClientDetailPage() {
     }
 
     const today = todayInputValue();
-    const seededPrices = seededPriceHistory(client, priceHistory, currentStatusStartDate);
+    const seededPrices = seededPriceHistory(client, priceHistory, currentEarningStartDate);
 
     let gross = 0;
 
     for (let index = 0; index < seededPrices.length; index += 1) {
       const entry = seededPrices[index];
       const nextEntry = seededPrices[index + 1];
-      const periodStart = entry.effective_date < currentStatusStartDate ? currentStatusStartDate : entry.effective_date;
+      const periodStart = entry.effective_date < currentEarningStartDate ? currentEarningStartDate : entry.effective_date;
       const periodEnd = nextEntry ? dayBefore(nextEntry.effective_date) : today;
 
-      if (periodEnd >= currentStatusStartDate && periodStart <= today && periodEnd >= periodStart) {
+      if (periodEnd >= currentEarningStartDate && periodStart <= today && periodEnd >= periodStart) {
         gross += Number(entry.price) * scheduledVisitsBetween(periodStart, periodEnd, selectedDays);
       }
     }
@@ -417,7 +426,7 @@ export default function ClientDetailPage() {
       commission,
       net: gross - commission
     };
-  }, [client, currentStatusStartDate, priceHistory, selectedDays]);
+  }, [client, currentEarningStartDate, priceHistory, selectedDays]);
 
   const timeline = useMemo(() => history.slice().sort((a, b) => b.start_date.localeCompare(a.start_date)), [history]);
 
@@ -747,7 +756,7 @@ export default function ClientDetailPage() {
               roverRate={Number(client.rover_commission_rate)}
               receive={estimate.monthlyNet}
               totalEarned={totalEstimate.net}
-              sinceDate={currentStatusStartDate}
+              sinceDate={currentEarningStartDate}
             />
 
             <section>
