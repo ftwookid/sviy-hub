@@ -5,8 +5,8 @@ import { HeartHandshake, PauseCircle, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
+import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
 import { ClientForm } from "@/components/ClientForm";
-import { ClientMap } from "@/components/ClientMap";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -201,7 +201,7 @@ export default function ClientsPage() {
 
         {!loading && filteredClients.length > 0 ? (
           <>
-            <ClientMap clients={filteredClients} />
+            <ClientAnalyticsDashboard clients={filteredClients} />
 
             <section className="grid gap-4 lg:grid-cols-2">
               {filteredClients.map((client) => (
