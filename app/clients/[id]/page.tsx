@@ -108,10 +108,20 @@ function displayAddress(address: string) {
   return address.replace(/,\s*USA$/i, "");
 }
 
-function daysBetweenInclusive(startValue: string, endValue: string) {
+function scheduledVisitsBetween(startValue: string, endValue: string, selectedDays: string[]) {
+  if (selectedDays.length === 0) return 0;
+
+  const selectedDaySet = new Set(selectedDays);
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const start = parseLocalDate(startValue);
   const end = parseLocalDate(endValue);
-  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+  let visits = 0;
+
+  for (let date = start; date <= end; date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)) {
+    if (selectedDaySet.has(weekDays[date.getDay()])) visits += 1;
+  }
+
+  return visits;
 }
 
 function currentPriceFromHistory(client: ClientWithPets | null, priceHistory: PriceHistory[]) {
@@ -357,7 +367,10 @@ export default function ClientDetailPage() {
 
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
   const currentStatusStartDate = statusStartDate(client, history);
-  const selectedDays = client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : [];
+  const selectedDays = useMemo(
+    () => (client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : []),
+    [client]
+  );
   const currentPrice = currentPriceFromHistory(client, priceHistory);
   const estimate = client
     ? estimateClientEarnings({
@@ -394,8 +407,7 @@ export default function ClientDetailPage() {
       const periodEnd = nextEntry ? dayBefore(nextEntry.effective_date) : today;
 
       if (periodEnd >= currentStatusStartDate && periodStart <= today && periodEnd >= periodStart) {
-        const days = daysBetweenInclusive(periodStart, periodEnd);
-        gross += Number(entry.price) * selectedDays.length * (days / 7);
+        gross += Number(entry.price) * scheduledVisitsBetween(periodStart, periodEnd, selectedDays);
       }
     }
 
@@ -405,7 +417,7 @@ export default function ClientDetailPage() {
       commission,
       net: gross - commission
     };
-  }, [client, currentStatusStartDate, priceHistory, selectedDays.length]);
+  }, [client, currentStatusStartDate, priceHistory, selectedDays]);
 
   const timeline = useMemo(() => history.slice().sort((a, b) => b.start_date.localeCompare(a.start_date)), [history]);
 
@@ -760,17 +772,17 @@ export default function ClientDetailPage() {
                     </div>
 
                     <div className="rounded-xl bg-surface px-3 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-[11px] font-medium text-text-tertiary">Price per visit</div>
+                      <div className="text-[11px] font-medium text-text-tertiary">Price per visit</div>
+                      <div className="mt-0.5 flex items-center justify-between gap-3">
+                        <div className="text-[14px] font-semibold leading-5 text-text-primary">{formatCurrency(currentPrice)}</div>
                         <button
-                          className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-amber-700 transition hover:bg-accent-soft hover:text-amber-800"
+                          className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-secondary"
                           type="button"
                           onClick={() => openPriceModal()}
                         >
-                          Change price
+                          Change
                         </button>
                       </div>
-                      <div className="mt-0.5 text-[14px] font-semibold leading-5 text-text-primary">{formatCurrency(currentPrice)}</div>
                     </div>
                   </div>
 
