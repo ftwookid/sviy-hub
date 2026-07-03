@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { HeartHandshake, PauseCircle, Plus, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { BarChart3, HeartHandshake, Home, PauseCircle, Plus, UsersRound, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
@@ -17,9 +17,42 @@ import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientStatus, ClientWithPets } from "@/types/client";
 
 type ClientFilter = ClientStatus | "All";
+type ClientView = "performance" | "regular" | "house-sitting";
+
+const clientViews: Array<{
+  id: ClientView;
+  label: string;
+  description: string;
+  icon: typeof BarChart3;
+}> = [
+  {
+    id: "performance",
+    label: "Performance",
+    description: "Dashboards, charts, metrics, and customer analytics.",
+    icon: BarChart3
+  },
+  {
+    id: "regular",
+    label: "Regular customers",
+    description: "Customer profiles, pets, routines, and current status.",
+    icon: UsersRound
+  },
+  {
+    id: "house-sitting",
+    label: "House Sitting",
+    description: "A dedicated workflow for overnight and home care stays.",
+    icon: Home
+  }
+];
+
+function getClientView(value: string | null): ClientView {
+  if (value === "regular" || value === "house-sitting") return value;
+  return "performance";
+}
 
 export default function ClientsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAdmin, authLoading } = useAuthUser();
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,13 +138,23 @@ export default function ClientsPage() {
     });
   }, [clients, filter]);
 
-  function openNewClient() {
-    setEditingClient(null);
-    setEditorOpen(true);
+  const activeView = getClientView(searchParams.get("view"));
+  const activeViewDetails = clientViews.find((view) => view.id === activeView) ?? clientViews[0];
+
+  function changeClientView(view: ClientView) {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (view === "performance") {
+      nextParams.delete("view");
+    } else {
+      nextParams.set("view", view);
+    }
+
+    const query = nextParams.toString();
+    router.replace(query ? `/clients?${query}` : "/clients", { scroll: false });
   }
 
-  function openExistingClient(client: ClientWithPets) {
-    setEditingClient(client);
+  function openNewClient() {
+    setEditingClient(null);
     setEditorOpen(true);
   }
 
@@ -144,7 +187,7 @@ export default function ClientsPage() {
           <div>
             <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">Clients</h1>
             <p className="mt-2 max-w-xl text-[16px] text-text-secondary">
-              People, pets, routines, and earnings in one soft little command center.
+              Performance, customer records, and house sitting work in one soft little command center.
             </p>
           </div>
           <Button className="hidden sm:inline-flex" variant="accent" onClick={openNewClient}>
@@ -153,25 +196,80 @@ export default function ClientsPage() {
           </Button>
         </header>
 
-        <div className="inline-grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
-          {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
-            <button
-              key={item}
-              className={cn(
-                "min-h-9 rounded-xl px-3 text-[14px] font-medium transition duration-150 ease-out",
-                filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
-              )}
-              type="button"
-              onClick={() => setFilter(item)}
-            >
-              {item} {counts[item]}
-            </button>
-          ))}
+        <nav className="grid gap-2 sm:grid-cols-3" aria-label="Client sections">
+          {clientViews.map((view) => {
+            const Icon = view.icon;
+            const selected = activeView === view.id;
+            return (
+              <button
+                key={view.id}
+                className={cn(
+                  "focus-ring flex min-h-[86px] items-start gap-3 rounded-[18px] border p-3 text-left transition duration-150 ease-out",
+                  selected
+                    ? "border-border-emphasis bg-surface text-text-primary shadow-card"
+                    : "border-border bg-subtle/70 text-text-secondary hover:border-border-emphasis hover:bg-surface/80 hover:text-text-primary"
+                )}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => changeClientView(view.id)}
+              >
+                <span
+                  className={cn(
+                    "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
+                    selected ? "bg-accent-soft text-accent" : "bg-surface text-text-tertiary"
+                  )}
+                >
+                  <Icon size={19} strokeWidth={1.6} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-medium leading-tight">{view.label}</span>
+                  <span className="mt-1 block text-[12px] leading-snug text-text-tertiary">{view.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-[24px] font-medium leading-tight text-text-primary">{activeViewDetails.label}</h2>
+            <p className="max-w-2xl text-[14px] text-text-secondary">{activeViewDetails.description}</p>
+          </div>
         </div>
 
-        {loading ? <SkeletonRows /> : null}
+        {activeView !== "house-sitting" ? (
+          <div className="inline-grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+            {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
+              <button
+                key={item}
+                className={cn(
+                  "min-h-9 rounded-xl px-3 text-[14px] font-medium transition duration-150 ease-out",
+                  filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
+                )}
+                type="button"
+                onClick={() => setFilter(item)}
+              >
+                {item} {counts[item]}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
-        {!loading && filteredClients.length === 0 ? (
+        {activeView === "house-sitting" ? (
+          <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
+            <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
+              <Home size={32} strokeWidth={1.5} className="text-accent" />
+            </div>
+            <h2 className="mt-5 text-[22px] font-medium text-text-primary">House Sitting is coming soon</h2>
+            <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+              This space is reserved for overnight stays, home care details, and the workflow we will build next.
+            </p>
+          </section>
+        ) : null}
+
+        {activeView !== "house-sitting" && loading ? <SkeletonRows /> : null}
+
+        {activeView !== "house-sitting" && !loading && filteredClients.length === 0 ? (
           filter === "Paused" ? (
             <section className="rounded-[24px] border border-border bg-surface px-6 py-14 text-center shadow-card">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-subtle">
@@ -199,22 +297,22 @@ export default function ClientsPage() {
           )
         ) : null}
 
-        {!loading && filteredClients.length > 0 ? (
-          <>
-            <ClientAnalyticsDashboard clients={filteredClients} />
+        {activeView === "performance" && !loading && filteredClients.length > 0 ? (
+          <ClientAnalyticsDashboard clients={filteredClients} />
+        ) : null}
 
-            <section className="grid gap-4 lg:grid-cols-2">
-              {filteredClients.map((client) => (
-                <ClientCard
-                  key={client.id}
-                  client={client}
-                  ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
-                  onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
-                  onClick={() => router.push(`/clients/${client.id}`)}
-                />
-              ))}
-            </section>
-          </>
+        {activeView === "regular" && !loading && filteredClients.length > 0 ? (
+          <section className="grid gap-4 lg:grid-cols-2">
+            {filteredClients.map((client) => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
+                onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
+                onClick={() => router.push(`/clients/${client.id}`)}
+              />
+            ))}
+          </section>
         ) : null}
       </div>
 
