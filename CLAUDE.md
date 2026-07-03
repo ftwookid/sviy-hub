@@ -315,6 +315,12 @@ git push origin staging
 
 The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically pushes commits made on `staging` to `origin/staging`; commits on other branches are not auto-pushed by the hook.
 
+`staging` deploys to the protected Vercel preview URL:
+
+```text
+https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
+```
+
 Only deploy production when explicitly told `push live`. To do that, fast-forward `main` from the tested `staging` branch, push `main` to `origin`, and then return the local workspace to `staging`:
 
 ```bash

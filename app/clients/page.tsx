@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientForm } from "@/components/ClientForm";
+import { ClientMap } from "@/components/ClientMap";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -185,17 +186,21 @@ export default function ClientsPage() {
         ) : null}
 
         {!loading && filteredClients.length > 0 ? (
-          <section className="grid gap-4 lg:grid-cols-2">
-            {filteredClients.map((client) => (
-              <ClientCard
-                key={client.id}
-                client={client}
-                ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
-                onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
-                onClick={() => router.push(`/clients/${client.id}`)}
-              />
-            ))}
-          </section>
+          <>
+            <ClientMap clients={filteredClients} />
+
+            <section className="grid gap-4 lg:grid-cols-2">
+              {filteredClients.map((client) => (
+                <ClientCard
+                  key={client.id}
+                  client={client}
+                  ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
+                  onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
+                  onClick={() => router.push(`/clients/${client.id}`)}
+                />
+              ))}
+            </section>
+          </>
         ) : null}
       </div>
 
