@@ -2,6 +2,9 @@
 
 import {
   Activity,
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
   BarChart3,
   CalendarDays,
   CircleDollarSign,
@@ -16,8 +19,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { ClientMap } from "@/components/ClientMap";
 import { cn } from "@/lib/cn";
-import { estimateClientCurrentEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
-import { formatCurrency } from "@/lib/formatters";
+import { estimateClientCurrentEarnings, estimateClientEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
+import { formatCurrency, toInputDate } from "@/lib/formatters";
 import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
 
 type ClientDashboardProps = {
@@ -30,6 +33,7 @@ type MetricCardProps = {
   detail: string;
   icon: LucideIcon;
   emphasis?: boolean;
+  trend?: Trend;
 };
 
 type PanelProps = {
@@ -40,6 +44,40 @@ type PanelProps = {
 
 const PAYMENT_METHODS: ClientPaymentMethod[] = ["Rover", "Venmo", "Cash"];
 const ESTIMATED_TAX_RATE = 0.28;
+const TREND_LOOKBACK_DAYS = 30;
+
+type ClientMetric = {
+  client: ClientWithPets;
+  pets: string;
+  service: string;
+  paymentMethod: ClientPaymentMethod;
+  visitDays: string[];
+  weeklyGross: number;
+  weeklyNet: number;
+  monthlyGross: number;
+  monthlyNet: number;
+  annualNet: number;
+  commission: number;
+  taxableMonthlyNet: number;
+  netPerVisit: number;
+};
+
+type Totals = {
+  weeklyGross: number;
+  weeklyNet: number;
+  monthlyGross: number;
+  monthlyNet: number;
+  annualNet: number;
+  commission: number;
+  taxableMonthlyNet: number;
+  visitsPerWeek: number;
+};
+
+type Trend = {
+  label: string;
+  direction: "up" | "down" | "flat";
+  tone: "good" | "bad" | "neutral";
+};
 
 function petNames(client: ClientWithPets) {
   return client.pets.map((pet) => pet.name || pet.type).join(", ") || "No pets listed";
@@ -67,7 +105,127 @@ function barWidth(value: number, total: number) {
   return `${Math.max(4, Math.min(100, nextShare))}%`;
 }
 
-function MetricCard({ label, value, detail, icon: Icon, emphasis = false }: MetricCardProps) {
+function clientStartDate(client: ClientWithPets) {
+  const firstPriceDate = (client.price_history ?? [])
+    .map((entry) => entry.effective_date)
+    .sort((a, b) => a.localeCompare(b))[0];
+
+  return firstPriceDate ?? client.created_at.slice(0, 10);
+}
+
+function clientPriceOn(client: ClientWithPets, dateValue: string) {
+  if (clientStartDate(client) > dateValue) return null;
+  const entry = (client.price_history ?? [])
+    .filter((priceEntry) => priceEntry.effective_date <= dateValue)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+  return Number(entry?.price ?? client.price_per_visit);
+}
+
+function clientMetric(client: ClientWithPets, dateValue?: string): ClientMetric | null {
+  const price = dateValue ? clientPriceOn(client, dateValue) : null;
+  if (dateValue && price === null) return null;
+
+  const estimate = dateValue
+    ? estimateClientEarnings({
+        pricePerVisit: price ?? 0,
+        visitsPerWeek: client.visits_per_week,
+        paymentMethod: client.payment_method,
+        commissionRate: Number(client.rover_commission_rate)
+      })
+    : estimateClientCurrentEarnings(client);
+  const visitDays = clientVisitDays(client);
+  const weeklyNet = estimate.monthlyNet / WEEKS_PER_MONTH;
+  const netPerVisit = visitDays.length > 0 ? weeklyNet / visitDays.length : 0;
+
+  return {
+    client,
+    pets: petNames(client),
+    service: serviceLabel(client),
+    paymentMethod: client.payment_method,
+    visitDays,
+    weeklyGross: estimate.weeklyGross,
+    weeklyNet,
+    monthlyGross: estimate.monthlyGross,
+    monthlyNet: estimate.monthlyNet,
+    annualNet: estimate.monthlyNet * 12,
+    commission: estimate.commission,
+    taxableMonthlyNet: estimate.taxable ? estimate.monthlyNet : 0,
+    netPerVisit
+  };
+}
+
+function sumTotals(metrics: ClientMetric[]): Totals {
+  return metrics.reduce(
+    (nextTotals, item) => ({
+      weeklyGross: nextTotals.weeklyGross + item.weeklyGross,
+      weeklyNet: nextTotals.weeklyNet + item.weeklyNet,
+      monthlyGross: nextTotals.monthlyGross + item.monthlyGross,
+      monthlyNet: nextTotals.monthlyNet + item.monthlyNet,
+      annualNet: nextTotals.annualNet + item.annualNet,
+      commission: nextTotals.commission + item.commission,
+      taxableMonthlyNet: nextTotals.taxableMonthlyNet + item.taxableMonthlyNet,
+      visitsPerWeek: nextTotals.visitsPerWeek + item.visitDays.length
+    }),
+    {
+      weeklyGross: 0,
+      weeklyNet: 0,
+      monthlyGross: 0,
+      monthlyNet: 0,
+      annualNet: 0,
+      commission: 0,
+      taxableMonthlyNet: 0,
+      visitsPerWeek: 0
+    }
+  );
+}
+
+function comparisonDate() {
+  const date = new Date();
+  date.setDate(date.getDate() - TREND_LOOKBACK_DAYS);
+  return toInputDate(date);
+}
+
+function metricTrend(current: number, previous: number, options?: { inverse?: boolean }): Trend {
+  const difference = current - previous;
+  const direction = Math.abs(difference) < 0.01 ? "flat" : difference > 0 ? "up" : "down";
+  const percentChange = previous > 0 ? (difference / previous) * 100 : current > 0 ? 100 : 0;
+  const label =
+    previous > 0
+      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${Math.abs(percentChange) < 10 ? Math.abs(percentChange).toFixed(1) : Math.round(Math.abs(percentChange))}% vs 30d`
+      : current > 0
+        ? "New vs 30d"
+        : "Flat vs 30d";
+
+  const isGood = options?.inverse ? direction === "down" : direction === "up";
+  const isBad = options?.inverse ? direction === "up" : direction === "down";
+
+  return {
+    label,
+    direction,
+    tone: direction === "flat" ? "neutral" : isGood ? "good" : isBad ? "bad" : "neutral"
+  };
+}
+
+function TrendBadge({ trend }: { trend: Trend }) {
+  const Icon = trend.direction === "up" ? ArrowUpRight : trend.direction === "down" ? ArrowDownRight : ArrowRight;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
+        trend.tone === "good" && "bg-success-soft text-success",
+        trend.tone === "bad" && "bg-danger-soft text-danger",
+        trend.tone === "neutral" && "bg-subtle text-text-tertiary"
+      )}
+    >
+      <Icon size={13} strokeWidth={1.8} />
+      {trend.label}
+    </span>
+  );
+}
+
+function MetricCard({ label, value, detail, icon: Icon, emphasis = false, trend }: MetricCardProps) {
   return (
     <div className={cn("flex h-full flex-col justify-between rounded-[18px] border border-border bg-surface p-4 shadow-card", emphasis && "bg-[#FFFEFB]")}>
       <div className="flex items-start justify-between gap-3">
@@ -79,7 +237,10 @@ function MetricCard({ label, value, detail, icon: Icon, emphasis = false }: Metr
           <Icon size={18} strokeWidth={1.6} />
         </span>
       </div>
-      <div className="mt-3 text-[13px] leading-snug text-text-secondary">{detail}</div>
+      <div className="mt-3 space-y-2">
+        <div className="text-[13px] leading-snug text-text-secondary">{detail}</div>
+        {trend ? <TrendBadge trend={trend} /> : null}
+      </div>
     </div>
   );
 }
@@ -138,59 +299,23 @@ function InsightRow({ label, value, detail }: { label: string; value: string; de
 }
 
 export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
-  const clientMetrics = clients.map((client) => {
-    const estimate = estimateClientCurrentEarnings(client);
-    const visitDays = clientVisitDays(client);
-    const weeklyNet = estimate.monthlyNet / WEEKS_PER_MONTH;
-    const netPerVisit = visitDays.length > 0 ? weeklyNet / visitDays.length : 0;
+  const previousDate = comparisonDate();
+  const clientMetrics = clients.map((client) => clientMetric(client)).filter((item): item is ClientMetric => Boolean(item));
+  const previousMetrics = clients.map((client) => clientMetric(client, previousDate)).filter((item): item is ClientMetric => Boolean(item));
 
-    return {
-      client,
-      pets: petNames(client),
-      service: serviceLabel(client),
-      paymentMethod: client.payment_method,
-      visitDays,
-      weeklyGross: estimate.weeklyGross,
-      weeklyNet,
-      monthlyGross: estimate.monthlyGross,
-      monthlyNet: estimate.monthlyNet,
-      annualNet: estimate.monthlyNet * 12,
-      commission: estimate.commission,
-      taxableMonthlyNet: estimate.taxable ? estimate.monthlyNet : 0,
-      netPerVisit
-    };
-  });
-
-  const totals = clientMetrics.reduce(
-    (nextTotals, item) => ({
-      weeklyGross: nextTotals.weeklyGross + item.weeklyGross,
-      weeklyNet: nextTotals.weeklyNet + item.weeklyNet,
-      monthlyGross: nextTotals.monthlyGross + item.monthlyGross,
-      monthlyNet: nextTotals.monthlyNet + item.monthlyNet,
-      annualNet: nextTotals.annualNet + item.annualNet,
-      commission: nextTotals.commission + item.commission,
-      taxableMonthlyNet: nextTotals.taxableMonthlyNet + item.taxableMonthlyNet,
-      visitsPerWeek: nextTotals.visitsPerWeek + item.visitDays.length
-    }),
-    {
-      weeklyGross: 0,
-      weeklyNet: 0,
-      monthlyGross: 0,
-      monthlyNet: 0,
-      annualNet: 0,
-      commission: 0,
-      taxableMonthlyNet: 0,
-      visitsPerWeek: 0
-    }
-  );
+  const totals = sumTotals(clientMetrics);
+  const previousTotals = sumTotals(previousMetrics);
 
   const sortedByWeekly = clientMetrics.slice().sort((a, b) => b.weeklyNet - a.weeklyNet);
   const sortedByEfficiency = clientMetrics.slice().filter((item) => item.netPerVisit > 0).sort((a, b) => b.netPerVisit - a.netPerVisit);
   const topClient = sortedByWeekly[0] ?? null;
   const topThreeNet = sortedByWeekly.slice(0, 3).reduce((sum, item) => sum + item.monthlyNet, 0);
   const averageWeekly = clients.length > 0 ? totals.weeklyNet / clients.length : 0;
+  const previousAverageWeekly = previousMetrics.length > 0 ? previousTotals.weeklyNet / previousMetrics.length : 0;
   const averagePerVisit = totals.visitsPerWeek > 0 ? totals.weeklyNet / totals.visitsPerWeek : 0;
+  const previousAveragePerVisit = previousTotals.visitsPerWeek > 0 ? previousTotals.weeklyNet / previousTotals.visitsPerWeek : 0;
   const taxReserve = totals.taxableMonthlyNet * ESTIMATED_TAX_RATE;
+  const previousTaxReserve = previousTotals.taxableMonthlyNet * ESTIMATED_TAX_RATE;
   const platformRate = totals.monthlyGross > 0 ? share(totals.commission, totals.monthlyGross) : 0;
 
   const paymentBreakdown = PAYMENT_METHODS.map((method) => {
@@ -244,6 +369,7 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
             value={formatCurrency(totals.weeklyNet)}
             detail={`${totals.visitsPerWeek} scheduled ${totals.visitsPerWeek === 1 ? "visit" : "visits"}/week`}
             icon={CircleDollarSign}
+            trend={metricTrend(totals.weeklyNet, previousTotals.weeklyNet)}
             emphasis
           />
           <MetricCard
@@ -251,30 +377,35 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
             value={formatCurrency(totals.monthlyNet)}
             detail={`${formatCurrency(totals.annualNet)} annual run rate`}
             icon={CalendarDays}
+            trend={metricTrend(totals.monthlyNet, previousTotals.monthlyNet)}
           />
           <MetricCard
             label="Avg/client"
             value={formatCurrency(averageWeekly)}
             detail={`${clients.length} ${clients.length === 1 ? "client" : "clients"} in this view`}
             icon={Users}
+            trend={metricTrend(averageWeekly, previousAverageWeekly)}
           />
           <MetricCard
             label="Net/visit"
             value={formatCurrency(averagePerVisit)}
             detail="Average weekly net divided by scheduled visits"
             icon={Activity}
+            trend={metricTrend(averagePerVisit, previousAveragePerVisit)}
           />
           <MetricCard
             label="Rover fees"
             value={formatCurrency(totals.commission)}
             detail={`${percent(platformRate)} of monthly gross`}
             icon={ReceiptText}
+            trend={metricTrend(totals.commission, previousTotals.commission, { inverse: true })}
           />
           <MetricCard
             label="Tax reserve"
             value={formatCurrency(taxReserve)}
             detail={`${Math.round(ESTIMATED_TAX_RATE * 100)}% estimate on non-cash monthly net`}
             icon={Wallet}
+            trend={metricTrend(taxReserve, previousTaxReserve, { inverse: true })}
           />
         </div>
 
