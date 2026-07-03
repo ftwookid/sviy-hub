@@ -74,6 +74,7 @@ type Totals = {
 
 type Trend = {
   label: string;
+  reference: string;
   direction: "up" | "down" | "flat";
   tone: "good" | "bad" | "neutral";
 };
@@ -92,6 +93,15 @@ function clientVisitDays(client: ClientWithPets) {
 
 function percent(value: number) {
   return `${Math.round(value)}%`;
+}
+
+function formatCompactCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: Math.abs(value) < 1000 ? 0 : 1
+  }).format(value);
 }
 
 function share(value: number, total: number) {
@@ -188,19 +198,17 @@ function comparisonDate() {
 function metricTrend(current: number, previous: number, options?: { inverse?: boolean }): Trend {
   const difference = current - previous;
   const direction = Math.abs(difference) < 0.01 ? "flat" : difference > 0 ? "up" : "down";
-  const percentChange = previous > 0 ? (difference / previous) * 100 : current > 0 ? 100 : 0;
   const label =
-    previous > 0
-      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${Math.abs(percentChange) < 10 ? Math.abs(percentChange).toFixed(1) : Math.round(Math.abs(percentChange))}% YoY`
-      : current > 0
-        ? "New YoY"
-        : "Flat YoY";
+    previous > 0 || current > 0
+      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${formatCompactCurrency(Math.abs(difference))} YoY`
+      : "Flat YoY";
 
   const isGood = options?.inverse ? direction === "down" : direction === "up";
   const isBad = options?.inverse ? direction === "up" : direction === "down";
 
   return {
     label,
+    reference: `LY ${formatCompactCurrency(previous)}`,
     direction,
     tone: direction === "flat" ? "neutral" : isGood ? "good" : isBad ? "bad" : "neutral"
   };
@@ -210,34 +218,35 @@ function TrendBadge({ trend }: { trend: Trend }) {
   const Icon = trend.direction === "up" ? ArrowUpRight : trend.direction === "down" ? ArrowDownRight : ArrowRight;
 
   return (
-    <span
+    <div
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
-        trend.tone === "good" && "bg-success-soft text-success",
-        trend.tone === "bad" && "bg-danger-soft text-danger",
-        trend.tone === "neutral" && "bg-subtle text-text-tertiary"
+        "flex min-w-0 items-center gap-1.5 text-[11px] font-medium",
+        trend.tone === "good" && "text-success",
+        trend.tone === "bad" && "text-danger",
+        trend.tone === "neutral" && "text-text-tertiary"
       )}
     >
-      <Icon size={13} strokeWidth={1.8} />
-      {trend.label}
-    </span>
+      <Icon className="shrink-0" size={13} strokeWidth={1.8} />
+      <span className="truncate">{trend.label}</span>
+      <span className="shrink-0 text-text-tertiary">· {trend.reference}</span>
+    </div>
   );
 }
 
 function MetricCard({ label, value, detail, icon: Icon, emphasis = false, trend }: MetricCardProps) {
   return (
-    <div className={cn("flex h-full flex-col justify-between rounded-[18px] border border-border bg-surface p-4 shadow-card", emphasis && "bg-[#FFFEFB]")}>
+    <div className={cn("flex h-full flex-col justify-between rounded-[18px] border border-border bg-surface p-3.5 shadow-card", emphasis && "bg-[#FFFEFB]")}>
       <div>
         <div className="flex items-start justify-between gap-3">
           <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">{label}</div>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
-            <Icon size={18} strokeWidth={1.6} />
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
+            <Icon size={16} strokeWidth={1.6} />
           </span>
         </div>
-        <div className="mt-2 whitespace-nowrap text-[24px] font-medium leading-none text-text-primary">{value}</div>
+        <div className="mt-1.5 whitespace-nowrap text-[22px] font-medium leading-none text-text-primary">{value}</div>
       </div>
-      <div className="mt-3 space-y-2">
-        <div className="text-[13px] leading-snug text-text-secondary">{detail}</div>
+      <div className="mt-2 space-y-1">
+        <div className="text-[12px] leading-snug text-text-secondary">{detail}</div>
         {trend ? <TrendBadge trend={trend} /> : null}
       </div>
     </div>
