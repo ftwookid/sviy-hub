@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { HeartHandshake, PauseCircle, Plus, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { BarChart3, HeartHandshake, Home, PauseCircle, Plus, UsersRound, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
@@ -17,9 +17,46 @@ import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientStatus, ClientWithPets } from "@/types/client";
 
 type ClientFilter = ClientStatus | "All";
+type ClientView = "performance" | "regular" | "house-sitting";
+
+const clientViews: Array<{
+  id: ClientView;
+  label: string;
+  icon: typeof BarChart3;
+}> = [
+  {
+    id: "performance",
+    label: "Performance",
+    icon: BarChart3
+  },
+  {
+    id: "regular",
+    label: "Regular customers",
+    icon: UsersRound
+  },
+  {
+    id: "house-sitting",
+    label: "House Sitting",
+    icon: Home
+  }
+];
+
+function getClientView(value: string | null): ClientView {
+  if (value === "regular" || value === "house-sitting") return value;
+  return "performance";
+}
 
 export default function ClientsPage() {
+  return (
+    <Suspense fallback={<AppLoading message="Loading clients..." />}>
+      <ClientsPageContent />
+    </Suspense>
+  );
+}
+
+function ClientsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAdmin, authLoading } = useAuthUser();
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,13 +142,21 @@ export default function ClientsPage() {
     });
   }, [clients, filter]);
 
-  function openNewClient() {
-    setEditingClient(null);
-    setEditorOpen(true);
+  const activeView = getClientView(searchParams.get("view"));
+  function changeClientView(view: ClientView) {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (view === "performance") {
+      nextParams.delete("view");
+    } else {
+      nextParams.set("view", view);
+    }
+
+    const query = nextParams.toString();
+    router.replace(query ? `/clients?${query}` : "/clients", { scroll: false });
   }
 
-  function openExistingClient(client: ClientWithPets) {
-    setEditingClient(client);
+  function openNewClient() {
+    setEditingClient(null);
     setEditorOpen(true);
   }
 
@@ -139,39 +184,75 @@ export default function ClientsPage() {
 
   return (
     <AppShell user={user}>
-      <div className="space-y-7">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">Clients</h1>
-            <p className="mt-2 max-w-xl text-[16px] text-text-secondary">
-              People, pets, routines, and earnings in one soft little command center.
-            </p>
-          </div>
+      <div className="space-y-5">
+        <header className="flex items-center justify-between gap-3">
+          <h1 className="text-[34px] font-medium leading-none tracking-[-0.01em] text-text-primary">Clients</h1>
           <Button className="hidden sm:inline-flex" variant="accent" onClick={openNewClient}>
             <Plus size={18} strokeWidth={1.6} />
             Add client
           </Button>
         </header>
 
-        <div className="inline-grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
-          {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
-            <button
-              key={item}
-              className={cn(
-                "min-h-9 rounded-xl px-3 text-[14px] font-medium transition duration-150 ease-out",
-                filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
-              )}
-              type="button"
-              onClick={() => setFilter(item)}
-            >
-              {item} {counts[item]}
-            </button>
-          ))}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <nav
+            className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 lg:w-fit"
+            aria-label="Client sections"
+          >
+            {clientViews.map((view) => {
+              const Icon = view.icon;
+              const selected = activeView === view.id;
+              return (
+                <button
+                  key={view.id}
+                  className={cn(
+                    "focus-ring flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 text-center text-[12px] font-medium leading-tight transition duration-150 ease-out sm:min-h-9 sm:px-3 sm:text-[14px]",
+                    selected ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                  )}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => changeClientView(view.id)}
+                >
+                  <Icon size={16} strokeWidth={1.6} className={selected ? "text-accent" : "text-text-tertiary"} />
+                  <span>{view.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {activeView !== "house-sitting" ? (
+            <div className="grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
+              {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
+                <button
+                  key={item}
+                  className={cn(
+                    "focus-ring flex min-h-9 min-w-0 items-center justify-center rounded-xl px-3 text-[13px] font-medium transition duration-150 ease-out",
+                    filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                  )}
+                  type="button"
+                  onClick={() => setFilter(item)}
+                >
+                  {item} {counts[item]}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
-        {loading ? <SkeletonRows /> : null}
+        {activeView === "house-sitting" ? (
+          <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
+            <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
+              <Home size={32} strokeWidth={1.5} className="text-accent" />
+            </div>
+            <h2 className="mt-5 text-[22px] font-medium text-text-primary">House Sitting is coming soon</h2>
+            <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+              This space is reserved for overnight stays, home care details, and the workflow we will build next.
+            </p>
+          </section>
+        ) : null}
 
-        {!loading && filteredClients.length === 0 ? (
+        {activeView !== "house-sitting" && loading ? <SkeletonRows /> : null}
+
+        {activeView !== "house-sitting" && !loading && filteredClients.length === 0 ? (
           filter === "Paused" ? (
             <section className="rounded-[24px] border border-border bg-surface px-6 py-14 text-center shadow-card">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-subtle">
@@ -199,22 +280,22 @@ export default function ClientsPage() {
           )
         ) : null}
 
-        {!loading && filteredClients.length > 0 ? (
-          <>
-            <ClientAnalyticsDashboard clients={filteredClients} />
+        {activeView === "performance" && !loading && filteredClients.length > 0 ? (
+          <ClientAnalyticsDashboard clients={filteredClients} />
+        ) : null}
 
-            <section className="grid gap-4 lg:grid-cols-2">
-              {filteredClients.map((client) => (
-                <ClientCard
-                  key={client.id}
-                  client={client}
-                  ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
-                  onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
-                  onClick={() => router.push(`/clients/${client.id}`)}
-                />
-              ))}
-            </section>
-          </>
+        {activeView === "regular" && !loading && filteredClients.length > 0 ? (
+          <section className="grid gap-4 lg:grid-cols-2">
+            {filteredClients.map((client) => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
+                onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
+                onClick={() => router.push(`/clients/${client.id}`)}
+              />
+            ))}
+          </section>
         ) : null}
       </div>
 
