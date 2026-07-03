@@ -11,6 +11,7 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
+import { estimateClientMonthlyNet } from "@/lib/clients";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientStatus, ClientWithPets } from "@/types/client";
@@ -95,11 +96,12 @@ export default function ClientsPage() {
 
   const filteredClients = useMemo(() => {
     const nextClients = clients.filter((client) => filter === "All" || client.status === filter);
-    if (filter !== "All") return nextClients;
 
     return nextClients.slice().sort((a, b) => {
-      if (a.status === b.status) return 0;
-      return a.status === "Active" ? -1 : 1;
+      const incomeDiff = estimateClientMonthlyNet(b) - estimateClientMonthlyNet(a);
+      if (incomeDiff !== 0) return incomeDiff;
+      if (a.status !== b.status) return a.status === "Active" ? -1 : 1;
+      return a.name.localeCompare(b.name);
     });
   }, [clients, filter]);
 

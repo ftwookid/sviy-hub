@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { Camera, ChevronDown, Minus, Plus, Sparkles, X } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
@@ -524,7 +525,10 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
                   onClick={() => update("payment_method", method)}
                   type="button"
                 >
-                  {method}
+                  <span className="flex min-w-0 items-center justify-center gap-1.5">
+                    <ClientPaymentIcon method={method} />
+                    <span className="truncate">{method}</span>
+                  </span>
                 </button>
               ))}
             </div>

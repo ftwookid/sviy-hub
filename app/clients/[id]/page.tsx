@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientForm } from "@/components/ClientForm";
+import { ClientPaymentBadge } from "@/components/ClientPaymentBadge";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -728,7 +729,7 @@ export default function ClientDetailPage() {
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-text-tertiary">
                     <span>{serviceLabel(client)}</span>
                     <span>{selectedDays.length}x/week</span>
-                    <span>{client.payment_method}</span>
+                    <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
                   </div>
                 </div>
                 <div className="min-w-0 md:border-l md:border-border md:pl-3">
@@ -763,7 +764,7 @@ export default function ClientDetailPage() {
               <div className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-[16px] font-semibold text-text-primary">Payment info</h2>
-                  <span className="rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-text-tertiary">{client.payment_method}</span>
+                  <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-xl bg-subtle">

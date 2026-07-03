@@ -55,6 +55,19 @@ export function estimateClientFromRecord(client: Pick<ClientWithPets, "price_per
   });
 }
 
+export function currentClientPrice(client: Pick<ClientWithPets, "price_per_visit" | "price_history">) {
+  const today = todayInputValue();
+  const currentEntry = (client.price_history ?? [])
+    .filter((entry) => entry.effective_date <= today)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+  return Number(currentEntry?.price ?? client.price_per_visit);
+}
+
+export function estimateClientMonthlyNet(client: ClientWithPets) {
+  return estimateClientFromRecord({ ...client, price_per_visit: currentClientPrice(client) }).monthlyNet;
+}
+
 export function defaultClientValues(): ClientFormValues {
   return {
     name: "",
