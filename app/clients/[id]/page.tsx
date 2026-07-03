@@ -21,6 +21,9 @@ const ESTIMATED_TAX_RATE = 0.28;
 const FINANCIAL_PERIODS = ["week", "month", "year"] as const;
 
 type FinancialPeriod = (typeof FINANCIAL_PERIODS)[number];
+type PriceHistoryRow = PriceHistory & {
+  isFallback?: boolean;
+};
 
 function dayBefore(dateValue: string) {
   const date = parseLocalDate(dateValue);
@@ -120,7 +123,29 @@ function currentPriceFromHistory(client: ClientWithPets | null, priceHistory: Pr
   return Number(currentEntry?.price ?? client.price_per_visit);
 }
 
-function sortedPrices(priceHistory: PriceHistory[]) {
+function startingPriceEntry(client: ClientWithPets, effectiveDate: string): PriceHistoryRow {
+  return {
+    id: "starting-price",
+    client_id: client.id,
+    price: Number(client.price_per_visit),
+    effective_date: effectiveDate,
+    created_at: client.created_at,
+    isFallback: true
+  };
+}
+
+function seededPriceHistory(client: ClientWithPets | null, priceHistory: PriceHistory[], startDate: string) {
+  if (!client) return [];
+  const ascendingPrices = priceHistory.slice().sort((a, b) => a.effective_date.localeCompare(b.effective_date));
+
+  if (ascendingPrices.length === 0 || ascendingPrices[0].effective_date > startDate) {
+    return [startingPriceEntry(client, startDate), ...ascendingPrices];
+  }
+
+  return ascendingPrices;
+}
+
+function sortedPrices(priceHistory: PriceHistoryRow[]) {
   return priceHistory.slice().sort((a, b) => b.effective_date.localeCompare(a.effective_date));
 }
 
@@ -329,7 +354,10 @@ export default function ClientDetailPage() {
         commissionRate: Number(client.rover_commission_rate)
       })
     : null;
-  const orderedPriceHistory = useMemo(() => sortedPrices(priceHistory), [priceHistory]);
+  const orderedPriceHistory = useMemo(
+    () => sortedPrices(seededPriceHistory(client, priceHistory, currentStatusStartDate)),
+    [client, currentStatusStartDate, priceHistory]
+  );
   const totalEstimate = useMemo(() => {
     if (!client) {
       return {
@@ -340,20 +368,7 @@ export default function ClientDetailPage() {
     }
 
     const today = todayInputValue();
-    const ascendingPrices = priceHistory
-      .slice()
-      .sort((a, b) => a.effective_date.localeCompare(b.effective_date));
-    const fallbackPrice = {
-      id: "current",
-      client_id: client.id,
-      price: Number(client.price_per_visit),
-      effective_date: currentStatusStartDate,
-      created_at: client.created_at
-    };
-    const seededPrices =
-      ascendingPrices.length === 0 || ascendingPrices[0].effective_date > currentStatusStartDate
-        ? [fallbackPrice, ...ascendingPrices]
-        : ascendingPrices;
+    const seededPrices = seededPriceHistory(client, priceHistory, currentStatusStartDate);
 
     let gross = 0;
 
@@ -478,9 +493,9 @@ export default function ClientDetailPage() {
       .eq("id", client.id);
   }
 
-  function openPriceModal(entry?: PriceHistory, prefilledDate?: string) {
+  function openPriceModal(entry?: PriceHistoryRow, prefilledDate?: string) {
     const effectiveDate = entry?.effective_date ?? prefilledDate ?? todayInputValue();
-    setEditingPrice(entry ?? null);
+    setEditingPrice(entry?.isFallback ? null : entry ?? null);
     setPriceValue(entry ? String(entry.price) : String(currentPrice || ""));
     setPriceEffectiveDate(effectiveDate);
     setPriceCalendarMonth(parseLocalDate(effectiveDate));
@@ -754,13 +769,15 @@ export default function ClientDetailPage() {
                                   >
                                     Edit
                                   </button>
-                                  <button
-                                    className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger-soft"
-                                    type="button"
-                                    onClick={() => deletePriceHistory(entry)}
-                                  >
-                                    Delete
-                                  </button>
+                                  {!entry.isFallback ? (
+                                    <button
+                                      className="focus-ring rounded-lg px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger-soft"
+                                      type="button"
+                                      onClick={() => deletePriceHistory(entry)}
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
                                 </div>
                               </div>
                             ))
