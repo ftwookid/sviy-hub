@@ -1108,6 +1108,7 @@ export default function ClientDetailPage() {
               key={client.id}
               userId={user.id}
               client={client}
+              canChangeOwner={isAdmin}
               hideStatusField
               statusHistory={timeline}
               onCancel={() => setEditorOpen(false)}

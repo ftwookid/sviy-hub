@@ -236,6 +236,7 @@ export default function ClientsPage() {
               key={editingClient?.id ?? "new"}
               userId={user.id}
               client={editingClient}
+              canChangeOwner={isAdmin}
               onCancel={closeEditor}
               onSaved={() => {
                 closeEditor();
