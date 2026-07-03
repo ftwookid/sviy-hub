@@ -739,95 +739,103 @@ export default function ClientDetailPage() {
             />
 
             <section>
-              <div className="rounded-[18px] border border-border bg-surface p-3 shadow-card sm:p-4">
-                <h2 className="px-1 text-[15px] font-semibold text-text-primary">Payment info</h2>
-                <div className="mt-2 rounded-xl bg-subtle p-2">
-                  <div className="grid gap-1.5 sm:grid-cols-2">
-                    <div className="rounded-lg bg-surface px-2.5 py-1.5">
-                      <div className="text-[11px] font-medium text-text-tertiary">Visits</div>
-                      <div className="text-[14px] font-semibold leading-5 text-text-primary">
+              <div className="overflow-hidden rounded-[18px] border border-border bg-surface shadow-card">
+                <div className="flex min-h-10 items-center justify-between gap-3 border-b border-border px-3 py-2 sm:px-4">
+                  <h2 className="text-[15px] font-semibold text-text-primary">Payment info</h2>
+                  <div className="text-[11px] font-medium text-text-tertiary">{client.payment_method}</div>
+                </div>
+
+                <div className="grid bg-subtle sm:grid-cols-2 sm:divide-x sm:divide-border">
+                  <div className="px-3 py-2 sm:px-4">
+                    <div className="text-[11px] font-medium text-text-tertiary">Visits</div>
+                    <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
+                      <span className="text-[15px] font-semibold leading-5 text-text-primary">
                         {selectedDays.length} {selectedDays.length === 1 ? "visit" : "visits"}/week
-                      </div>
-                      <div className="truncate text-[11px] leading-4 text-text-tertiary">
+                      </span>
+                      <span className="truncate text-[11px] leading-4 text-text-tertiary">
                         {selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"}
-                      </div>
+                      </span>
                     </div>
-                    <div className="rounded-lg bg-surface px-2.5 py-1.5">
+                  </div>
+
+                  <div className="border-t border-border px-3 py-2 sm:border-t-0 sm:px-4">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="text-[11px] font-medium text-text-tertiary">Price per visit</div>
-                      <div className="text-[14px] font-semibold leading-5 text-text-primary">{formatCurrency(currentPrice)}</div>
                       <button
-                        className="focus-ring rounded-md text-[11px] leading-4 text-amber-700 transition hover:text-amber-800 hover:underline"
+                        className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-amber-700 transition hover:bg-surface hover:text-amber-800"
                         type="button"
                         onClick={() => openPriceModal()}
                       >
                         Change price
                       </button>
                     </div>
+                    <div className="mt-0.5 text-[15px] font-semibold leading-5 text-text-primary">{formatCurrency(currentPrice)}</div>
                   </div>
-                  <div className="mt-1.5 rounded-lg bg-surface px-2.5 py-1.5">
-                    <div className="flex min-h-6 items-center justify-between gap-3">
-                      <div className="text-[12px] font-medium text-text-secondary">Price history</div>
-                      {hasMorePriceHistory ? (
-                        <button
-                          className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
-                          type="button"
-                          onPointerDown={(event) => {
-                            if (event.button !== 0) return;
-                            suppressPriceHistoryClickUntilRef.current = Date.now() + 750;
-                            togglePriceHistory();
-                          }}
-                          onClick={() => {
-                            if (Date.now() < suppressPriceHistoryClickUntilRef.current) {
-                              suppressPriceHistoryClickUntilRef.current = 0;
-                              return;
-                            }
+                </div>
 
-                            togglePriceHistory();
-                          }}
-                        >
-                          {priceHistoryOpen ? "Show less" : `Show all ${orderedPriceHistory.length}`}
-                          <ChevronRight className={cn("transition duration-200", priceHistoryOpen && "rotate-90")} size={14} strokeWidth={1.7} />
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="mt-1.5 space-y-1.5">
-                      {visiblePriceHistory.length > 0 ? (
-                        visiblePriceHistory.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-2.5 py-1.5">
-                            <div>
-                              <div className="text-[13px] font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
-                              <div className="text-[11px] leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
-                                type="button"
-                                onClick={() => openPriceModal(entry)}
-                              >
-                                Edit
-                              </button>
-                              {!entry.isFallback ? (
-                                <button
-                                  className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-danger transition hover:bg-danger-soft"
-                                  type="button"
-                                  onClick={() => deletePriceHistory(entry)}
-                                >
-                                  Delete
-                                </button>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[13px] text-text-tertiary">No price history yet.</p>
-                      )}
-                    </div>
-                    {!priceHistoryOpen && hasMorePriceHistory ? (
-                      <p className="mt-2 text-[11px] text-text-tertiary">
-                        Showing newest {COMPACT_PRICE_HISTORY_COUNT} of {orderedPriceHistory.length}
-                      </p>
+                <div className="border-t border-border px-3 py-2 sm:px-4">
+                  <div className="flex min-h-6 items-center justify-between gap-3">
+                    <div className="text-[12px] font-medium text-text-secondary">Price history</div>
+                    {hasMorePriceHistory ? (
+                      <button
+                        className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                        type="button"
+                        onPointerDown={(event) => {
+                          if (event.button !== 0) return;
+                          suppressPriceHistoryClickUntilRef.current = Date.now() + 750;
+                          togglePriceHistory();
+                        }}
+                        onClick={() => {
+                          if (Date.now() < suppressPriceHistoryClickUntilRef.current) {
+                            suppressPriceHistoryClickUntilRef.current = 0;
+                            return;
+                          }
+
+                          togglePriceHistory();
+                        }}
+                      >
+                        {priceHistoryOpen ? "Show less" : `Show all ${orderedPriceHistory.length}`}
+                        <ChevronRight className={cn("transition duration-200", priceHistoryOpen && "rotate-90")} size={14} strokeWidth={1.7} />
+                      </button>
                     ) : null}
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    {visiblePriceHistory.length > 0 ? (
+                      visiblePriceHistory.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-2.5 py-1.5">
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
+                            <div className="truncate text-[11px] leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
+                              type="button"
+                              onClick={() => openPriceModal(entry)}
+                            >
+                              Edit
+                            </button>
+                            {!entry.isFallback ? (
+                              <button
+                                className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-danger transition hover:bg-danger-soft"
+                                type="button"
+                                onClick={() => deletePriceHistory(entry)}
+                              >
+                                Delete
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      <p className="text-[13px] text-text-tertiary">No price history yet.</p>
+                    )}
+                  </div>
+                  {!priceHistoryOpen && hasMorePriceHistory ? (
+                    <p className="mt-1.5 text-[11px] text-text-tertiary">
+                      Showing newest {COMPACT_PRICE_HISTORY_COUNT} of {orderedPriceHistory.length}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </section>
