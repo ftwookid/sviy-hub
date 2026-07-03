@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { Camera, ChevronDown, Minus, Plus, Sparkles, X } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Button } from "@/components/ui/Button";
+import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import {
@@ -447,12 +448,11 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
           onChange={(nextAddress) => update("address", nextAddress)}
         />
         {!client ? (
-          <Input
+          <DateField
             label="Regular since"
-            type="date"
             value={values.regular_since}
             error={errors.regular_since}
-            onChange={(event) => update("regular_since", event.target.value)}
+            onChange={(nextDate) => update("regular_since", nextDate)}
           />
         ) : null}
       </div>
