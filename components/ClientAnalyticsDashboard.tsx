@@ -44,7 +44,6 @@ type PanelProps = {
 
 const PAYMENT_METHODS: ClientPaymentMethod[] = ["Rover", "Venmo", "Cash"];
 const ESTIMATED_TAX_RATE = 0.28;
-const TREND_LOOKBACK_DAYS = 30;
 
 type ClientMetric = {
   client: ClientWithPets;
@@ -182,7 +181,7 @@ function sumTotals(metrics: ClientMetric[]): Totals {
 
 function comparisonDate() {
   const date = new Date();
-  date.setDate(date.getDate() - TREND_LOOKBACK_DAYS);
+  date.setFullYear(date.getFullYear() - 1);
   return toInputDate(date);
 }
 
@@ -192,10 +191,10 @@ function metricTrend(current: number, previous: number, options?: { inverse?: bo
   const percentChange = previous > 0 ? (difference / previous) * 100 : current > 0 ? 100 : 0;
   const label =
     previous > 0
-      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${Math.abs(percentChange) < 10 ? Math.abs(percentChange).toFixed(1) : Math.round(Math.abs(percentChange))}% vs 30d`
+      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${Math.abs(percentChange) < 10 ? Math.abs(percentChange).toFixed(1) : Math.round(Math.abs(percentChange))}% YoY`
       : current > 0
-        ? "New vs 30d"
-        : "Flat vs 30d";
+        ? "New YoY"
+        : "Flat YoY";
 
   const isGood = options?.inverse ? direction === "down" : direction === "up";
   const isBad = options?.inverse ? direction === "up" : direction === "down";
@@ -228,14 +227,14 @@ function TrendBadge({ trend }: { trend: Trend }) {
 function MetricCard({ label, value, detail, icon: Icon, emphasis = false, trend }: MetricCardProps) {
   return (
     <div className={cn("flex h-full flex-col justify-between rounded-[18px] border border-border bg-surface p-4 shadow-card", emphasis && "bg-[#FFFEFB]")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div>
+        <div className="flex items-start justify-between gap-3">
           <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">{label}</div>
-          <div className="mt-2 truncate text-[24px] font-medium leading-none text-text-primary">{value}</div>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
+            <Icon size={18} strokeWidth={1.6} />
+          </span>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
-          <Icon size={18} strokeWidth={1.6} />
-        </span>
+        <div className="mt-2 whitespace-nowrap text-[24px] font-medium leading-none text-text-primary">{value}</div>
       </div>
       <div className="mt-3 space-y-2">
         <div className="text-[13px] leading-snug text-text-secondary">{detail}</div>
