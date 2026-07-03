@@ -193,9 +193,9 @@ function ClientsPageContent() {
           </Button>
         </header>
 
-        <div className={cn("grid gap-3", activeView !== "house-sitting" && "lg:grid-cols-2")}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <nav
-            className="grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1"
+            className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 lg:w-fit"
             aria-label="Client sections"
           >
             {clientViews.map((view) => {
@@ -220,12 +220,12 @@ function ClientsPageContent() {
           </nav>
 
           {activeView !== "house-sitting" ? (
-            <div className="grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+            <div className="grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
               {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
                   className={cn(
-                    "focus-ring flex min-h-10 min-w-0 items-center justify-center rounded-xl px-2 text-center text-[12px] font-medium leading-tight transition duration-150 ease-out sm:min-h-9 sm:px-3 sm:text-[14px]",
+                    "focus-ring flex min-h-9 min-w-0 items-center justify-center rounded-xl px-3 text-[13px] font-medium transition duration-150 ease-out",
                     filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
                   )}
                   type="button"
