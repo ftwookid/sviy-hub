@@ -75,43 +75,44 @@ export function ClientCard({
             </div>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-start gap-2">
-          <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
-          {onDelete ? (
-            <span
-              className="focus-ring inline-grid h-7 w-7 place-items-center rounded-xl text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
-              role="button"
-              tabIndex={0}
-              aria-label={`Delete ${client.name}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+        <div className="flex shrink-0 flex-col items-end gap-3">
+          <div className="flex items-start gap-2">
+            <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
+            {onDelete ? (
+              <span
+                className="focus-ring inline-grid h-7 w-7 place-items-center rounded-xl text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
+                role="button"
+                tabIndex={0}
+                aria-label={`Delete ${client.name}`}
+                onClick={(event) => {
                   event.stopPropagation();
                   onDelete();
-                }
-              }}
-            >
-              <Trash2 size={15} strokeWidth={1.7} />
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-col items-end gap-1.5">
-        <div className="text-right">
-          <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
-          <div className="mt-0.5 flex items-baseline justify-end gap-1.5 text-text-primary">
-            <span className="text-[22px] font-medium leading-none">{formatCurrency(weeklyNet)}</span>
-            <span className="text-[13px] font-medium text-text-tertiary">/wk</span>
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onDelete();
+                  }
+                }}
+              >
+                <Trash2 size={15} strokeWidth={1.7} />
+              </span>
+            ) : null}
           </div>
-        </div>
-        <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-1 text-[11px] font-medium text-text-tertiary">
-          <span>{formatCurrency(estimate.monthlyNet)} /mo</span>
-          <span>{formatCurrency(annualNet)} /yr</span>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="text-right">
+              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
+              <div className="mt-0.5 flex items-baseline justify-end gap-1.5 text-text-primary">
+                <span className="text-[22px] font-medium leading-none">{formatCurrency(weeklyNet)}</span>
+                <span className="text-[13px] font-medium text-text-tertiary">/wk</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-1 text-[11px] font-medium text-text-tertiary">
+              <span>{formatCurrency(estimate.monthlyNet)} /mo</span>
+              <span>{formatCurrency(annualNet)} /yr</span>
+            </div>
+          </div>
         </div>
       </div>
     </button>
