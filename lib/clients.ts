@@ -64,8 +64,12 @@ export function currentClientPrice(client: Pick<ClientWithPets, "price_per_visit
   return Number(currentEntry?.price ?? client.price_per_visit);
 }
 
+export function estimateClientCurrentEarnings(client: ClientWithPets) {
+  return estimateClientFromRecord({ ...client, price_per_visit: currentClientPrice(client) });
+}
+
 export function estimateClientMonthlyNet(client: ClientWithPets) {
-  return estimateClientFromRecord({ ...client, price_per_visit: currentClientPrice(client) }).monthlyNet;
+  return estimateClientCurrentEarnings(client).monthlyNet;
 }
 
 export function defaultClientValues(): ClientFormValues {

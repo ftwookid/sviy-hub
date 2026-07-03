@@ -4,7 +4,7 @@ import { Clock, Home, PawPrint, Sparkles, Trash2 } from "lucide-react";
 import { ClientPaymentBadge } from "@/components/ClientPaymentBadge";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
-import { estimateClientMonthlyNet } from "@/lib/clients";
+import { estimateClientCurrentEarnings, WEEKS_PER_MONTH } from "@/lib/clients";
 import type { ClientWithPets } from "@/types/client";
 
 function petNames(client: ClientWithPets) {
@@ -39,7 +39,9 @@ export function ClientCard({
   onDelete?: () => void;
   onClick: () => void;
 }) {
-  const monthlyNet = estimateClientMonthlyNet(client);
+  const estimate = estimateClientCurrentEarnings(client);
+  const weeklyNet = estimate.monthlyNet / WEEKS_PER_MONTH;
+  const annualNet = estimate.monthlyNet * 12;
   const isPaused = client.status === "Paused";
   const pets = petNames(client);
   const service = serviceLabel(client);
@@ -99,10 +101,17 @@ export function ClientCard({
         </div>
       </div>
 
-      <div className="mt-5 flex items-end justify-end gap-3">
-        <div className="flex items-baseline gap-1.5 text-text-primary">
-          <span className="text-[22px] font-medium leading-none">{formatCurrency(monthlyNet)}</span>
-          <span className="text-[13px] font-medium text-text-tertiary">/mo</span>
+      <div className="mt-5 flex flex-col items-end gap-2">
+        <div className="text-right">
+          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
+          <div className="mt-1 flex items-baseline justify-end gap-1.5 text-text-primary">
+            <span className="text-[24px] font-medium leading-none">{formatCurrency(weeklyNet)}</span>
+            <span className="text-[13px] font-medium text-text-tertiary">/wk</span>
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-[12px] font-medium text-text-tertiary">
+          <span>{formatCurrency(estimate.monthlyNet)} /mo</span>
+          <span>{formatCurrency(annualNet)} /yr</span>
         </div>
       </div>
     </button>
