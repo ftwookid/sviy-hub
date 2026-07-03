@@ -49,7 +49,7 @@ export function ClientCard({
   return (
     <button
       className={cn(
-        "group w-full rounded-[20px] border p-5 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(80,66,44,0.13)]",
+        "group w-full rounded-[18px] border p-4 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(80,66,44,0.13)]",
         isPaused
           ? "border-border bg-subtle/70 opacity-70 shadow-none hover:border-border-emphasis hover:opacity-85"
           : "border-border bg-surface shadow-card hover:border-border-emphasis"
@@ -57,29 +57,29 @@ export function ClientCard({
       onClick={onClick}
       type="button"
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-[22px] font-medium leading-[1.16] text-text-primary" title={pets}>
+          <div className="truncate text-[20px] font-medium leading-[1.15] text-text-primary" title={pets}>
             {pets}
           </div>
-          <div className="mt-1 truncate text-[14px] font-medium text-text-tertiary" title={client.name}>
+          <div className="mt-0.5 truncate text-[13px] font-medium text-text-tertiary" title={client.name}>
             {client.name}
           </div>
-          <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[12px] text-text-tertiary" title={service}>
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] text-text-tertiary" title={service}>
             <ServiceIcon service={service} />
             <span className="truncate">{service}</span>
           </div>
           {ownerLabel ? (
-            <div className="mt-2 truncate text-[11px] font-medium text-text-tertiary" title={ownerLabel}>
+            <div className="mt-1.5 truncate text-[11px] font-medium text-text-tertiary" title={ownerLabel}>
               {ownerLabel}
             </div>
           ) : null}
         </div>
         <div className="flex shrink-0 items-start gap-2">
-          <ClientPaymentBadge method={client.payment_method} />
+          <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
           {onDelete ? (
             <span
-              className="focus-ring inline-grid h-8 w-8 place-items-center rounded-xl text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
+              className="focus-ring inline-grid h-7 w-7 place-items-center rounded-xl text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
               role="button"
               tabIndex={0}
               aria-label={`Delete ${client.name}`}
@@ -101,15 +101,15 @@ export function ClientCard({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-col items-end gap-2">
+      <div className="mt-4 flex flex-col items-end gap-1.5">
         <div className="text-right">
-          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
-          <div className="mt-1 flex items-baseline justify-end gap-1.5 text-text-primary">
-            <span className="text-[24px] font-medium leading-none">{formatCurrency(weeklyNet)}</span>
+          <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
+          <div className="mt-0.5 flex items-baseline justify-end gap-1.5 text-text-primary">
+            <span className="text-[22px] font-medium leading-none">{formatCurrency(weeklyNet)}</span>
             <span className="text-[13px] font-medium text-text-tertiary">/wk</span>
           </div>
         </div>
-        <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-[12px] font-medium text-text-tertiary">
+        <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-1 text-[11px] font-medium text-text-tertiary">
           <span>{formatCurrency(estimate.monthlyNet)} /mo</span>
           <span>{formatCurrency(annualNet)} /yr</span>
         </div>
