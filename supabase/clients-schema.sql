@@ -128,6 +128,18 @@ create index if not exists status_history_client_start_idx on status_history (cl
 create index if not exists status_history_client_current_idx on status_history (client_id) where end_date is null;
 create index if not exists price_history_client_effective_idx on price_history (client_id, effective_date desc);
 
+insert into status_history (client_id, status, start_date)
+select
+  clients.id,
+  clients.status,
+  coalesce(clients.created_at::date, current_date)
+from clients
+where not exists (
+  select 1
+  from status_history
+  where status_history.client_id = clients.id
+);
+
 insert into price_history (client_id, price, effective_date)
 select
   clients.id,

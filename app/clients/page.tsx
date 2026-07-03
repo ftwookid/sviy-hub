@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { HeartHandshake, Plus, X } from "lucide-react";
+import { HeartHandshake, PauseCircle, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
+import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
 import { ClientForm } from "@/components/ClientForm";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
+import { estimateClientMonthlyNet } from "@/lib/clients";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientStatus, ClientWithPets } from "@/types/client";
@@ -31,7 +33,7 @@ export default function ClientsPage() {
     setLoading(true);
     let query = supabase
       .from("clients")
-      .select("*, pets(*)")
+      .select("*, pets(*), price_history(*)")
       .order("name", { ascending: true });
 
     if (!isAdmin) query = query.eq("user_id", user.id);
@@ -39,7 +41,7 @@ export default function ClientsPage() {
     const { data } = await query;
 
     const nextClients = ((data ?? []) as Array<ClientWithPets & { pets: ClientWithPets["pets"] | null }>).map(
-      (client) => ({ ...client, pets: client.pets ?? [] })
+      (client) => ({ ...client, pets: client.pets ?? [], price_history: client.price_history ?? [] })
     );
 
     if (isAdmin && nextClients.length > 0) {
@@ -94,11 +96,12 @@ export default function ClientsPage() {
 
   const filteredClients = useMemo(() => {
     const nextClients = clients.filter((client) => filter === "All" || client.status === filter);
-    if (filter !== "All") return nextClients;
 
     return nextClients.slice().sort((a, b) => {
-      if (a.status === b.status) return 0;
-      return a.status === "Active" ? -1 : 1;
+      const incomeDiff = estimateClientMonthlyNet(b) - estimateClientMonthlyNet(a);
+      if (incomeDiff !== 0) return incomeDiff;
+      if (a.status !== b.status) return a.status === "Active" ? -1 : 1;
+      return a.name.localeCompare(b.name);
     });
   }, [clients, filter]);
 
@@ -169,33 +172,49 @@ export default function ClientsPage() {
         {loading ? <SkeletonRows /> : null}
 
         {!loading && filteredClients.length === 0 ? (
-          <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
-            <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
-              <HeartHandshake size={32} strokeWidth={1.5} className="text-accent" />
-            </div>
-            <h2 className="mt-5 text-[22px] font-medium text-text-primary">No clients here yet</h2>
-            <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
-              Add your first client and the hub will start estimating visits, taxes, and monthly income.
-            </p>
-            <Button className="mt-6" variant="accent" onClick={openNewClient}>
-              <Plus size={18} strokeWidth={1.6} />
-              Add client
-            </Button>
-          </section>
+          filter === "Paused" ? (
+            <section className="rounded-[24px] border border-border bg-surface px-6 py-14 text-center shadow-card">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-subtle">
+                <PauseCircle size={28} strokeWidth={1.5} className="text-text-tertiary" />
+              </div>
+              <h2 className="mt-5 text-[22px] font-medium text-text-primary">No paused clients</h2>
+              <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+                Clients only show here after they are paused from an existing profile.
+              </p>
+            </section>
+          ) : (
+            <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
+              <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
+                <HeartHandshake size={32} strokeWidth={1.5} className="text-accent" />
+              </div>
+              <h2 className="mt-5 text-[22px] font-medium text-text-primary">No clients here yet</h2>
+              <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+                Add your first client and the hub will start estimating visits, taxes, and monthly income.
+              </p>
+              <Button className="mt-6" variant="accent" onClick={openNewClient}>
+                <Plus size={18} strokeWidth={1.6} />
+                Add client
+              </Button>
+            </section>
+          )
         ) : null}
 
         {!loading && filteredClients.length > 0 ? (
-          <section className="grid gap-4 lg:grid-cols-2">
-            {filteredClients.map((client) => (
-              <ClientCard
-                key={client.id}
-                client={client}
-                ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
-                onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
-                onClick={() => router.push(`/clients/${client.id}`)}
-              />
-            ))}
-          </section>
+          <>
+            <ClientAnalyticsDashboard clients={filteredClients} />
+
+            <section className="grid gap-4 lg:grid-cols-2">
+              {filteredClients.map((client) => (
+                <ClientCard
+                  key={client.id}
+                  client={client}
+                  ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
+                  onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
+                  onClick={() => router.push(`/clients/${client.id}`)}
+                />
+              ))}
+            </section>
+          </>
         ) : null}
       </div>
 
@@ -229,6 +248,7 @@ export default function ClientsPage() {
               key={editingClient?.id ?? "new"}
               userId={user.id}
               client={editingClient}
+              canChangeOwner={isAdmin}
               onCancel={closeEditor}
               onSaved={() => {
                 closeEditor();

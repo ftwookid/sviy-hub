@@ -1,9 +1,11 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Camera, ChevronDown, Minus, Plus, Sparkles, X } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { Button } from "@/components/ui/Button";
+import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import {
@@ -17,7 +19,7 @@ import {
   selectedDaysFromRecord,
   selectedDaysLabel
 } from "@/lib/clients";
-import { formatCurrency, formatShortDate, sanitizeFilename } from "@/lib/formatters";
+import { formatCurrency, formatShortDate, sanitizeFilename, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
 import type {
   ClientFormPet,
@@ -32,6 +34,7 @@ import type {
 type ClientFormProps = {
   userId: string;
   client?: ClientWithPets | null;
+  canChangeOwner?: boolean;
   hideStatusField?: boolean;
   statusHistory?: StatusHistory[];
   onSaved: () => void;
@@ -39,13 +42,18 @@ type ClientFormProps = {
 };
 
 type ClientFormErrors = Partial<
-  Record<"name" | "address" | "payment_method" | "price_per_visit" | "pets" | "selected_days", string>
+  Record<"name" | "address" | "regular_since" | "owner" | "payment_method" | "price_per_visit" | "pets" | "selected_days", string>
 >;
 
 type ChangeSummary = {
   label: string;
   before: string;
   after: string;
+};
+
+type OwnerOption = {
+  id: string;
+  label: string;
 };
 
 const MAX_PET_PHOTO_SIZE = 800;
@@ -57,6 +65,7 @@ function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   return {
     name: client.name,
     address: client.address,
+    regular_since: toInputDate(new Date(client.created_at)),
     pets:
       client.pets.length > 0
         ? client.pets.map((pet) => ({
@@ -78,8 +87,20 @@ function valuesFromClient(client?: ClientWithPets | null): ClientFormValues {
   };
 }
 
-export function ClientForm({ userId, client, hideStatusField = false, statusHistory = [], onSaved, onCancel }: ClientFormProps) {
+export function ClientForm({
+  userId,
+  client,
+  canChangeOwner = false,
+  hideStatusField = false,
+  statusHistory = [],
+  onSaved,
+  onCancel
+}: ClientFormProps) {
   const [values, setValues] = useState<ClientFormValues>(() => valuesFromClient(client));
+  const [ownerId, setOwnerId] = useState(client?.user_id ?? userId);
+  const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
+  const [ownerLoading, setOwnerLoading] = useState(false);
+  const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
   const [errors, setErrors] = useState<ClientFormErrors>({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -89,6 +110,10 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
   const [changeSummary, setChangeSummary] = useState<ChangeSummary[]>([]);
 
   const selectedDaysCount = values.selected_days.length;
+  const ownerSelectOptions = useMemo(() => {
+    if (!ownerId || ownerOptions.some((owner) => owner.id === ownerId)) return ownerOptions;
+    return [{ id: ownerId, label: `User ${ownerId.slice(0, 8)}`, email: null }, ...ownerOptions];
+  }, [ownerId, ownerOptions]);
 
   const estimate = estimateClientEarnings({
     pricePerVisit: Number(values.price_per_visit || 0),
@@ -96,6 +121,46 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
     paymentMethod: values.payment_method,
     commissionRate: ROVER_COMMISSION_RATE
   });
+
+  useEffect(() => {
+    if (!canChangeOwner || !supabase) return;
+    let active = true;
+
+    async function loadOwners() {
+      setOwnerLoading(true);
+      const {
+        data: { session }
+      } = await supabase!.auth.getSession();
+
+      if (!session?.access_token) {
+        if (active) setOwnerLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/admin/users", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+
+        if (!response.ok) throw new Error("Could not load owners.");
+
+        const body = (await response.json()) as { users?: OwnerOption[] };
+        if (active) setOwnerOptions(body.users ?? []);
+      } catch {
+        if (active) setFormError("Could not load owner options.");
+      } finally {
+        if (active) setOwnerLoading(false);
+      }
+    }
+
+    loadOwners();
+
+    return () => {
+      active = false;
+    };
+  }, [canChangeOwner]);
 
   function update<K extends keyof ClientFormValues>(key: K, value: ClientFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -115,6 +180,12 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       ...current,
       pets: [...current.pets, { name: "", type: "Dog", photoFile: null }]
     }));
+  }
+
+  function updateOwner(nextOwnerId: string) {
+    setOwnerId(nextOwnerId);
+    setOwnerMenuOpen(false);
+    setErrors((current) => ({ ...current, owner: undefined }));
   }
 
   function removePet(index: number) {
@@ -142,6 +213,8 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
     const nextErrors: ClientFormErrors = {};
     if (!values.name.trim()) nextErrors.name = "Client name is required.";
     if (!values.address.trim()) nextErrors.address = "Address is required.";
+    if (!client && !values.regular_since) nextErrors.regular_since = "Choose when this client became regular.";
+    if (canChangeOwner && !ownerId) nextErrors.owner = "Choose an owner.";
     if (!values.pets.length) {
       nextErrors.pets = "Add at least one pet.";
     } else if (values.pets.some((pet) => !pet.name.trim() || !pet.type)) {
@@ -297,6 +370,10 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       .join(", ");
   }
 
+  function ownerLabel(nextOwnerId: string) {
+    return ownerSelectOptions.find((owner) => owner.id === nextOwnerId)?.label ?? `User ${nextOwnerId.slice(0, 8)}`;
+  }
+
   function buildChangeSummary() {
     if (!client) return [];
     const originalValues = valuesFromClient(client);
@@ -306,6 +383,10 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       if (before !== after) changes.push({ label, before, after });
     }
 
+    const currentOwnerLabel = ownerLabel(client.user_id);
+    const nextOwnerLabel = ownerLabel(ownerId);
+
+    addChange("Owner", currentOwnerLabel, nextOwnerLabel);
     addChange("Name", normalizeBlank(originalValues.name), normalizeBlank(values.name));
     addChange("Address", normalizeBlank(originalValues.address), normalizeBlank(values.address));
     addChange("Payment method", originalValues.payment_method, values.payment_method);
@@ -331,12 +412,12 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
 
   async function saveClient() {
     if (!supabase) return;
-    const ownerId = client?.user_id ?? userId;
+    const nextOwnerId = canChangeOwner ? ownerId : client?.user_id ?? userId;
     setSaving(true);
     setFormError("");
     try {
       const payload = {
-        user_id: ownerId,
+        user_id: nextOwnerId,
         name: values.name.trim(),
         address: values.address.trim(),
         payment_method: values.payment_method,
@@ -367,16 +448,35 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
       if (values.pets.length > 0) {
         const petsPayload = await Promise.all(
           values.pets.map(async (pet) => ({
-            user_id: ownerId,
+            user_id: nextOwnerId,
             client_id: clientId,
             name: pet.name.trim(),
             type: pet.type,
-            ...(await uploadPetPhoto(pet, ownerId))
+            ...(await uploadPetPhoto(pet, nextOwnerId))
           }))
         );
 
         const { error: petsError } = await supabase.from("pets").insert(petsPayload);
         if (petsError) throw petsError;
+      }
+
+      if (!client) {
+        const regularSince = values.regular_since;
+        const [{ error: statusError }, { error: priceError }] = await Promise.all([
+          supabase.from("status_history").insert({
+            client_id: clientId,
+            status: values.status,
+            start_date: regularSince
+          }),
+          supabase.from("price_history").insert({
+            client_id: clientId,
+            price: Number(Number(values.price_per_visit || 0).toFixed(2)),
+            effective_date: regularSince
+          })
+        ]);
+
+        if (statusError) throw statusError;
+        if (priceError) throw priceError;
       }
 
       onSaved();
@@ -425,6 +525,55 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
           placeholder="Search by address or building name"
           onChange={(nextAddress) => update("address", nextAddress)}
         />
+        {canChangeOwner ? (
+          <FieldShell label="Owner" error={errors.owner}>
+            <div className="relative">
+              <button
+                className={cn(
+                  "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+                  errors.owner ? "border-danger" : "border-border"
+                )}
+                type="button"
+                disabled={ownerLoading && ownerSelectOptions.length === 0}
+                onClick={() => setOwnerMenuOpen((open) => !open)}
+              >
+                <span className="truncate">
+                  {ownerLoading && ownerSelectOptions.length === 0 ? "Loading owners..." : ownerLabel(ownerId)}
+                </span>
+                <ChevronDown
+                  className={cn("shrink-0 text-text-tertiary transition duration-200", ownerMenuOpen && "rotate-180")}
+                  size={18}
+                  strokeWidth={1.6}
+                />
+              </button>
+              {ownerMenuOpen ? (
+                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-2xl border border-border bg-surface p-1.5 shadow-[0_18px_48px_rgba(80,66,44,0.14)]">
+                  {ownerSelectOptions.map((owner) => (
+                    <button
+                      key={owner.id}
+                      className={cn(
+                        "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-[14px] font-medium transition duration-150 ease-out",
+                        owner.id === ownerId ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
+                      )}
+                      type="button"
+                      onClick={() => updateOwner(owner.id)}
+                    >
+                      <span className="truncate">{owner.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </FieldShell>
+        ) : null}
+        {!client ? (
+          <DateField
+            label="Regular since"
+            value={values.regular_since}
+            error={errors.regular_since}
+            onChange={(nextDate) => update("regular_since", nextDate)}
+          />
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -494,7 +643,10 @@ export function ClientForm({ userId, client, hideStatusField = false, statusHist
                   onClick={() => update("payment_method", method)}
                   type="button"
                 >
-                  {method}
+                  <span className="flex min-w-0 items-center justify-center gap-1.5">
+                    <ClientPaymentIcon method={method} />
+                    <span className="truncate">{method}</span>
+                  </span>
                 </button>
               ))}
             </div>
