@@ -729,7 +729,7 @@ export default function ClientDetailPage() {
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-text-tertiary">
                     <span>{serviceLabel(client)}</span>
                     <span>{selectedDays.length}x/week</span>
-                    <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
+                    <span>{client.payment_method}</span>
                   </div>
                 </div>
                 <div className="min-w-0 md:border-l md:border-border md:pl-3">

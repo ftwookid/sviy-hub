@@ -85,8 +85,7 @@ export async function GET(request: Request) {
           user_metadata: nextUser.user_metadata as Record<string, unknown>
         },
         profiles
-      ),
-      email: nextUser.email ?? null
+      )
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 

@@ -54,7 +54,6 @@ type ChangeSummary = {
 type OwnerOption = {
   id: string;
   label: string;
-  email: string | null;
 };
 
 const MAX_PET_PHOTO_SIZE = 800;
@@ -101,6 +100,7 @@ export function ClientForm({
   const [ownerId, setOwnerId] = useState(client?.user_id ?? userId);
   const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
   const [ownerLoading, setOwnerLoading] = useState(false);
+  const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
   const [errors, setErrors] = useState<ClientFormErrors>({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -184,6 +184,7 @@ export function ClientForm({
 
   function updateOwner(nextOwnerId: string) {
     setOwnerId(nextOwnerId);
+    setOwnerMenuOpen(false);
     setErrors((current) => ({ ...current, owner: undefined }));
   }
 
@@ -525,20 +526,45 @@ export function ClientForm({
           onChange={(nextAddress) => update("address", nextAddress)}
         />
         {canChangeOwner ? (
-          <Select
-            label="Owner"
-            value={ownerId}
-            error={errors.owner}
-            disabled={ownerLoading}
-            onChange={(event) => updateOwner(event.target.value)}
-          >
-            {ownerLoading && ownerSelectOptions.length === 0 ? <option value={ownerId}>Loading owners...</option> : null}
-            {ownerSelectOptions.map((owner) => (
-              <option key={owner.id} value={owner.id}>
-                {owner.email && owner.email !== owner.label ? `${owner.label} · ${owner.email}` : owner.label}
-              </option>
-            ))}
-          </Select>
+          <FieldShell label="Owner" error={errors.owner}>
+            <div className="relative">
+              <button
+                className={cn(
+                  "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+                  errors.owner ? "border-danger" : "border-border"
+                )}
+                type="button"
+                disabled={ownerLoading && ownerSelectOptions.length === 0}
+                onClick={() => setOwnerMenuOpen((open) => !open)}
+              >
+                <span className="truncate">
+                  {ownerLoading && ownerSelectOptions.length === 0 ? "Loading owners..." : ownerLabel(ownerId)}
+                </span>
+                <ChevronDown
+                  className={cn("shrink-0 text-text-tertiary transition duration-200", ownerMenuOpen && "rotate-180")}
+                  size={18}
+                  strokeWidth={1.6}
+                />
+              </button>
+              {ownerMenuOpen ? (
+                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-2xl border border-border bg-surface p-1.5 shadow-[0_18px_48px_rgba(80,66,44,0.14)]">
+                  {ownerSelectOptions.map((owner) => (
+                    <button
+                      key={owner.id}
+                      className={cn(
+                        "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-[14px] font-medium transition duration-150 ease-out",
+                        owner.id === ownerId ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
+                      )}
+                      type="button"
+                      onClick={() => updateOwner(owner.id)}
+                    >
+                      <span className="truncate">{owner.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </FieldShell>
         ) : null}
         {!client ? (
           <DateField
