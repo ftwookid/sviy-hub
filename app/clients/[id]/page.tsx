@@ -766,36 +766,34 @@ export default function ClientDetailPage() {
                   <span className="rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-text-tertiary">{client.payment_method}</span>
                 </div>
 
-                <div className="mt-3 rounded-2xl bg-subtle p-2.5">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-xl bg-surface px-3 py-2">
-                      <div className="text-[11px] font-medium text-text-tertiary">Visits</div>
-                      <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
-                        <span className="text-[14px] font-semibold leading-5 text-text-primary">
-                          {selectedDays.length} {selectedDays.length === 1 ? "visit" : "visits"}/week
-                        </span>
-                        <span className="truncate text-[11px] leading-4 text-text-tertiary">
-                          {selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"}
-                        </span>
-                      </div>
+                <div className="mt-3 overflow-hidden rounded-xl bg-subtle">
+                  <div className="grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                    <div className="px-3 py-2">
+                      <PaymentInfoRow
+                        label="Visits"
+                        value={`${selectedDays.length} ${selectedDays.length === 1 ? "visit" : "visits"}/week`}
+                        detail={selectedDays.length ? selectedDays.join(", ") : client.frequency_label || "Not set"}
+                      />
                     </div>
 
-                    <div className="rounded-xl bg-surface px-3 py-2">
-                      <div className="text-[11px] font-medium text-text-tertiary">Price per visit</div>
-                      <div className="mt-0.5 flex items-center justify-between gap-3">
-                        <div className="text-[14px] font-semibold leading-5 text-text-primary">{formatCurrency(currentPrice)}</div>
-                        <button
-                          className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-secondary"
-                          type="button"
-                          onClick={() => openPriceModal()}
-                        >
-                          Change
-                        </button>
-                      </div>
+                    <div className="px-3 py-2">
+                      <PaymentInfoRow
+                        label="Price per visit"
+                        value={formatCurrency(currentPrice)}
+                        action={
+                          <button
+                            className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-surface hover:text-text-secondary"
+                            type="button"
+                            onClick={() => openPriceModal()}
+                          >
+                            Change
+                          </button>
+                        }
+                      />
                     </div>
                   </div>
 
-                  <div className="mt-2 rounded-xl bg-surface px-3 py-2">
+                  <div className="border-t border-border px-3 py-2">
                     <div className="flex min-h-6 items-center justify-between gap-3">
                       <div className="text-[12px] font-medium text-text-secondary">Price history</div>
                       {hasMorePriceHistory ? (
@@ -821,17 +819,17 @@ export default function ClientDetailPage() {
                         </button>
                       ) : null}
                     </div>
-                    <div className="mt-1.5 space-y-1.5">
+                    <div className="mt-1.5 space-y-1">
                       {visiblePriceHistory.length > 0 ? (
                         visiblePriceHistory.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-2.5 py-1.5">
+                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface px-2.5 py-1.5">
                             <div className="min-w-0">
                               <div className="text-[13px] font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
                               <div className="truncate text-[11px] leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
                               <button
-                                className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
+                                className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                                 type="button"
                                 onClick={() => openPriceModal(entry)}
                               >
@@ -1124,6 +1122,31 @@ export default function ClientDetailPage() {
   );
 }
 
+function PaymentInfoRow({
+  label,
+  value,
+  detail,
+  action
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="text-[11px] font-medium text-text-tertiary">{label}</div>
+      <div className="mt-0.5 flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-[14px] font-semibold leading-5 text-text-primary">{value}</div>
+          {detail ? <div className="truncate text-[11px] leading-4 text-text-tertiary">{detail}</div> : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function FinancialBlock({
   period,
   onPeriodChange,
@@ -1158,7 +1181,7 @@ function FinancialBlock({
 
   return (
     <section>
-      <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
+      <div className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[16px] font-semibold text-text-primary">Financial overview</h2>
           <div className="flex justify-end">
@@ -1180,8 +1203,8 @@ function FinancialBlock({
           </div>
         </div>
 
-        <div className="mt-3 divide-y divide-border rounded-xl bg-subtle px-3">
-          <div className="py-2">
+        <div className="mt-3 divide-y divide-border overflow-hidden rounded-xl bg-subtle">
+          <div className="px-3 py-2">
             <BreakdownRow label={`Gross/${periodLabel}`} value={formatCurrency(periodGross)} />
             {hasPlatformFee ? (
               <div className="mt-1">
@@ -1191,7 +1214,7 @@ function FinancialBlock({
             ) : null}
           </div>
 
-          <div className="py-2">
+          <div className="px-3 py-2">
             <BreakdownRow
               label={`You receive/${periodLabel}`}
               value={formatCurrency(periodReceive)}
@@ -1199,7 +1222,7 @@ function FinancialBlock({
             />
           </div>
 
-          <div className="py-2">
+          <div className="px-3 py-2">
             {isTaxable ? <BreakdownRow label="- Est. tax (28%)" value={`- ${formatCurrency(tax)}`} muted /> : null}
             <div className={isTaxable ? "mt-1" : undefined}>
               <BreakdownRow label={`Est. take-home/${periodLabel}`} value={formatCurrency(takeHome)} />
