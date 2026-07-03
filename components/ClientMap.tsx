@@ -253,7 +253,7 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
   }, [clientsWithAddresses, locationKey]);
 
   return (
-    <section className="overflow-hidden rounded-[22px] border border-border bg-surface shadow-card">
+    <section className="flex h-full flex-col overflow-hidden rounded-[22px] border border-border bg-surface shadow-card">
       <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
@@ -269,7 +269,7 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
         </div>
       </div>
 
-      <div className="relative h-[360px] min-h-[320px] w-full bg-subtle sm:h-[430px]">
+      <div className="relative h-[360px] min-h-[320px] w-full flex-1 bg-subtle sm:h-[430px] xl:h-auto">
         <div ref={containerRef} className="h-full w-full" aria-label="Map of client addresses" />
         {status === "loading" || status === "empty" || status === "error" ? (
           <div className="absolute inset-0 grid place-items-center bg-subtle/80 px-5 text-center backdrop-blur-[1px]">

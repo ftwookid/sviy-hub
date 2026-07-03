@@ -212,6 +212,9 @@ $$;
 -- Also run supabase/mileage-schema.sql to install the Mileage tables, indexes,
 -- row-level security policies, and immutable upload-version storage.
 --
+-- Also run supabase/house-sitting-schema.sql to install the House Sitting
+-- customers/bookings tables, indexes, and row-level security policies.
+--
 -- create policy "Users can view their own receipts"
 --   on storage.objects for select
 --   using (
