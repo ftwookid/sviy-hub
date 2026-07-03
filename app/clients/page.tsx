@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, HeartHandshake, Home, PauseCircle, Plus, UsersRound, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -51,6 +51,14 @@ function getClientView(value: string | null): ClientView {
 }
 
 export default function ClientsPage() {
+  return (
+    <Suspense fallback={<AppLoading message="Loading clients..." />}>
+      <ClientsPageContent />
+    </Suspense>
+  );
+}
+
+function ClientsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAdmin, authLoading } = useAuthUser();
