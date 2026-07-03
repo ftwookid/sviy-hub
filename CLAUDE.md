@@ -338,6 +338,20 @@ https://sviy-hub.vercel.app
 
 Do not commit normal task work directly to `main`, and do not treat requests to `commit and push` as production deployment unless the user explicitly says `push live`.
 
+## Versioning Rules
+
+Always update and report the app version at the end of each completed task. Version numbers use:
+
+```text
+major.feature.patch
+```
+
+- Change the first number for structural product changes, such as a new major app area, navigation-level feature, or database-backed workflow.
+- Change the second number for major feature additions inside the current structure, such as a new analytics section or complex reporting block.
+- Change the last number for fixes, UI polish, copy updates, and other minor changes.
+
+The repo pre-commit hook always increments the last number in `version.json` and stages it automatically. When setting a structural or major-feature version before commit, account for that hook so the committed version still follows the intended version family.
+
 ## Next Step
 
 Create the private Supabase Storage bucket if it does not exist yet:

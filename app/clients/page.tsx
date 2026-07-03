@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
 import { ClientForm } from "@/components/ClientForm";
+import { HouseSittingDashboard } from "@/components/HouseSittingDashboard";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -239,15 +240,7 @@ function ClientsPageContent() {
         </div>
 
         {activeView === "house-sitting" ? (
-          <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
-            <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
-              <Home size={32} strokeWidth={1.5} className="text-accent" />
-            </div>
-            <h2 className="mt-5 text-[22px] font-medium text-text-primary">House Sitting is coming soon</h2>
-            <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
-              This space is reserved for overnight stays, home care details, and the workflow we will build next.
-            </p>
-          </section>
+          <HouseSittingDashboard userId={user.id} isAdmin={isAdmin} regularClients={clients} />
         ) : null}
 
         {activeView !== "house-sitting" && loading ? <SkeletonRows /> : null}

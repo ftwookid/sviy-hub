@@ -1,0 +1,873 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  BedDouble,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Moon,
+  Plus,
+  Search,
+  Sparkles,
+  X
+} from "lucide-react";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
+import { Button } from "@/components/ui/Button";
+import { DateField } from "@/components/ui/DateField";
+import { FieldShell, Input } from "@/components/ui/Field";
+import { SkeletonRows } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/cn";
+import { CLIENT_PAYMENT_METHODS, ROVER_COMMISSION_RATE } from "@/lib/clients";
+import {
+  addDays,
+  addMonths,
+  addYears,
+  bookingOverlapsDate,
+  bookingOverlapsRange,
+  calendarMonthDays,
+  dateRangeLabel,
+  endOfWeek,
+  estimateHouseSitting,
+  nightsBetween,
+  startOfWeek
+} from "@/lib/houseSitting";
+import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
+import { supabase } from "@/lib/supabase";
+import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
+import type {
+  HouseSittingBooking,
+  HouseSittingCalendarView,
+  HouseSittingCustomer,
+  HouseSittingFormValues
+} from "@/types/houseSitting";
+
+type HouseSittingDashboardProps = {
+  userId: string;
+  isAdmin: boolean;
+  regularClients: ClientWithPets[];
+};
+
+type CustomerOption = {
+  key: string;
+  source: "regular" | "house";
+  id: string;
+  label: string;
+  address: string;
+  petNames: string;
+};
+
+type FormErrors = Partial<Record<keyof HouseSittingFormValues, string>>;
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function defaultValues(): HouseSittingFormValues {
+  const today = todayInputValue();
+  return {
+    customer_name: "",
+    address: "",
+    pet_names: "",
+    payment_method: "Rover",
+    start_date: today,
+    end_date: today,
+    nightly_rate: ""
+  };
+}
+
+function titleForView(view: HouseSittingCalendarView, cursorDate: Date) {
+  if (view === "week") {
+    return `${shortDate(toInputDate(startOfWeek(cursorDate)))} - ${shortDate(toInputDate(endOfWeek(cursorDate)))}`;
+  }
+
+  if (view === "year") return String(cursorDate.getFullYear());
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(cursorDate);
+}
+
+function shortDate(dateValue: string) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(parseLocalDate(dateValue));
+}
+
+function monthTitle(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { month: "long" }).format(date);
+}
+
+function isSameMonth(date: Date, cursorDate: Date) {
+  return date.getFullYear() === cursorDate.getFullYear() && date.getMonth() === cursorDate.getMonth();
+}
+
+function bookingSort(a: HouseSittingBooking, b: HouseSittingBooking) {
+  return a.start_date.localeCompare(b.start_date) || a.customer_name.localeCompare(b.customer_name);
+}
+
+function paymentTone(method: ClientPaymentMethod) {
+  if (method === "Rover") return "bg-success-soft text-success";
+  if (method === "Venmo") return "bg-blue-100 text-blue-700";
+  return "bg-[#F1F0ED] text-text-secondary";
+}
+
+function customerPets(client: ClientWithPets) {
+  return client.pets.map((pet) => pet.name).filter(Boolean).join(", ");
+}
+
+export function HouseSittingDashboard({ userId, isAdmin, regularClients }: HouseSittingDashboardProps) {
+  const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
+  const [houseCustomers, setHouseCustomers] = useState<HouseSittingCustomer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [calendarView, setCalendarView] = useState<HouseSittingCalendarView>("month");
+  const [cursorDate, setCursorDate] = useState(() => parseLocalDate(todayInputValue()));
+
+  const loadHouseSitting = useCallback(async () => {
+    if (!supabase) return;
+    setLoading(true);
+
+    const bookingQuery = supabase.from("house_sittings").select("*").order("start_date", { ascending: true });
+    const customerQuery = supabase.from("house_sitting_customers").select("*").order("name", { ascending: true });
+
+    if (!isAdmin) {
+      bookingQuery.eq("user_id", userId);
+      customerQuery.eq("user_id", userId);
+    }
+
+    const [{ data: bookingData, error: bookingError }, { data: customerData, error: customerError }] = await Promise.all([
+      bookingQuery,
+      customerQuery
+    ]);
+    if (bookingError || customerError) {
+      setLoadError("House sitting database tables are not ready yet. Run supabase/house-sitting-schema.sql in Supabase.");
+      setBookings([]);
+      setHouseCustomers([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoadError("");
+    setBookings((bookingData ?? []) as HouseSittingBooking[]);
+    setHouseCustomers((customerData ?? []) as HouseSittingCustomer[]);
+    setLoading(false);
+  }, [isAdmin, userId]);
+
+  useEffect(() => {
+    loadHouseSitting();
+  }, [loadHouseSitting]);
+
+  const stats = useMemo(() => {
+    const today = todayInputValue();
+    const yearStart = `${cursorDate.getFullYear()}-01-01`;
+    const yearEnd = `${cursorDate.getFullYear()}-12-31`;
+    const monthStart = toInputDate(new Date(cursorDate.getFullYear(), cursorDate.getMonth(), 1));
+    const monthEnd = toInputDate(new Date(cursorDate.getFullYear(), cursorDate.getMonth() + 1, 0));
+    const upcoming = bookings.filter((booking) => booking.end_date >= today).sort(bookingSort);
+    const monthBookings = bookings.filter((booking) => bookingOverlapsRange(booking, monthStart, monthEnd));
+    const yearBookings = bookings.filter((booking) => bookingOverlapsRange(booking, yearStart, yearEnd));
+    const monthNights = monthBookings.reduce((total, booking) => total + nightsBetween(booking.start_date, booking.end_date), 0);
+    const yearNet = yearBookings.reduce(
+      (total, booking) =>
+        total +
+        estimateHouseSitting({
+          startDate: booking.start_date,
+          endDate: booking.end_date,
+          nightlyRate: Number(booking.nightly_rate),
+          paymentMethod: booking.payment_method,
+          commissionRate: Number(booking.rover_commission_rate)
+        }).net,
+      0
+    );
+
+    return {
+      nextBooking: upcoming[0] ?? null,
+      upcomingCount: upcoming.length,
+      monthNights,
+      yearNet
+    };
+  }, [bookings, cursorDate]);
+
+  function moveCursor(offset: number) {
+    setCursorDate((current) => {
+      if (calendarView === "week") return addDays(current, offset * 7);
+      if (calendarView === "year") return addYears(current, offset);
+      return addMonths(current, offset);
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <HouseMetric
+          icon={CalendarDays}
+          label="Upcoming"
+          value={String(stats.upcomingCount)}
+          detail={stats.nextBooking ? `${stats.nextBooking.customer_name} next` : "No future stays"}
+        />
+        <HouseMetric icon={Moon} label="Booked nights" value={String(stats.monthNights)} detail="For selected month" />
+        <HouseMetric icon={Sparkles} label="Year net" value={formatCurrency(stats.yearNet)} detail={`${cursorDate.getFullYear()} house sitting`} />
+        <HouseMetric
+          icon={BedDouble}
+          label="Next stay"
+          value={stats.nextBooking ? shortDate(stats.nextBooking.start_date) : "None"}
+          detail={stats.nextBooking ? dateRangeLabel(stats.nextBooking.start_date, stats.nextBooking.end_date) : "Calendar is clear"}
+        />
+      </section>
+
+      <section className="overflow-hidden rounded-[24px] border border-border bg-surface shadow-card">
+        <div className="flex flex-col gap-4 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[22px] font-medium leading-tight text-text-primary">House sitting calendar</h2>
+            <p className="mt-1 text-[14px] text-text-secondary">Past and future overnight stays, separate from regular walks.</p>
+          </div>
+          <Button variant="accent" onClick={() => setFormOpen(true)}>
+            <Plus size={18} strokeWidth={1.6} />
+            Add stay
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-3 border-b border-border bg-[#FFFEFB] p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
+            {(["week", "month", "year"] as HouseSittingCalendarView[]).map((view) => (
+              <button
+                key={view}
+                className={cn(
+                  "focus-ring rounded-xl px-3 text-[13px] font-medium capitalize transition duration-150 ease-out",
+                  calendarView === view ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                )}
+                type="button"
+                onClick={() => setCalendarView(view)}
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end">
+            <Button className="h-11 w-11 px-0" variant="soft" onClick={() => moveCursor(-1)} aria-label="Previous period">
+              <ChevronLeft size={18} strokeWidth={1.7} />
+            </Button>
+            <button
+              className="focus-ring min-h-11 min-w-0 rounded-xl px-3 text-center text-[16px] font-medium text-text-primary transition hover:bg-subtle sm:min-w-48"
+              type="button"
+              onClick={() => setCursorDate(parseLocalDate(todayInputValue()))}
+            >
+              {titleForView(calendarView, cursorDate)}
+            </button>
+            <Button className="h-11 w-11 px-0" variant="soft" onClick={() => moveCursor(1)} aria-label="Next period">
+              <ChevronRight size={18} strokeWidth={1.7} />
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-4">
+          {loading ? <SkeletonRows /> : null}
+          {!loading && loadError ? (
+            <section className="rounded-[20px] border border-warning/30 bg-warning-soft px-5 py-6">
+              <h3 className="text-[18px] font-medium text-text-primary">House sitting needs database setup</h3>
+              <p className="mt-2 text-[14px] text-text-secondary">{loadError}</p>
+            </section>
+          ) : null}
+          {!loading && !loadError && bookings.length === 0 ? (
+            <section className="rounded-[20px] border border-border bg-page px-5 py-12 text-center">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-accent-soft">
+                <Home size={28} strokeWidth={1.5} className="text-accent" />
+              </div>
+              <h3 className="mt-5 text-[20px] font-medium text-text-primary">No house sitting stays yet</h3>
+              <p className="mx-auto mt-2 max-w-sm text-[14px] text-text-secondary">
+                Add a booked date range and it will appear on the calendar for weekly, monthly, and yearly planning.
+              </p>
+              <Button className="mt-5" variant="accent" onClick={() => setFormOpen(true)}>
+                <Plus size={18} strokeWidth={1.6} />
+                Add stay
+              </Button>
+            </section>
+          ) : null}
+          {!loading && !loadError && bookings.length > 0 ? (
+            <>
+              {calendarView === "week" ? <WeekCalendar cursorDate={cursorDate} bookings={bookings} /> : null}
+              {calendarView === "month" ? <MonthCalendar cursorDate={cursorDate} bookings={bookings} /> : null}
+              {calendarView === "year" ? <YearCalendar cursorDate={cursorDate} bookings={bookings} /> : null}
+            </>
+          ) : null}
+        </div>
+      </section>
+
+      {!loading && !loadError && bookings.length > 0 ? <BookingList bookings={bookings} /> : null}
+
+      {formOpen ? (
+        <HouseSittingForm
+          userId={userId}
+          regularClients={regularClients}
+          houseCustomers={houseCustomers}
+          onClose={() => setFormOpen(false)}
+          onSaved={() => {
+            setFormOpen(false);
+            loadHouseSitting();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function HouseMetric({
+  icon: Icon,
+  label,
+  value,
+  detail
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="min-h-[128px] rounded-[18px] border border-border bg-surface p-4 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-tertiary">{label}</div>
+          <div className="mt-2 truncate text-[26px] font-medium leading-none text-text-primary">{value}</div>
+        </div>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] bg-accent-soft text-accent">
+          <Icon size={18} strokeWidth={1.6} />
+        </span>
+      </div>
+      <p className="mt-4 line-clamp-2 text-[14px] leading-snug text-text-secondary">{detail}</p>
+    </div>
+  );
+}
+
+function WeekCalendar({ cursorDate, bookings }: { cursorDate: Date; bookings: HouseSittingBooking[] }) {
+  const weekStart = startOfWeek(cursorDate);
+  const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+
+  return (
+    <div className="grid gap-2 lg:grid-cols-7">
+      {days.map((date) => {
+        const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(bookingSort);
+        return (
+          <CalendarDayCell key={toInputDate(date)} date={date} bookings={dateBookings} compact={false} />
+        );
+      })}
+    </div>
+  );
+}
+
+function MonthCalendar({ cursorDate, bookings }: { cursorDate: Date; bookings: HouseSittingBooking[] }) {
+  return (
+    <div>
+      <div className="hidden grid-cols-7 gap-2 pb-2 text-center text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary lg:grid">
+        {WEEK_DAYS.map((day) => (
+          <span key={day}>{day}</span>
+        ))}
+      </div>
+      <div className="grid gap-2 lg:grid-cols-7">
+        {calendarMonthDays(cursorDate).map((date) => {
+          const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(bookingSort);
+          return (
+            <CalendarDayCell
+              key={toInputDate(date)}
+              date={date}
+              bookings={dateBookings}
+              muted={!isSameMonth(date, cursorDate)}
+              compact
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarDayCell({
+  date,
+  bookings,
+  muted = false,
+  compact
+}: {
+  date: Date;
+  bookings: HouseSittingBooking[];
+  muted?: boolean;
+  compact: boolean;
+}) {
+  const today = toInputDate(date) === todayInputValue();
+  return (
+    <div
+      className={cn(
+        "min-h-[118px] rounded-[18px] border border-border bg-[#FFFEFB] p-2.5",
+        muted && "bg-page/60 text-text-tertiary",
+        bookings.length > 0 && "border-accent/50 bg-accent-soft/35"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={cn(
+            "grid h-7 w-7 place-items-center rounded-full text-[13px] font-medium",
+            today ? "bg-accent text-text-primary" : "text-text-secondary",
+            muted && !today && "text-text-tertiary"
+          )}
+        >
+          {date.getDate()}
+        </span>
+        {bookings.length > 0 ? <span className="text-[11px] font-medium text-accent">{bookings.length}</span> : null}
+      </div>
+      <div className="mt-2 space-y-1">
+        {bookings.slice(0, compact ? 2 : 4).map((booking) => (
+          <BookingPill key={booking.id} booking={booking} />
+        ))}
+        {bookings.length > (compact ? 2 : 4) ? (
+          <div className="px-2 text-[11px] font-medium text-text-tertiary">+{bookings.length - (compact ? 2 : 4)} more</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function YearCalendar({ cursorDate, bookings }: { cursorDate: Date; bookings: HouseSittingBooking[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 12 }, (_, month) => {
+        const start = toInputDate(new Date(cursorDate.getFullYear(), month, 1));
+        const end = toInputDate(new Date(cursorDate.getFullYear(), month + 1, 0));
+        const monthBookings = bookings.filter((booking) => bookingOverlapsRange(booking, start, end)).sort(bookingSort);
+        const nights = monthBookings.reduce((total, booking) => total + nightsBetween(booking.start_date, booking.end_date), 0);
+        const net = monthBookings.reduce(
+          (total, booking) =>
+            total +
+            estimateHouseSitting({
+              startDate: booking.start_date,
+              endDate: booking.end_date,
+              nightlyRate: Number(booking.nightly_rate),
+              paymentMethod: booking.payment_method,
+              commissionRate: Number(booking.rover_commission_rate)
+            }).net,
+          0
+        );
+
+        return (
+          <div key={month} className="min-h-[156px] rounded-[18px] border border-border bg-[#FFFEFB] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[16px] font-medium text-text-primary">{monthTitle(new Date(cursorDate.getFullYear(), month, 1))}</h3>
+                <p className="mt-1 text-[13px] text-text-secondary">
+                  {nights} {nights === 1 ? "night" : "nights"} booked
+                </p>
+              </div>
+              <span className="text-[13px] font-medium tabular-nums text-text-secondary">{formatCurrency(net)}</span>
+            </div>
+            <div className="mt-3 space-y-1">
+              {monthBookings.slice(0, 3).map((booking) => (
+                <BookingPill key={booking.id} booking={booking} />
+              ))}
+              {monthBookings.length === 0 ? <p className="text-[13px] text-text-tertiary">Open month</p> : null}
+              {monthBookings.length > 3 ? (
+                <p className="px-2 text-[11px] font-medium text-text-tertiary">+{monthBookings.length - 3} more stays</p>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BookingPill({ booking }: { booking: HouseSittingBooking }) {
+  return (
+    <div className={cn("min-w-0 rounded-xl px-2 py-1 text-[12px] font-medium", paymentTone(booking.payment_method))}>
+      <div className="truncate">{booking.customer_name}</div>
+      <div className="truncate text-[11px] opacity-75">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+    </div>
+  );
+}
+
+function BookingList({ bookings }: { bookings: HouseSittingBooking[] }) {
+  const today = todayInputValue();
+  const upcoming = bookings.filter((booking) => booking.end_date >= today).sort(bookingSort).slice(0, 6);
+  const recent = bookings.filter((booking) => booking.end_date < today).sort((a, b) => b.end_date.localeCompare(a.end_date)).slice(0, 4);
+
+  return (
+    <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+      <div className="rounded-[24px] border border-border bg-surface p-4 shadow-card">
+        <h2 className="text-[18px] font-medium text-text-primary">Upcoming stays</h2>
+        <div className="mt-3 space-y-2">
+          {upcoming.length > 0 ? upcoming.map((booking) => <BookingRow key={booking.id} booking={booking} />) : <EmptyLine text="No upcoming stays booked." />}
+        </div>
+      </div>
+      <div className="rounded-[24px] border border-border bg-surface p-4 shadow-card">
+        <h2 className="text-[18px] font-medium text-text-primary">Recently finished</h2>
+        <div className="mt-3 space-y-2">
+          {recent.length > 0 ? recent.map((booking) => <BookingRow key={booking.id} booking={booking} compact />) : <EmptyLine text="No finished stays yet." />}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BookingRow({ booking, compact = false }: { booking: HouseSittingBooking; compact?: boolean }) {
+  const estimate = estimateHouseSitting({
+    startDate: booking.start_date,
+    endDate: booking.end_date,
+    nightlyRate: Number(booking.nightly_rate),
+    paymentMethod: booking.payment_method,
+    commissionRate: Number(booking.rover_commission_rate)
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-subtle px-3 py-3">
+      <div className="min-w-0">
+        <div className="truncate text-[15px] font-medium text-text-primary">{booking.customer_name}</div>
+        <div className="mt-0.5 truncate text-[13px] text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+        {!compact ? <div className="mt-0.5 truncate text-[12px] text-text-tertiary">{booking.pet_names || "Pets not listed"}</div> : null}
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="text-[15px] font-medium tabular-nums text-text-primary">{formatCurrency(estimate.net)}</div>
+        <div className="mt-0.5 text-[12px] text-text-tertiary">
+          {estimate.nights} {estimate.nights === 1 ? "night" : "nights"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyLine({ text }: { text: string }) {
+  return <p className="rounded-2xl bg-subtle px-3 py-4 text-[14px] text-text-secondary">{text}</p>;
+}
+
+function HouseSittingForm({
+  userId,
+  regularClients,
+  houseCustomers,
+  onClose,
+  onSaved
+}: {
+  userId: string;
+  regularClients: ClientWithPets[];
+  houseCustomers: HouseSittingCustomer[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [values, setValues] = useState<HouseSittingFormValues>(() => defaultValues());
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const customerOptions = useMemo<CustomerOption[]>(() => {
+    const regularOptions = regularClients.map((client) => ({
+      key: `regular-${client.id}`,
+      source: "regular" as const,
+      id: client.id,
+      label: client.name,
+      address: client.address,
+      petNames: customerPets(client)
+    }));
+    const houseOptions = houseCustomers.map((customer) => ({
+      key: `house-${customer.id}`,
+      source: "house" as const,
+      id: customer.id,
+      label: customer.name,
+      address: customer.address,
+      petNames: customer.pet_names
+    }));
+
+    return [...regularOptions, ...houseOptions].sort((a, b) => a.label.localeCompare(b.label));
+  }, [houseCustomers, regularClients]);
+
+  const filteredCustomerOptions = useMemo(() => {
+    const query = values.customer_name.trim().toLowerCase();
+    if (!query) return customerOptions.slice(0, 8);
+    return customerOptions
+      .filter((option) =>
+        [option.label, option.address, option.petNames, option.source].some((value) => value.toLowerCase().includes(query))
+      )
+      .slice(0, 8);
+  }, [customerOptions, values.customer_name]);
+
+  const estimate = estimateHouseSitting({
+    startDate: values.start_date,
+    endDate: values.end_date,
+    nightlyRate: Number(values.nightly_rate || 0),
+    paymentMethod: values.payment_method
+  });
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setCustomerMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  function update<K extends keyof HouseSittingFormValues>(key: K, value: HouseSittingFormValues[K]) {
+    setValues((current) => ({ ...current, [key]: value }));
+    setErrors((current) => ({ ...current, [key]: undefined }));
+  }
+
+  function updateCustomerName(value: string) {
+    setSelectedCustomer(null);
+    update("customer_name", value);
+    setCustomerMenuOpen(true);
+  }
+
+  function chooseCustomer(option: CustomerOption) {
+    setSelectedCustomer(option);
+    setValues((current) => ({
+      ...current,
+      customer_name: option.label,
+      address: option.address || current.address,
+      pet_names: option.petNames || current.pet_names
+    }));
+    setErrors((current) => ({ ...current, customer_name: undefined, address: undefined, pet_names: undefined }));
+    setCustomerMenuOpen(false);
+  }
+
+  function validate() {
+    const nextErrors: FormErrors = {};
+    if (!values.customer_name.trim()) nextErrors.customer_name = "Customer name is required.";
+    if (!values.address.trim()) nextErrors.address = "Address is required.";
+    if (!values.pet_names.trim()) nextErrors.pet_names = "Pet names are required.";
+    if (!values.start_date) nextErrors.start_date = "Choose a start date.";
+    if (!values.end_date) nextErrors.end_date = "Choose a finish date.";
+    if (values.start_date && values.end_date && values.end_date < values.start_date) {
+      nextErrors.end_date = "Finish date must be after the start date.";
+    }
+    if (!values.nightly_rate || Number(values.nightly_rate) <= 0) {
+      nextErrors.nightly_rate = "Enter a nightly price greater than $0.";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  async function saveBooking(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !validate()) return;
+    setSaving(true);
+    setFormError("");
+
+    try {
+      let houseCustomerId = selectedCustomer?.source === "house" ? selectedCustomer.id : null;
+      const regularClientId = selectedCustomer?.source === "regular" ? selectedCustomer.id : null;
+
+      if (houseCustomerId) {
+        const { error } = await supabase
+          .from("house_sitting_customers")
+          .update({
+            name: values.customer_name.trim(),
+            address: values.address.trim(),
+            pet_names: values.pet_names.trim(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", houseCustomerId);
+        if (error) throw error;
+      }
+
+      if (!houseCustomerId && !regularClientId) {
+        const { data, error } = await supabase
+          .from("house_sitting_customers")
+          .insert({
+            user_id: userId,
+            name: values.customer_name.trim(),
+            address: values.address.trim(),
+            pet_names: values.pet_names.trim()
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        houseCustomerId = data.id as string;
+      }
+
+      const { error } = await supabase.from("house_sittings").insert({
+        user_id: userId,
+        customer_id: houseCustomerId,
+        regular_client_id: regularClientId,
+        customer_name: values.customer_name.trim(),
+        address: values.address.trim(),
+        pet_names: values.pet_names.trim(),
+        payment_method: values.payment_method,
+        start_date: values.start_date,
+        end_date: values.end_date,
+        nightly_rate: Number(Number(values.nightly_rate || 0).toFixed(2)),
+        rover_commission_rate: ROVER_COMMISSION_RATE
+      });
+
+      if (error) throw error;
+      onSaved();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Could not save this house sitting stay.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-[#1A1916]/20 backdrop-blur-sm" onClick={onClose}>
+      <aside
+        className="slide-over-panel ml-auto flex h-full w-full max-w-[620px] flex-col overflow-y-auto bg-page p-4 shadow-[0_20px_70px_rgba(48,38,24,0.18)] sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[28px] font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">Add house sitting</h2>
+            <p className="mt-1 text-[15px] text-text-secondary">Log the booked stay without adding anyone to regular customers.</p>
+          </div>
+          <Button variant="ghost" onClick={onClose} aria-label="Close">
+            <X size={20} strokeWidth={1.6} />
+          </Button>
+        </div>
+
+        <form className="space-y-5" onSubmit={saveBooking}>
+          <FieldShell label="Customer" error={errors.customer_name}>
+            <div ref={menuRef} className="relative">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={17} strokeWidth={1.6} />
+                <input
+                  className={cn(
+                    "focus-ring min-h-11 w-full rounded-xl border bg-subtle py-2 pl-11 pr-10 text-[16px] text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
+                    errors.customer_name ? "border-danger" : "border-border"
+                  )}
+                  value={values.customer_name}
+                  placeholder="Type or choose customer"
+                  onChange={(event) => updateCustomerName(event.target.value)}
+                  onFocus={() => setCustomerMenuOpen(true)}
+                />
+                <ChevronDown
+                  className={cn("absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary transition", customerMenuOpen && "rotate-180")}
+                  size={18}
+                  strokeWidth={1.6}
+                />
+              </div>
+
+              {customerMenuOpen ? (
+                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-72 overflow-y-auto rounded-2xl border border-border bg-surface p-1.5 shadow-[0_18px_48px_rgba(80,66,44,0.14)]">
+                  {filteredCustomerOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      className="focus-ring flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition hover:bg-subtle"
+                      type="button"
+                      onClick={() => chooseCustomer(option)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-[14px] font-medium text-text-primary">{option.label}</span>
+                        <span className="block truncate text-[12px] text-text-tertiary">{option.petNames || option.address || "No saved details"}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-subtle px-2 py-1 text-[11px] font-medium capitalize text-text-secondary">
+                        {option.source === "regular" ? "Regular" : "House"}
+                      </span>
+                    </button>
+                  ))}
+                  {values.customer_name.trim() ? (
+                    <div className="rounded-xl px-3 py-2 text-[13px] text-text-secondary">
+                      Saving without choosing a match creates a house-sitting-only customer.
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </FieldShell>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <DateField label="Start date" value={values.start_date} error={errors.start_date} onChange={(nextDate) => update("start_date", nextDate)} />
+            <DateField label="Finish date" value={values.end_date} error={errors.end_date} onChange={(nextDate) => update("end_date", nextDate)} />
+          </div>
+
+          <AddressAutocomplete
+            label="Address"
+            value={values.address}
+            error={errors.address}
+            placeholder="Search by address or building name"
+            onChange={(nextAddress) => update("address", nextAddress)}
+          />
+
+          <Input
+            label="Name of pets"
+            value={values.pet_names}
+            error={errors.pet_names}
+            placeholder="Milo, Coco"
+            onChange={(event) => update("pet_names", event.target.value)}
+          />
+
+          <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldShell label="Payment method">
+                <div className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+                  {CLIENT_PAYMENT_METHODS.map((method) => (
+                    <button
+                      key={method}
+                      className={cn(
+                        "rounded-xl text-[14px] font-medium transition duration-150 ease-out",
+                        values.payment_method === method ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
+                      )}
+                      onClick={() => update("payment_method", method)}
+                      type="button"
+                    >
+                      <span className="flex min-w-0 items-center justify-center gap-1.5">
+                        <ClientPaymentIcon method={method} />
+                        <span className="truncate">{method}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </FieldShell>
+              <Input
+                label="Price per night"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={values.nightly_rate}
+                error={errors.nightly_rate}
+                placeholder="90.00"
+                onChange={(event) => update("nightly_rate", event.target.value)}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-[20px] border border-border bg-[#FFFEFB] p-4 shadow-card">
+            <div className="flex items-center gap-2 text-[15px] font-medium text-text-primary">
+              <Sparkles size={17} strokeWidth={1.6} className="text-accent" />
+              Stay estimate
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              <EstimateMetric label="Nights" value={String(estimate.nights)} />
+              <EstimateMetric label="Gross" value={formatCurrency(estimate.gross)} />
+              <EstimateMetric label={values.payment_method === "Rover" ? "After fee" : "Net"} value={formatCurrency(estimate.net)} />
+              <EstimateMetric label="Taxable" value={estimate.taxable ? "Yes" : "No"} />
+            </div>
+            {values.payment_method === "Rover" ? (
+              <p className="mt-3 text-[13px] text-text-secondary">
+                Rover commission is estimated at {Math.round(ROVER_COMMISSION_RATE * 100)}%.
+              </p>
+            ) : null}
+          </section>
+
+          {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}
+
+          <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-border bg-page/90 px-4 py-4 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+            <Button className="w-full" variant="accent" type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Add house sitting"}
+            </Button>
+            <Button variant="soft" type="button" onClick={onClose} aria-label="Cancel">
+              <X size={18} strokeWidth={1.6} />
+            </Button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  );
+}
+
+function EstimateMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex h-[94px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-subtle p-3">
+      <div className="line-clamp-2 min-h-[28px] text-[11px] font-medium uppercase leading-[1.25] tracking-[0.04em] text-text-tertiary">
+        {label}
+      </div>
+      <div className="truncate font-medium tabular-nums leading-none text-text-primary text-[clamp(15px,3.6vw,18px)]">{value}</div>
+    </div>
+  );
+}
