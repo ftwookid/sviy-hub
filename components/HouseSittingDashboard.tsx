@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
+  Minus,
   Moon,
   Plus,
   Search,
@@ -18,10 +19,10 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
-import { FieldShell, Input } from "@/components/ui/Field";
+import { FieldShell, Input, Select } from "@/components/ui/Field";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
-import { CLIENT_PAYMENT_METHODS, ROVER_COMMISSION_RATE } from "@/lib/clients";
+import { CLIENT_PAYMENT_METHODS, PET_TYPES, ROVER_COMMISSION_RATE } from "@/lib/clients";
 import {
   addDays,
   addMonths,
@@ -37,12 +38,13 @@ import {
 } from "@/lib/houseSitting";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
-import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
+import type { ClientPaymentMethod, ClientWithPets, PetType } from "@/types/client";
 import type {
   HouseSittingBooking,
   HouseSittingCalendarView,
   HouseSittingCustomer,
-  HouseSittingFormValues
+  HouseSittingFormValues,
+  HouseSittingPet
 } from "@/types/houseSitting";
 
 type HouseSittingDashboardProps = {
@@ -58,6 +60,7 @@ type CustomerOption = {
   label: string;
   address: string;
   petNames: string;
+  pets: HouseSittingPet[];
 };
 
 type FormErrors = Partial<Record<keyof HouseSittingFormValues, string>>;
@@ -70,7 +73,7 @@ function defaultValues(): HouseSittingFormValues {
   return {
     customer_name: "",
     address: "",
-    pet_names: "",
+    pets: [],
     payment_method: "Rover",
     start_date: today,
     end_date: today,
@@ -111,6 +114,36 @@ function paymentTone(method: ClientPaymentMethod) {
 
 function customerPets(client: ClientWithPets) {
   return client.pets.map((pet) => pet.name).filter(Boolean).join(", ");
+}
+
+function customerPetRecords(client: ClientWithPets): HouseSittingPet[] {
+  return client.pets.map((pet) => ({ name: pet.name, type: pet.type }));
+}
+
+function petsLabel(pets: HouseSittingPet[]) {
+  return pets.map((pet) => pet.name.trim()).filter(Boolean).join(", ");
+}
+
+function normalizePets(pets: unknown, petNames: string): HouseSittingPet[] {
+  if (Array.isArray(pets)) {
+    const normalized = pets
+      .map((pet) => {
+        if (!pet || typeof pet !== "object") return null;
+        const record = pet as Partial<HouseSittingPet>;
+        const name = typeof record.name === "string" ? record.name.trim() : "";
+        const type = PET_TYPES.includes(record.type as PetType) ? (record.type as PetType) : "Dog";
+        return name ? { name, type } : null;
+      })
+      .filter(Boolean) as HouseSittingPet[];
+
+    if (normalized.length > 0) return normalized;
+  }
+
+  return petNames
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => ({ name, type: "Dog" as PetType }));
 }
 
 export function HouseSittingDashboard({ userId, isAdmin, regularClients }: HouseSittingDashboardProps) {
@@ -562,7 +595,8 @@ function HouseSittingForm({
       id: client.id,
       label: client.name,
       address: client.address,
-      petNames: customerPets(client)
+      petNames: customerPets(client),
+      pets: customerPetRecords(client)
     }));
     const houseOptions = houseCustomers.map((customer) => ({
       key: `house-${customer.id}`,
@@ -570,7 +604,8 @@ function HouseSittingForm({
       id: customer.id,
       label: customer.name,
       address: customer.address,
-      petNames: customer.pet_names
+      petNames: customer.pet_names,
+      pets: normalizePets(customer.pets, customer.pet_names)
     }));
 
     return [...regularOptions, ...houseOptions].sort((a, b) => a.label.localeCompare(b.label));
@@ -619,17 +654,44 @@ function HouseSittingForm({
       ...current,
       customer_name: option.label,
       address: option.address || current.address,
-      pet_names: option.petNames || current.pet_names
+      pets: option.pets.length > 0 ? option.pets : current.pets
     }));
-    setErrors((current) => ({ ...current, customer_name: undefined, address: undefined, pet_names: undefined }));
+    setErrors((current) => ({ ...current, customer_name: undefined, address: undefined, pets: undefined }));
     setCustomerMenuOpen(false);
+  }
+
+  function updatePet(index: number, patch: Partial<HouseSittingPet>) {
+    setValues((current) => ({
+      ...current,
+      pets: current.pets.map((pet, petIndex) => (petIndex === index ? { ...pet, ...patch } : pet))
+    }));
+    setErrors((current) => ({ ...current, pets: undefined }));
+  }
+
+  function addPet() {
+    setValues((current) => ({
+      ...current,
+      pets: [...current.pets, { name: "", type: "Dog" }]
+    }));
+    setErrors((current) => ({ ...current, pets: undefined }));
+  }
+
+  function removePet(index: number) {
+    setValues((current) => ({
+      ...current,
+      pets: current.pets.filter((_, petIndex) => petIndex !== index)
+    }));
   }
 
   function validate() {
     const nextErrors: FormErrors = {};
     if (!values.customer_name.trim()) nextErrors.customer_name = "Customer name is required.";
     if (!values.address.trim()) nextErrors.address = "Address is required.";
-    if (!values.pet_names.trim()) nextErrors.pet_names = "Pet names are required.";
+    if (values.pets.length === 0) {
+      nextErrors.pets = "Add at least one pet.";
+    } else if (values.pets.some((pet) => !pet.name.trim() || !pet.type)) {
+      nextErrors.pets = "Each pet needs a name and type.";
+    }
     if (!values.start_date) nextErrors.start_date = "Choose a start date.";
     if (!values.end_date) nextErrors.end_date = "Choose a finish date.";
     if (values.start_date && values.end_date && values.end_date < values.start_date) {
@@ -652,6 +714,8 @@ function HouseSittingForm({
     try {
       let houseCustomerId = selectedCustomer?.source === "house" ? selectedCustomer.id : null;
       const regularClientId = selectedCustomer?.source === "regular" ? selectedCustomer.id : null;
+      const normalizedPets = values.pets.map((pet) => ({ name: pet.name.trim(), type: pet.type }));
+      const nextPetNames = petsLabel(normalizedPets);
 
       if (houseCustomerId) {
         const { error } = await supabase
@@ -659,7 +723,8 @@ function HouseSittingForm({
           .update({
             name: values.customer_name.trim(),
             address: values.address.trim(),
-            pet_names: values.pet_names.trim(),
+            pet_names: nextPetNames,
+            pets: normalizedPets,
             updated_at: new Date().toISOString()
           })
           .eq("id", houseCustomerId);
@@ -673,7 +738,8 @@ function HouseSittingForm({
             user_id: userId,
             name: values.customer_name.trim(),
             address: values.address.trim(),
-            pet_names: values.pet_names.trim()
+            pet_names: nextPetNames,
+            pets: normalizedPets
           })
           .select("id")
           .single();
@@ -687,7 +753,8 @@ function HouseSittingForm({
         regular_client_id: regularClientId,
         customer_name: values.customer_name.trim(),
         address: values.address.trim(),
-        pet_names: values.pet_names.trim(),
+        pet_names: nextPetNames,
+        pets: normalizedPets,
         payment_method: values.payment_method,
         start_date: values.start_date,
         end_date: values.end_date,
@@ -783,13 +850,50 @@ function HouseSittingForm({
             onChange={(nextAddress) => update("address", nextAddress)}
           />
 
-          <Input
-            label="Name of pets"
-            value={values.pet_names}
-            error={errors.pet_names}
-            placeholder="Milo, Coco"
-            onChange={(event) => update("pet_names", event.target.value)}
-          />
+          <div className="space-y-3">
+            {values.pets.length > 0 ? (
+              <div className="space-y-3">
+                {values.pets.map((pet, index) => (
+                  <div key={index} className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
+                    <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto] sm:items-end">
+                      <Input
+                        label="Pet name"
+                        value={pet.name}
+                        placeholder="Coco"
+                        onChange={(event) => updatePet(index, { name: event.target.value })}
+                      />
+                      <Select
+                        label="Type"
+                        value={pet.type}
+                        onChange={(event) => updatePet(index, { type: event.target.value as PetType })}
+                      >
+                        {PET_TYPES.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        className="min-w-11 px-3"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => removePet(index)}
+                        aria-label="Remove pet"
+                      >
+                        <Minus size={18} strokeWidth={1.6} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <Button variant="soft" type="button" onClick={addPet}>
+              <Plus size={16} strokeWidth={1.8} />
+              Add pet
+            </Button>
+            {errors.pets ? <p className="text-[12px] text-danger">{errors.pets}</p> : null}
+          </div>
 
           <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
             <div className="grid gap-4 sm:grid-cols-2">

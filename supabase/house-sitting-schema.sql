@@ -5,7 +5,8 @@ create table if not exists house_sitting_customers (
   user_id uuid references auth.users(id) on delete cascade,
   name text not null,
   address text not null default '',
-  pet_names text not null default ''
+  pet_names text not null default '',
+  pets jsonb not null default '[]'::jsonb
 );
 
 create table if not exists house_sittings (
@@ -18,6 +19,7 @@ create table if not exists house_sittings (
   customer_name text not null,
   address text not null default '',
   pet_names text not null default '',
+  pets jsonb not null default '[]'::jsonb,
   payment_method text not null default 'Rover' check (payment_method in ('Rover', 'Venmo', 'Cash')),
   start_date date not null,
   end_date date not null,
@@ -26,6 +28,9 @@ create table if not exists house_sittings (
   notes text,
   constraint house_sittings_valid_dates check (end_date >= start_date)
 );
+
+alter table house_sitting_customers add column if not exists pets jsonb not null default '[]'::jsonb;
+alter table house_sittings add column if not exists pets jsonb not null default '[]'::jsonb;
 
 alter table house_sitting_customers enable row level security;
 alter table house_sittings enable row level security;

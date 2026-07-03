@@ -1,4 +1,10 @@
 import type { ClientPaymentMethod } from "@/types/client";
+import type { PetType } from "@/types/client";
+
+export type HouseSittingPet = {
+  name: string;
+  type: PetType;
+};
 
 export type HouseSittingCustomer = {
   id: string;
@@ -8,6 +14,7 @@ export type HouseSittingCustomer = {
   name: string;
   address: string;
   pet_names: string;
+  pets: HouseSittingPet[];
 };
 
 export type HouseSittingBooking = {
@@ -20,6 +27,7 @@ export type HouseSittingBooking = {
   customer_name: string;
   address: string;
   pet_names: string;
+  pets: HouseSittingPet[];
   payment_method: ClientPaymentMethod;
   start_date: string;
   end_date: string;
@@ -33,7 +41,7 @@ export type HouseSittingCalendarView = "week" | "month" | "year";
 export type HouseSittingFormValues = {
   customer_name: string;
   address: string;
-  pet_names: string;
+  pets: HouseSittingPet[];
   payment_method: ClientPaymentMethod;
   start_date: string;
   end_date: string;

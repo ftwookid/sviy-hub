@@ -346,8 +346,8 @@ Always update and report the app version at the end of each completed task. Vers
 major.feature.patch
 ```
 
-- Change the first number for structural product changes, such as a new major app area, navigation-level feature, or database-backed workflow.
-- Change the second number for major feature additions inside the current structure, such as a new analytics section or complex reporting block.
+- Change the first number only for structural app-wide changes, such as a new sidebar-level product area, core navigation model change, or a crucial shift in the overall app logic.
+- Change the second number for major feature additions inside the current structure, such as a new analytics section, complex reporting block, or a substantial new workflow inside an existing tab.
 - Change the last number for fixes, UI polish, copy updates, and other minor changes.
 
 The repo pre-commit hook always increments the last number in `version.json` and stages it automatically. When setting a structural or major-feature version before commit, account for that hook so the committed version still follows the intended version family.
