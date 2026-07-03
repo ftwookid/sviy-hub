@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { HeartHandshake, Plus, X } from "lucide-react";
+import { HeartHandshake, PauseCircle, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
@@ -172,19 +172,31 @@ export default function ClientsPage() {
         {loading ? <SkeletonRows /> : null}
 
         {!loading && filteredClients.length === 0 ? (
-          <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
-            <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
-              <HeartHandshake size={32} strokeWidth={1.5} className="text-accent" />
-            </div>
-            <h2 className="mt-5 text-[22px] font-medium text-text-primary">No clients here yet</h2>
-            <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
-              Add your first client and the hub will start estimating visits, taxes, and monthly income.
-            </p>
-            <Button className="mt-6" variant="accent" onClick={openNewClient}>
-              <Plus size={18} strokeWidth={1.6} />
-              Add client
-            </Button>
-          </section>
+          filter === "Paused" ? (
+            <section className="rounded-[24px] border border-border bg-surface px-6 py-14 text-center shadow-card">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-subtle">
+                <PauseCircle size={28} strokeWidth={1.5} className="text-text-tertiary" />
+              </div>
+              <h2 className="mt-5 text-[22px] font-medium text-text-primary">No paused clients</h2>
+              <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+                Clients only show here after they are paused from an existing profile.
+              </p>
+            </section>
+          ) : (
+            <section className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center shadow-card">
+              <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
+                <HeartHandshake size={32} strokeWidth={1.5} className="text-accent" />
+              </div>
+              <h2 className="mt-5 text-[22px] font-medium text-text-primary">No clients here yet</h2>
+              <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+                Add your first client and the hub will start estimating visits, taxes, and monthly income.
+              </p>
+              <Button className="mt-6" variant="accent" onClick={openNewClient}>
+                <Plus size={18} strokeWidth={1.6} />
+                Add client
+              </Button>
+            </section>
+          )
         ) : null}
 
         {!loading && filteredClients.length > 0 ? (
