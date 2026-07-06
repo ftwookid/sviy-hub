@@ -813,6 +813,25 @@ function HouseSittingForm({
     setCustomerMenuOpen(false);
   }
 
+  function confirmCustomerName(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const customerName = values.customer_name.trim();
+    const exactMatch = filteredCustomerOptions.find((option) => option.label.toLowerCase() === customerName.toLowerCase());
+
+    if (exactMatch) {
+      chooseCustomer(exactMatch);
+      return;
+    }
+
+    setValues((current) => ({ ...current, customer_name: customerName }));
+    setErrors((current) => ({ ...current, customer_name: undefined }));
+    setCustomerMenuOpen(false);
+    event.currentTarget.blur();
+  }
+
   function updatePet(index: number, patch: Partial<HouseSittingPet>) {
     setValues((current) => ({
       ...current,
@@ -999,6 +1018,7 @@ function HouseSittingForm({
                   placeholder="Type or choose customer"
                   onChange={(event) => updateCustomerName(event.target.value)}
                   onFocus={() => setCustomerMenuOpen(true)}
+                  onKeyDown={confirmCustomerName}
                 />
                 <ChevronDown
                   className={cn("absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary transition", customerMenuOpen && "rotate-180")}
