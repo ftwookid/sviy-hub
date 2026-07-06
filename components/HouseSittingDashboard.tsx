@@ -57,13 +57,19 @@ type CustomerOption = {
   key: string;
   source: "regular" | "house";
   id: string;
+  userId: string;
   label: string;
   address: string;
   petNames: string;
   pets: HouseSittingPet[];
 };
 
-type FormErrors = Partial<Record<keyof HouseSittingFormValues, string>>;
+type OwnerOption = {
+  id: string;
+  label: string;
+};
+
+type FormErrors = Partial<Record<keyof HouseSittingFormValues | "owner", string>>;
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -173,6 +179,7 @@ function optionFromBooking(
         key: `regular-${client.id}`,
         source: "regular",
         id: client.id,
+        userId: client.user_id,
         label: client.name,
         address: client.address,
         petNames: customerPets(client),
@@ -188,6 +195,7 @@ function optionFromBooking(
         key: `house-${customer.id}`,
         source: "house",
         id: customer.id,
+        userId: customer.user_id,
         label: customer.name,
         address: customer.address,
         petNames: customer.pet_names,
@@ -218,6 +226,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
   const [loadError, setLoadError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<HouseSittingBooking | null>(null);
+  const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
   const [calendarView, setCalendarView] = useState<HouseSittingCalendarView>("month");
   const [cursorDate, setCursorDate] = useState(() => parseLocalDate(todayInputValue()));
 
@@ -254,6 +263,55 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
   useEffect(() => {
     loadHouseSitting();
   }, [loadHouseSitting]);
+
+  useEffect(() => {
+    if (!isAdmin || !supabase) {
+      setOwnerOptions([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadOwners() {
+      const {
+        data: { session }
+      } = await supabase!.auth.getSession();
+
+      if (!session?.access_token) {
+        if (active) setOwnerOptions([]);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/admin/users", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+
+        if (!response.ok) throw new Error("Could not load owners.");
+
+        const body = (await response.json()) as { users?: OwnerOption[] };
+        if (active) setOwnerOptions(body.users ?? []);
+      } catch {
+        if (active) setOwnerOptions([]);
+      }
+    }
+
+    loadOwners();
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
+
+  const ownerLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    ownerOptions.forEach((owner) => {
+      labels[owner.id] = owner.label;
+    });
+    return labels;
+  }, [ownerOptions]);
 
   const stats = useMemo(() => {
     const today = todayInputValue();
@@ -399,20 +457,45 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
           ) : null}
           {!loading && !loadError && bookings.length > 0 ? (
             <>
-              {calendarView === "week" ? <WeekCalendar cursorDate={cursorDate} bookings={bookings} onOpenBooking={openBooking} /> : null}
-              {calendarView === "month" ? <MonthCalendar cursorDate={cursorDate} bookings={bookings} onOpenBooking={openBooking} /> : null}
-              {calendarView === "year" ? <YearCalendar cursorDate={cursorDate} bookings={bookings} onOpenBooking={openBooking} /> : null}
+              {calendarView === "week" ? (
+                <WeekCalendar
+                  cursorDate={cursorDate}
+                  bookings={bookings}
+                  ownerLabels={isAdmin ? ownerLabels : {}}
+                  onOpenBooking={openBooking}
+                />
+              ) : null}
+              {calendarView === "month" ? (
+                <MonthCalendar
+                  cursorDate={cursorDate}
+                  bookings={bookings}
+                  ownerLabels={isAdmin ? ownerLabels : {}}
+                  onOpenBooking={openBooking}
+                />
+              ) : null}
+              {calendarView === "year" ? (
+                <YearCalendar
+                  cursorDate={cursorDate}
+                  bookings={bookings}
+                  ownerLabels={isAdmin ? ownerLabels : {}}
+                  onOpenBooking={openBooking}
+                />
+              ) : null}
             </>
           ) : null}
         </div>
       </section>
 
-      {!loading && !loadError && bookings.length > 0 ? <BookingList bookings={bookings} onOpenBooking={openBooking} /> : null}
+      {!loading && !loadError && bookings.length > 0 ? (
+        <BookingList bookings={bookings} ownerLabels={isAdmin ? ownerLabels : {}} onOpenBooking={openBooking} />
+      ) : null}
 
       {formOpen ? (
         <HouseSittingForm
           booking={editingBooking ?? undefined}
           userId={userId}
+          canChangeOwner={isAdmin}
+          ownerOptions={ownerOptions}
           regularClients={regularClients}
           houseCustomers={houseCustomers}
           onClose={closeForm}
@@ -456,10 +539,12 @@ function HouseMetric({
 function WeekCalendar({
   cursorDate,
   bookings,
+  ownerLabels,
   onOpenBooking
 }: {
   cursorDate: Date;
   bookings: HouseSittingBooking[];
+  ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
   const weekStart = startOfWeek(cursorDate);
@@ -470,7 +555,14 @@ function WeekCalendar({
       {days.map((date) => {
         const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(bookingSort);
         return (
-          <CalendarDayCell key={toInputDate(date)} date={date} bookings={dateBookings} compact={false} onOpenBooking={onOpenBooking} />
+          <CalendarDayCell
+            key={toInputDate(date)}
+            date={date}
+            bookings={dateBookings}
+            ownerLabels={ownerLabels}
+            compact={false}
+            onOpenBooking={onOpenBooking}
+          />
         );
       })}
     </div>
@@ -480,10 +572,12 @@ function WeekCalendar({
 function MonthCalendar({
   cursorDate,
   bookings,
+  ownerLabels,
   onOpenBooking
 }: {
   cursorDate: Date;
   bookings: HouseSittingBooking[];
+  ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
   return (
@@ -501,6 +595,7 @@ function MonthCalendar({
               key={toInputDate(date)}
               date={date}
               bookings={dateBookings}
+              ownerLabels={ownerLabels}
               muted={!isSameMonth(date, cursorDate)}
               compact
               onOpenBooking={onOpenBooking}
@@ -515,12 +610,14 @@ function MonthCalendar({
 function CalendarDayCell({
   date,
   bookings,
+  ownerLabels,
   muted = false,
   compact,
   onOpenBooking
 }: {
   date: Date;
   bookings: HouseSittingBooking[];
+  ownerLabels: Record<string, string>;
   muted?: boolean;
   compact: boolean;
   onOpenBooking: (booking: HouseSittingBooking) => void;
@@ -548,7 +645,7 @@ function CalendarDayCell({
       </div>
       <div className="mt-2 space-y-1">
         {bookings.slice(0, compact ? 2 : 4).map((booking) => (
-          <BookingPill key={booking.id} booking={booking} onOpenBooking={onOpenBooking} />
+          <BookingPill key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
         ))}
         {bookings.length > (compact ? 2 : 4) ? (
           <div className="px-2 text-[11px] font-medium text-text-tertiary">+{bookings.length - (compact ? 2 : 4)} more</div>
@@ -561,10 +658,12 @@ function CalendarDayCell({
 function YearCalendar({
   cursorDate,
   bookings,
+  ownerLabels,
   onOpenBooking
 }: {
   cursorDate: Date;
   bookings: HouseSittingBooking[];
+  ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
   return (
@@ -600,7 +699,7 @@ function YearCalendar({
             </div>
             <div className="mt-3 space-y-1">
               {monthBookings.slice(0, 3).map((booking) => (
-                <BookingPill key={booking.id} booking={booking} onOpenBooking={onOpenBooking} />
+                <BookingPill key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
               ))}
               {monthBookings.length === 0 ? <p className="text-[13px] text-text-tertiary">Open month</p> : null}
               {monthBookings.length > 3 ? (
@@ -616,11 +715,14 @@ function YearCalendar({
 
 function BookingPill({
   booking,
+  ownerLabel,
   onOpenBooking
 }: {
   booking: HouseSittingBooking;
+  ownerLabel?: string;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
+  const label = ownerLabel ?? "";
   return (
     <button
       className={cn(
@@ -629,18 +731,21 @@ function BookingPill({
       )}
       type="button"
       onClick={() => onOpenBooking(booking)}
+      title={label ? `${booking.customer_name} · ${label}` : booking.customer_name}
     >
       <div className="truncate">{booking.customer_name}</div>
-      <div className="truncate text-[11px] opacity-75">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+      <div className="truncate text-[11px] opacity-75">{label || dateRangeLabel(booking.start_date, booking.end_date)}</div>
     </button>
   );
 }
 
 function BookingList({
   bookings,
+  ownerLabels,
   onOpenBooking
 }: {
   bookings: HouseSittingBooking[];
+  ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
   const today = todayInputValue();
@@ -653,7 +758,9 @@ function BookingList({
         <h2 className="text-[18px] font-medium text-text-primary">Upcoming stays</h2>
         <div className="mt-3 space-y-2">
           {upcoming.length > 0 ? (
-            upcoming.map((booking) => <BookingRow key={booking.id} booking={booking} onOpenBooking={onOpenBooking} />)
+            upcoming.map((booking) => (
+              <BookingRow key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
+            ))
           ) : (
             <EmptyLine text="No upcoming stays booked." />
           )}
@@ -663,7 +770,9 @@ function BookingList({
         <h2 className="text-[18px] font-medium text-text-primary">Recently finished</h2>
         <div className="mt-3 space-y-2">
           {recent.length > 0 ? (
-            recent.map((booking) => <BookingRow key={booking.id} booking={booking} compact onOpenBooking={onOpenBooking} />)
+            recent.map((booking) => (
+              <BookingRow key={booking.id} booking={booking} compact ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
+            ))
           ) : (
             <EmptyLine text="No finished stays yet." />
           )}
@@ -675,10 +784,12 @@ function BookingList({
 
 function BookingRow({
   booking,
+  ownerLabel,
   compact = false,
   onOpenBooking
 }: {
   booking: HouseSittingBooking;
+  ownerLabel?: string;
   compact?: boolean;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
@@ -699,6 +810,7 @@ function BookingRow({
       <div className="min-w-0">
         <div className="truncate text-[15px] font-medium text-text-primary">{booking.customer_name}</div>
         <div className="mt-0.5 truncate text-[13px] text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+        {ownerLabel ? <div className="mt-0.5 truncate text-[12px] font-medium text-text-tertiary">{ownerLabel}</div> : null}
         {!compact ? <div className="mt-0.5 truncate text-[12px] text-text-tertiary">{booking.pet_names || "Pets not listed"}</div> : null}
       </div>
       <div className="shrink-0 text-right">
@@ -718,6 +830,8 @@ function EmptyLine({ text }: { text: string }) {
 function HouseSittingForm({
   booking,
   userId,
+  canChangeOwner,
+  ownerOptions,
   regularClients,
   houseCustomers,
   onClose,
@@ -725,6 +839,8 @@ function HouseSittingForm({
 }: {
   booking?: HouseSittingBooking;
   userId: string;
+  canChangeOwner: boolean;
+  ownerOptions: OwnerOption[];
   regularClients: ClientWithPets[];
   houseCustomers: HouseSittingCustomer[];
   onClose: () => void;
@@ -732,20 +848,24 @@ function HouseSittingForm({
 }) {
   const isEditing = Boolean(booking);
   const [values, setValues] = useState<HouseSittingFormValues>(() => valuesFromBooking(booking));
+  const [ownerId, setOwnerId] = useState(booking?.user_id ?? userId);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
+  const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(() =>
     optionFromBooking(booking, regularClients, houseCustomers)
   );
   const menuRef = useRef<HTMLDivElement>(null);
+  const ownerMenuRef = useRef<HTMLDivElement>(null);
 
   const customerOptions = useMemo<CustomerOption[]>(() => {
     const regularOptions = regularClients.map((client) => ({
       key: `regular-${client.id}`,
       source: "regular" as const,
       id: client.id,
+      userId: client.user_id,
       label: client.name,
       address: client.address,
       petNames: customerPets(client),
@@ -755,6 +875,7 @@ function HouseSittingForm({
       key: `house-${customer.id}`,
       source: "house" as const,
       id: customer.id,
+      userId: customer.user_id,
       label: customer.name,
       address: customer.address,
       petNames: customer.pet_names,
@@ -763,6 +884,11 @@ function HouseSittingForm({
 
     return [...regularOptions, ...houseOptions].sort((a, b) => a.label.localeCompare(b.label));
   }, [houseCustomers, regularClients]);
+
+  const ownerSelectOptions = useMemo(() => {
+    if (!ownerId || ownerOptions.some((owner) => owner.id === ownerId)) return ownerOptions;
+    return [{ id: ownerId, label: `User ${ownerId.slice(0, 8)}` }, ...ownerOptions];
+  }, [ownerId, ownerOptions]);
 
   const filteredCustomerOptions = useMemo(() => {
     const query = values.customer_name.trim().toLowerCase();
@@ -784,6 +910,7 @@ function HouseSittingForm({
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (!menuRef.current?.contains(event.target as Node)) setCustomerMenuOpen(false);
+      if (!ownerMenuRef.current?.contains(event.target as Node)) setOwnerMenuOpen(false);
     }
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -809,8 +936,18 @@ function HouseSittingForm({
       address: option.address || current.address,
       pets: option.pets.length > 0 ? option.pets : current.pets
     }));
+    if (canChangeOwner) setOwnerId(option.userId);
     setErrors((current) => ({ ...current, customer_name: undefined, address: undefined, pets: undefined }));
     setCustomerMenuOpen(false);
+  }
+
+  function ownerLabel(nextOwnerId: string) {
+    return ownerSelectOptions.find((owner) => owner.id === nextOwnerId)?.label ?? `User ${nextOwnerId.slice(0, 8)}`;
+  }
+
+  function updateOwner(nextOwnerId: string) {
+    setOwnerId(nextOwnerId);
+    setOwnerMenuOpen(false);
   }
 
   function confirmCustomerName(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -858,6 +995,7 @@ function HouseSittingForm({
   function validate() {
     const nextErrors: FormErrors = {};
     if (!values.customer_name.trim()) nextErrors.customer_name = "Customer name is required.";
+    if (canChangeOwner && !ownerId) nextErrors.owner = "Choose an owner.";
     if (!values.address.trim()) nextErrors.address = "Address is required.";
     if (values.pets.length === 0) {
       nextErrors.pets = "Add at least one pet.";
@@ -884,7 +1022,7 @@ function HouseSittingForm({
     setFormError("");
 
     try {
-      const bookingOwnerId = booking?.user_id ?? userId;
+      const bookingOwnerId = canChangeOwner ? ownerId : booking?.user_id ?? userId;
       const originalCustomerKept = Boolean(booking && values.customer_name.trim() === booking.customer_name.trim());
       let houseCustomerId = selectedCustomer ? (selectedCustomer.source === "house" ? selectedCustomer.id : null) : booking?.customer_id ?? null;
       const regularClientId =
@@ -900,6 +1038,7 @@ function HouseSittingForm({
 
       if (houseCustomerId) {
         const customerPayload = {
+          user_id: bookingOwnerId,
           name: values.customer_name.trim(),
           address: values.address.trim(),
           pet_names: nextPetNames,
@@ -1054,6 +1193,46 @@ function HouseSittingForm({
               ) : null}
             </div>
           </FieldShell>
+
+          {canChangeOwner ? (
+            <FieldShell label="Owner" error={errors.owner}>
+              <div ref={ownerMenuRef} className="relative">
+                <button
+                  className={cn(
+                    "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+                    errors.owner ? "border-danger" : "border-border"
+                  )}
+                  type="button"
+                  disabled={ownerSelectOptions.length === 0}
+                  onClick={() => setOwnerMenuOpen((open) => !open)}
+                >
+                  <span className="truncate">{ownerSelectOptions.length === 0 ? "Loading owners..." : ownerLabel(ownerId)}</span>
+                  <ChevronDown
+                    className={cn("shrink-0 text-text-tertiary transition duration-200", ownerMenuOpen && "rotate-180")}
+                    size={18}
+                    strokeWidth={1.6}
+                  />
+                </button>
+                {ownerMenuOpen ? (
+                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-2xl border border-border bg-surface p-1.5 shadow-[0_18px_48px_rgba(80,66,44,0.14)]">
+                    {ownerSelectOptions.map((owner) => (
+                      <button
+                        key={owner.id}
+                        className={cn(
+                          "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-[14px] font-medium transition duration-150 ease-out",
+                          owner.id === ownerId ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
+                        )}
+                        type="button"
+                        onClick={() => updateOwner(owner.id)}
+                      >
+                        <span className="truncate">{owner.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </FieldShell>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <DateField label="Start date" value={values.start_date} error={errors.start_date} onChange={(nextDate) => update("start_date", nextDate)} />
