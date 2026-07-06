@@ -183,7 +183,7 @@ export default function MileagePage() {
   const [schemaError, setSchemaError] = useState("");
   const [toast, setToast] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<Period>("year");
   const [selectedMonth, setSelectedMonth] = useState(dateKey(new Date(now.getFullYear(), now.getMonth(), 1)).slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [driveFilter, setDriveFilter] = useState<DriveFilter>("all");
