@@ -188,12 +188,18 @@ function ClientsPageContent() {
       <div className="space-y-5">
         <header className="flex items-center justify-between gap-3">
           <h1 className="text-[34px] font-medium leading-none tracking-[-0.01em] text-text-primary">Clients</h1>
-          {activeView !== "house-sitting" ? (
-            <Button className="hidden sm:inline-flex" variant="accent" onClick={openNewClient}>
+          <div className="hidden min-h-11 min-w-[132px] justify-end sm:flex">
+            <Button
+              className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
+              variant="accent"
+              onClick={openNewClient}
+              aria-hidden={activeView === "house-sitting"}
+              tabIndex={activeView === "house-sitting" ? -1 : 0}
+            >
               <Plus size={18} strokeWidth={1.6} />
               Add client
             </Button>
-          ) : null}
+          </div>
         </header>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -222,8 +228,14 @@ function ClientsPageContent() {
             })}
           </nav>
 
-          {activeView !== "house-sitting" ? (
-            <div className="grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
+          <div className={cn(activeView === "house-sitting" ? "hidden min-h-11 sm:block sm:w-[268px]" : "min-h-11 w-full sm:w-[268px]")}>
+            <div
+              className={cn(
+                "grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 transition-opacity",
+                activeView === "house-sitting" && "pointer-events-none opacity-0"
+              )}
+              aria-hidden={activeView === "house-sitting"}
+            >
               {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
@@ -232,13 +244,14 @@ function ClientsPageContent() {
                     filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
                   )}
                   type="button"
+                  tabIndex={activeView === "house-sitting" ? -1 : 0}
                   onClick={() => setFilter(item)}
                 >
                   {item} {counts[item]}
                 </button>
               ))}
             </div>
-          ) : null}
+          </div>
         </div>
 
         {activeView === "house-sitting" ? (
