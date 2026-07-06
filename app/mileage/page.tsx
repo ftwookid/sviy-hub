@@ -31,6 +31,7 @@ import type { MileageTrip, MileageUpload } from "@/types/mileage";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
+const MILEAGE_TRIP_PAGE_SIZE = 1000;
 
 type Period = "month" | "year" | "all";
 type DriveFilter = "all" | "short" | "long";
@@ -103,6 +104,44 @@ function monthsBetween(start: Date, end: Date) {
     cursor.setMonth(cursor.getMonth() + 1);
   }
   return months;
+}
+
+async function loadMileageTrips({
+  activeIds,
+  isAdmin,
+  selectedOwnerId,
+  userId
+}: {
+  activeIds: string[];
+  isAdmin: boolean;
+  selectedOwnerId: string;
+  userId: string;
+}) {
+  if (!supabase || activeIds.length === 0) return { trips: [] as MileageTrip[], error: null as { message: string } | null };
+
+  const trips: MileageTrip[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + MILEAGE_TRIP_PAGE_SIZE - 1;
+    let tripQuery = supabase
+      .from("mileage_trips")
+      .select("*")
+      .in("upload_id", activeIds)
+      .order("start_at", { ascending: false })
+      .range(from, to);
+
+    if (!isAdmin) tripQuery = tripQuery.eq("user_id", userId);
+    if (isAdmin && selectedOwnerId !== "all") tripQuery = tripQuery.eq("user_id", selectedOwnerId);
+
+    const { data, error } = await tripQuery;
+    if (error) return { trips: [], error };
+
+    const page = (data ?? []) as MileageTrip[];
+    trips.push(...page);
+    if (page.length < MILEAGE_TRIP_PAGE_SIZE) return { trips, error: null };
+    from += MILEAGE_TRIP_PAGE_SIZE;
+  }
 }
 
 function SecondaryStat({
@@ -191,22 +230,18 @@ export default function MileagePage() {
     let nextTrips: MileageTrip[] = [];
 
     if (activeIds.length) {
-      let tripQuery = supabase
-        .from("mileage_trips")
-        .select("*")
-        .in("upload_id", activeIds)
-        .order("start_at", { ascending: false });
-
-      if (!isAdmin) tripQuery = tripQuery.eq("user_id", user.id);
-      if (isAdmin && selectedOwnerId !== "all") tripQuery = tripQuery.eq("user_id", selectedOwnerId);
-
-      const { data: tripData, error: tripError } = await tripQuery;
-      if (tripError) {
-        setSchemaError(tripError.message);
+      const tripResult = await loadMileageTrips({
+        activeIds,
+        isAdmin,
+        selectedOwnerId,
+        userId: user.id
+      });
+      if (tripResult.error) {
+        setSchemaError(tripResult.error.message);
         setLoading(false);
         return;
       }
-      nextTrips = (tripData ?? []) as MileageTrip[];
+      nextTrips = tripResult.trips;
     }
 
     const activeUploads = nextUploads.filter((upload) => upload.is_active);
