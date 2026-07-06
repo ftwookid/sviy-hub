@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Check, Download, History, MoreHorizontal, RotateCcw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
@@ -30,6 +31,59 @@ function signedMiles(value: number) {
 function signedCurrency(value: number) {
   const sign = value >= 0 ? "+" : "−";
   return `${sign}${formatCurrency(Math.abs(value))}`;
+}
+
+function StatusPill({
+  children,
+  tone
+}: {
+  children: ReactNode;
+  tone: "success" | "accent" | "muted" | "warning";
+}) {
+  const tones = {
+    success: "bg-success-soft text-success",
+    accent: "bg-accent-soft text-text-primary",
+    muted: "bg-subtle text-text-tertiary",
+    warning: "bg-warning-soft text-warning"
+  };
+
+  return (
+    <span className={cn("inline-flex h-7 items-center rounded-full px-2.5 text-[11px] font-medium", tones[tone])}>
+      {children}
+    </span>
+  );
+}
+
+function MileageMetric({
+  label,
+  value,
+  detail,
+  tone = "default"
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  tone?: "default" | "success";
+}) {
+  return (
+    <div className="flex min-h-[58px] min-w-0 flex-col justify-center">
+      <div className="text-[11px] font-medium text-text-tertiary">{label}</div>
+      <div className={cn("mt-1 text-[14px] font-medium leading-tight text-text-primary", tone === "success" && "text-success")}>
+        {value}
+      </div>
+      {detail ? <div className="mt-0.5 text-[11px] leading-tight text-text-tertiary">{detail}</div> : null}
+    </div>
+  );
+}
+
+function MileageYtdCard({ year, miles, deduction }: { year: string; miles: number; deduction: number }) {
+  return (
+    <div className="flex min-h-[76px] min-w-[150px] flex-col justify-center rounded-xl bg-subtle px-3 py-2">
+      <div className="text-[11px] font-medium text-text-tertiary">{year} YTD</div>
+      <div className="mt-2 text-[12px] font-medium leading-tight text-text-primary">{miles.toFixed(1)} mi</div>
+      <div className="mt-1 text-[11px] leading-tight text-success">{formatCurrency(deduction)}</div>
+    </div>
+  );
 }
 
 export function MileageHistory({
@@ -151,71 +205,40 @@ export function MileageHistory({
           const ownerLabel = ownerLabels[userId] ?? `User ${userId.slice(0, 8)}`;
           return (
             <article key={key} className="relative rounded-[22px] border border-border bg-surface shadow-card">
-              <div className="grid gap-4 p-4 sm:grid-cols-[1.25fr_.55fr_.7fr_.8fr_1fr_1.1fr_auto] sm:items-center sm:p-5">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-[16px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
+              <div className="grid min-h-[120px] gap-4 p-4 pr-14 sm:grid-cols-[minmax(170px,1.35fr)_70px_90px_110px_120px_150px_36px] sm:items-center sm:p-5">
+                <div className="flex min-h-[82px] min-w-0 flex-col justify-between">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h3 className="min-w-0 truncate text-[16px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
                     {canChangeOwner ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-subtle px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+                      <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-subtle px-2.5 text-[11px] font-medium text-text-secondary">
                         <UserRound size={12} strokeWidth={1.7} />
-                        {ownerLabel}
+                        <span className="max-w-[116px] truncate">{ownerLabel}</span>
                       </span>
                     ) : null}
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium",
-                        current.is_complete ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
-                      )}
-                    >
-                      {current.is_complete ? "Complete" : "Partial"}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium",
-                        current.is_active ? "bg-accent-soft text-text-primary" : "bg-subtle text-text-tertiary"
-                      )}
-                    >
-                      {current.is_active ? "Confirmed" : "Pending"}
-                    </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-text-tertiary">
+                  <div className="flex min-h-7 flex-wrap items-center gap-2">
+                    <StatusPill tone={current.is_complete ? "success" : "warning"}>
+                      {current.is_complete ? "Complete" : "Partial"}
+                    </StatusPill>
+                    <StatusPill tone={current.is_active ? "accent" : "muted"}>
+                      {current.is_active ? "Confirmed" : "Pending"}
+                    </StatusPill>
+                  </div>
+                  <p className="truncate text-[11px] text-text-tertiary">
                     Imported {timestamp(current.uploaded_at)}
                     {versions.length > 1 ? ` · ${versions.length} versions` : ""}
                   </p>
                 </div>
 
-                <div>
-                  <div className="text-[11px] font-medium text-text-tertiary">Trips</div>
-                  <div className="mt-1 text-[14px] font-medium text-text-primary">{current.business_trip_count}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-text-tertiary">Miles</div>
-                  <div className="mt-1 text-[14px] font-medium text-text-primary">
-                    {Number(current.business_miles).toFixed(1)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-text-tertiary">Deduction</div>
-                  <div className="mt-1 text-[14px] font-medium text-success">{formatCurrency(current.deduction_value)}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-text-tertiary">Vs previous</div>
-                  {hasPrevious ? (
-                    <>
-                      <div className="mt-1 text-[12px] font-medium text-text-primary">{signedMiles(deltaMiles)}</div>
-                      <div className="mt-0.5 text-[11px] text-text-tertiary">{signedCurrency(deltaDeduction)}</div>
-                    </>
-                  ) : (
-                    <div className="mt-1 text-[12px] text-text-tertiary">Starting month</div>
-                  )}
-                </div>
-                <div className="rounded-xl bg-subtle px-3 py-2">
-                  <div className="text-[11px] font-medium text-text-tertiary">{periodMonth.slice(0, 4)} YTD</div>
-                  <div className="mt-1 text-[12px] font-medium text-text-primary">
-                    {ytdMiles.toFixed(1)} mi
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-success">{formatCurrency(ytdDeduction)}</div>
-                </div>
+                <MileageMetric label="Trips" value={String(current.business_trip_count)} />
+                <MileageMetric label="Miles" value={Number(current.business_miles).toFixed(1)} />
+                <MileageMetric label="Deduction" value={formatCurrency(current.deduction_value)} tone="success" />
+                <MileageMetric
+                  label="Vs previous"
+                  value={hasPrevious ? signedMiles(deltaMiles) : "Starting month"}
+                  detail={hasPrevious ? signedCurrency(deltaDeduction) : undefined}
+                />
+                <MileageYtdCard year={periodMonth.slice(0, 4)} miles={ytdMiles} deduction={ytdDeduction} />
 
                 <div
                   ref={openMenu === key ? actionMenuRef : undefined}
