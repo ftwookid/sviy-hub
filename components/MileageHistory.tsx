@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Download, History, MoreHorizontal, RotateCcw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
@@ -54,6 +54,7 @@ export function MileageHistory({
   const [openMenu, setOpenMenu] = useState("");
   const [expandedMonth, setExpandedMonth] = useState("");
   const [ownerMenuUploadId, setOwnerMenuUploadId] = useState("");
+  const actionMenuRef = useRef<HTMLDivElement>(null);
 
   const monthGroups = useMemo(() => {
     const groups = new Map<string, MileageUpload[]>();
@@ -117,6 +118,19 @@ export function MileageHistory({
     URL.revokeObjectURL(url);
     setOpenMenu("");
   }
+
+  useEffect(() => {
+    if (!openMenu) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!actionMenuRef.current?.contains(event.target as Node)) {
+        setOpenMenu("");
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [openMenu]);
 
   if (!uploads.length) return null;
 
@@ -203,20 +217,23 @@ export function MileageHistory({
                   <div className="mt-0.5 text-[11px] text-success">{formatCurrency(ytdDeduction)}</div>
                 </div>
 
-                <div className="absolute right-3 top-3 sm:static">
-                  <Button
-                    className="h-10 min-h-10 w-10 p-0"
-                    variant="ghost"
+                <div
+                  ref={openMenu === key ? actionMenuRef : undefined}
+                  className="absolute right-3 top-3 sm:static sm:relative"
+                >
+                  <button
+                    className="focus-ring grid h-9 w-9 place-items-center rounded-md text-text-tertiary transition hover:bg-subtle hover:text-text-secondary"
                     onClick={() => setOpenMenu((value) => (value === key ? "" : key))}
                     aria-label={`Actions for ${monthLabel(periodMonth)}`}
+                    type="button"
                   >
-                    <MoreHorizontal size={19} />
-                  </Button>
+                    <MoreHorizontal size={18} strokeWidth={1.5} />
+                  </button>
                   {openMenu === key ? (
-                    <div className="absolute right-3 top-14 z-20 w-56 rounded-2xl border border-border bg-surface p-1.5 shadow-[0_18px_48px_rgba(70,55,32,.14)] sm:right-4 sm:top-[58px]">
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-56 rounded-lg border border-border bg-surface p-1 shadow-card">
                       <button
                         type="button"
-                        className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
+                        className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                         onClick={() => {
                           setExpandedMonth(expanded ? "" : key);
                           setOpenMenu("");
@@ -227,7 +244,7 @@ export function MileageHistory({
                       </button>
                       <button
                         type="button"
-                        className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
+                        className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                         onClick={() => download(current)}
                       >
                         <Download size={15} />
@@ -236,7 +253,7 @@ export function MileageHistory({
                       {versions.some((version) => !version.is_active) ? (
                         <button
                           type="button"
-                          className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
+                          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                           onClick={() => {
                             setExpandedMonth(key);
                             setOpenMenu("");
@@ -249,7 +266,7 @@ export function MileageHistory({
                       {canChangeOwner ? (
                         <button
                           type="button"
-                          className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
+                          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                           onClick={() => {
                             setOwnerMenuUploadId(current.id);
                             setExpandedMonth(key);
