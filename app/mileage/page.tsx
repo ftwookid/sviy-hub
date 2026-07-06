@@ -32,6 +32,7 @@ import type { MileageTrip, MileageUpload } from "@/types/mileage";
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
 const MILEAGE_TRIP_PAGE_SIZE = 1000;
+const OWNER_CHART_COLORS = ["#C9A96E", "#6F8F7A", "#8C7AA9", "#C47F5A", "#6F94B8", "#A9826A"];
 
 type Period = "month" | "year" | "all";
 type DriveFilter = "all" | "short" | "long";
@@ -104,6 +105,10 @@ function monthsBetween(start: Date, end: Date) {
     cursor.setMonth(cursor.getMonth() + 1);
   }
   return months;
+}
+
+function chartColor(index: number) {
+  return OWNER_CHART_COLORS[index % OWNER_CHART_COLORS.length];
 }
 
 async function loadMileageTrips({
@@ -372,13 +377,47 @@ export default function MileagePage() {
   }, [periodBounds.end, periodBounds.start, periodTrips]);
   const biggestDay = dailyData.slice().sort((a, b) => b.miles - a.miles)[0];
 
+  const chartOwners = useMemo(
+    () =>
+      Array.from(new Set(periodTrips.map((trip) => trip.user_id)))
+        .map((ownerId, index) => ({
+          id: ownerId,
+          label: ownerLabels[ownerId] ?? `User ${ownerId.slice(0, 8)}`,
+          color: chartColor(index)
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [ownerLabels, periodTrips]
+  );
+  const showOwnerStacks = isAdmin && selectedOwnerId === "all" && chartOwners.length > 1;
+
   const chartData = useMemo(() => {
+    const segmentTotals = new Map<string, Map<string, number>>();
+    periodTrips.forEach((trip) => {
+      const key = period === "month" ? trip.start_at.slice(0, 10) : trip.start_at.slice(0, 7);
+      const ownerTotals = segmentTotals.get(key) ?? new Map<string, number>();
+      ownerTotals.set(trip.user_id, (ownerTotals.get(trip.user_id) ?? 0) + Number(trip.miles));
+      segmentTotals.set(key, ownerTotals);
+    });
+
+    function segmentsForKey(key: string) {
+      const ownerTotals = segmentTotals.get(key);
+      if (!ownerTotals) return [];
+
+      return chartOwners
+        .map((owner) => ({
+          ...owner,
+          miles: ownerTotals.get(owner.id) ?? 0
+        }))
+        .filter((segment) => segment.miles > 0);
+    }
+
     if (period === "month") {
       return dailyData.map((day) => ({
         key: day.date,
         axisLabel: String(dateFromTimestamp(day.date).getDate()),
         tooltipLabel: tooltipDate(day.date),
-        miles: day.miles
+        miles: day.miles,
+        segments: segmentsForKey(day.date)
       }));
     }
 
@@ -397,10 +436,11 @@ export default function MileagePage() {
             ? `${new Intl.DateTimeFormat("en-US", { month: "short" }).format(date)} ’${String(date.getFullYear()).slice(2)}`
             : new Intl.DateTimeFormat("en-US", { month: "short" }).format(date),
         tooltipLabel: new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date),
-        miles: totals.get(key) ?? 0
+        miles: totals.get(key) ?? 0,
+        segments: segmentsForKey(key)
       };
     });
-  }, [dailyData, period, periodBounds.end, periodBounds.start, periodTrips]);
+  }, [chartOwners, dailyData, period, periodBounds.end, periodBounds.start, periodTrips]);
   const maxChartMiles = Math.max(...chartData.map((item) => item.miles), 1);
 
   const weekdayData = useMemo(
@@ -729,6 +769,16 @@ export default function MileagePage() {
                 </div>
                 <div className="text-right text-[12px] text-text-secondary">{activeDates.size} driving days</div>
               </div>
+              {showOwnerStacks ? (
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+                  {chartOwners.map((owner) => (
+                    <div key={owner.id} className="inline-flex items-center gap-1.5 text-[12px] text-text-secondary">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: owner.color }} />
+                      {owner.label}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-6 overflow-x-auto pb-6">
                 <div
                   className="grid h-56 items-end gap-1.5 border-b border-border px-1"
@@ -742,11 +792,10 @@ export default function MileagePage() {
                           : `${Math.max(100, chartData.length * 52)}px`
                   }}
                 >
-                  {chartData.map((item) => (
+                  {chartData.map((item, index) => (
                     <div
                       key={item.key}
                       className="group relative flex h-full min-w-0 flex-col justify-end"
-                      title={`${item.tooltipLabel} · ${item.miles.toFixed(1)} mi`}
                     >
                       <span
                         className={cn(
@@ -756,17 +805,61 @@ export default function MileagePage() {
                       >
                         {item.miles ? item.miles.toFixed(1) : "0"}
                       </span>
+                      {showOwnerStacks && item.segments.length > 0 ? (
+                        <div
+                          className="flex w-full flex-col-reverse overflow-hidden rounded-t-[5px] transition group-hover:brightness-95"
+                          style={{
+                            height: item.miles ? `max(8px, ${(item.miles / maxChartMiles) * 88}%)` : "2px"
+                          }}
+                        >
+                          {item.segments.map((segment) => (
+                            <div
+                              key={segment.id}
+                              className="w-full"
+                              style={{
+                                backgroundColor: segment.color,
+                                height: `${Math.max(4, (segment.miles / item.miles) * 100)}%`
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            "w-full rounded-t-[5px] transition",
+                            item.miles ? "bg-accent group-hover:bg-[#B79250]" : "bg-subtle"
+                          )}
+                          style={{
+                            height: item.miles ? `max(8px, ${(item.miles / maxChartMiles) * 88}%)` : "2px"
+                          }}
+                        />
+                      )}
                       <div
                         className={cn(
-                          "w-full rounded-t-[5px] transition",
-                          item.miles ? "bg-accent group-hover:bg-[#B79250]" : "bg-subtle"
+                          "pointer-events-none absolute top-2 z-30 hidden min-w-40 rounded-lg bg-text-primary px-2.5 py-1.5 text-[11px] text-white shadow-lg group-hover:block",
+                          index === 0
+                            ? "left-0"
+                            : index === chartData.length - 1
+                              ? "right-0"
+                              : "left-1/2 -translate-x-1/2"
                         )}
-                        style={{
-                          height: item.miles ? `max(8px, ${(item.miles / maxChartMiles) * 88}%)` : "2px"
-                        }}
-                      />
-                      <div className="pointer-events-none absolute left-1/2 top-2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-text-primary px-2.5 py-1.5 text-[11px] text-white shadow-lg group-hover:block">
-                        {item.tooltipLabel} · {item.miles.toFixed(1)} mi
+                      >
+                        <div className="whitespace-nowrap font-medium">
+                          {item.tooltipLabel} · {item.miles.toFixed(1)} mi
+                        </div>
+                        {showOwnerStacks && item.segments.length > 0 ? (
+                          <div className="mt-1 space-y-0.5">
+                            {item.segments.map((segment) => (
+                              <div key={segment.id} className="flex items-center justify-between gap-3 whitespace-nowrap text-white/80">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segment.color }} />
+                                  {segment.label}
+                                </span>
+                                <span>{segment.miles.toFixed(1)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                       <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-text-tertiary">
                         {item.axisLabel}
