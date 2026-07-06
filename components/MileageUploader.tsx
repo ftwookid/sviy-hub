@@ -68,7 +68,7 @@ export function MileageUploader({
   userId: string;
   ownerLabel?: string;
   uploads: MileageUpload[];
-  onSaved: (message: string) => void;
+  onSaved: (message: string, periodMonth: string) => void;
   open: boolean;
   onClose: () => void;
 }) {
@@ -183,7 +183,7 @@ export function MileageUploader({
     setSaving(false);
     setPreview(null);
     setPastedCsv("");
-    onSaved(`${target.parsed.periodLabel} mileage logged`);
+    onSaved(`${target.parsed.periodLabel} mileage logged`, target.parsed.periodMonth);
     onClose();
   }
 

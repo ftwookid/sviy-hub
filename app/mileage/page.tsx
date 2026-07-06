@@ -218,6 +218,8 @@ export default function MileagePage() {
         const years = new Set(activeUploads.map((upload) => Number(upload.period_month.slice(0, 4))));
         return years.has(current) ? current : Number(latestMonth.slice(0, 4));
       });
+    } else {
+      setTrips([]);
     }
 
     setUploads(nextUploads);
@@ -437,7 +439,13 @@ export default function MileagePage() {
     return `${busiestWeekday.label}s are your busiest driving day in this period.`;
   }, [biggestDay, busiestWeekday, businessMiles, periodTrips]);
 
-  function flash(message: string) {
+  function flash(message: string, focusMonth?: string) {
+    if (focusMonth) {
+      const focusedMonth = focusMonth.slice(0, 7);
+      setPeriod("month");
+      setSelectedMonth(focusedMonth);
+      setSelectedYear(Number(focusedMonth.slice(0, 4)));
+    }
     setToast(message);
     loadMileage();
     window.setTimeout(() => setToast(""), 2600);
