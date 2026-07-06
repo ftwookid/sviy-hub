@@ -50,17 +50,17 @@ alter table mileage_trips enable row level security;
 
 drop policy if exists "Users and admins can manage mileage uploads" on mileage_uploads;
 drop policy if exists "Users can manage their own mileage uploads" on mileage_uploads;
-create policy "Users can manage their own mileage uploads"
+create policy "Users and admins can manage mileage uploads"
   on mileage_uploads for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id or is_admin())
+  with check (auth.uid() = user_id or is_admin());
 
 drop policy if exists "Users and admins can manage mileage trips" on mileage_trips;
 drop policy if exists "Users can manage their own mileage trips" on mileage_trips;
-create policy "Users can manage their own mileage trips"
+create policy "Users and admins can manage mileage trips"
   on mileage_trips for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id or is_admin())
+  with check (auth.uid() = user_id or is_admin());
 
 -- Keep user_id aligned with the immutable parent upload.
 create or replace function validate_mileage_trip_owner()
