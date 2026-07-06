@@ -146,6 +146,18 @@ function normalizePets(pets: unknown, petNames: string): HouseSittingPet[] {
     .map((name) => ({ name, type: "Dog" as PetType }));
 }
 
+function isMissingPetsColumn(error: unknown) {
+  const postgrestError = error as { code?: string; message?: string } | null;
+  const message = postgrestError?.message ?? "";
+  return (postgrestError?.code === "42703" || postgrestError?.code === "PGRST204") && message.includes("pets");
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  const postgrestError = error as { message?: string } | null;
+  return postgrestError?.message ?? fallback;
+}
+
 export function HouseSittingDashboard({ userId, isAdmin, regularClients }: HouseSittingDashboardProps) {
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
   const [houseCustomers, setHouseCustomers] = useState<HouseSittingCustomer[]>([]);
@@ -718,36 +730,57 @@ function HouseSittingForm({
       const nextPetNames = petsLabel(normalizedPets);
 
       if (houseCustomerId) {
+        const customerPayload = {
+          name: values.customer_name.trim(),
+          address: values.address.trim(),
+          pet_names: nextPetNames,
+          pets: normalizedPets,
+          updated_at: new Date().toISOString()
+        };
         const { error } = await supabase
           .from("house_sitting_customers")
-          .update({
-            name: values.customer_name.trim(),
-            address: values.address.trim(),
-            pet_names: nextPetNames,
-            pets: normalizedPets,
-            updated_at: new Date().toISOString()
-          })
+          .update(customerPayload)
           .eq("id", houseCustomerId);
-        if (error) throw error;
+        if (error) {
+          if (!isMissingPetsColumn(error)) throw error;
+          const { pets: _pets, ...legacyCustomerPayload } = customerPayload;
+          const { error: legacyError } = await supabase
+            .from("house_sitting_customers")
+            .update(legacyCustomerPayload)
+            .eq("id", houseCustomerId);
+          if (legacyError) throw legacyError;
+        }
       }
 
       if (!houseCustomerId && !regularClientId) {
+        const customerPayload = {
+          user_id: userId,
+          name: values.customer_name.trim(),
+          address: values.address.trim(),
+          pet_names: nextPetNames,
+          pets: normalizedPets
+        };
         const { data, error } = await supabase
           .from("house_sitting_customers")
-          .insert({
-            user_id: userId,
-            name: values.customer_name.trim(),
-            address: values.address.trim(),
-            pet_names: nextPetNames,
-            pets: normalizedPets
-          })
+          .insert(customerPayload)
           .select("id")
           .single();
-        if (error) throw error;
-        houseCustomerId = data.id as string;
+        if (error) {
+          if (!isMissingPetsColumn(error)) throw error;
+          const { pets: _pets, ...legacyCustomerPayload } = customerPayload;
+          const { data: legacyData, error: legacyError } = await supabase
+            .from("house_sitting_customers")
+            .insert(legacyCustomerPayload)
+            .select("id")
+            .single();
+          if (legacyError) throw legacyError;
+          houseCustomerId = legacyData.id as string;
+        } else {
+          houseCustomerId = data.id as string;
+        }
       }
 
-      const { error } = await supabase.from("house_sittings").insert({
+      const bookingPayload = {
         user_id: userId,
         customer_id: houseCustomerId,
         regular_client_id: regularClientId,
@@ -760,12 +793,18 @@ function HouseSittingForm({
         end_date: values.end_date,
         nightly_rate: Number(Number(values.nightly_rate || 0).toFixed(2)),
         rover_commission_rate: ROVER_COMMISSION_RATE
-      });
+      };
 
-      if (error) throw error;
+      const { error } = await supabase.from("house_sittings").insert(bookingPayload);
+      if (error) {
+        if (!isMissingPetsColumn(error)) throw error;
+        const { pets: _pets, ...legacyBookingPayload } = bookingPayload;
+        const { error: legacyError } = await supabase.from("house_sittings").insert(legacyBookingPayload);
+        if (legacyError) throw legacyError;
+      }
       onSaved();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Could not save this house sitting stay.");
+      setFormError(errorMessage(error, "Could not save this house sitting stay."));
     } finally {
       setSaving(false);
     }
@@ -823,7 +862,7 @@ function HouseSittingForm({
                         <span className="block truncate text-[12px] text-text-tertiary">{option.petNames || option.address || "No saved details"}</span>
                       </span>
                       <span className="shrink-0 rounded-full bg-subtle px-2 py-1 text-[11px] font-medium capitalize text-text-secondary">
-                        {option.source === "regular" ? "Regular" : "House"}
+                        {option.source === "regular" ? "Regular" : "House sitting"}
                       </span>
                     </button>
                   ))}
