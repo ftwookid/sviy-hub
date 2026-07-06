@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Download, History, MoreHorizontal, RotateCcw } from "lucide-react";
+import { Check, Download, History, MoreHorizontal, RotateCcw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
@@ -35,22 +35,36 @@ function signedCurrency(value: number) {
 export function MileageHistory({
   uploads,
   restoringId,
-  onRestore
+  changingOwnerId,
+  ownerLabels = {},
+  ownerOptions = [],
+  canChangeOwner = false,
+  onRestore,
+  onChangeOwner
 }: {
   uploads: MileageUpload[];
   restoringId: string;
+  changingOwnerId?: string;
+  ownerLabels?: Record<string, string>;
+  ownerOptions?: Array<{ id: string; label: string }>;
+  canChangeOwner?: boolean;
   onRestore: (upload: MileageUpload) => void;
+  onChangeOwner?: (upload: MileageUpload, ownerId: string) => void;
 }) {
   const [openMenu, setOpenMenu] = useState("");
   const [expandedMonth, setExpandedMonth] = useState("");
+  const [ownerMenuUploadId, setOwnerMenuUploadId] = useState("");
 
   const monthGroups = useMemo(() => {
     const groups = new Map<string, MileageUpload[]>();
     uploads.forEach((upload) => {
-      groups.set(upload.period_month, [...(groups.get(upload.period_month) ?? []), upload]);
+      const key = `${upload.user_id}:${upload.period_month}`;
+      groups.set(key, [...(groups.get(key) ?? []), upload]);
     });
-    const grouped = Array.from(groups.entries()).map(([periodMonth, versions]) => ({
-      periodMonth,
+    const grouped = Array.from(groups.entries()).map(([key, versions]) => ({
+      key,
+      userId: versions[0]?.user_id ?? "",
+      periodMonth: versions[0]?.period_month ?? "",
       versions,
       current: versions.find((version) => version.is_active) ?? versions[0],
       deltaMiles: 0,
@@ -62,8 +76,8 @@ export function MileageHistory({
 
     const byYear = new Map<string, typeof grouped>();
     grouped.forEach((group) => {
-      const year = group.periodMonth.slice(0, 4);
-      byYear.set(year, [...(byYear.get(year) ?? []), group]);
+      const yearOwnerKey = `${group.userId}:${group.periodMonth.slice(0, 4)}`;
+      byYear.set(yearOwnerKey, [...(byYear.get(yearOwnerKey) ?? []), group]);
     });
 
     byYear.forEach((yearGroups) => {
@@ -90,7 +104,7 @@ export function MileageHistory({
         });
     });
 
-    return grouped.sort((a, b) => b.periodMonth.localeCompare(a.periodMonth));
+    return grouped.sort((a, b) => b.periodMonth.localeCompare(a.periodMonth) || a.userId.localeCompare(b.userId));
   }, [uploads]);
 
   function download(upload: MileageUpload) {
@@ -118,14 +132,21 @@ export function MileageHistory({
 
       <div className="space-y-3">
         {monthGroups.map(
-          ({ periodMonth, versions, current, deltaMiles, deltaDeduction, ytdMiles, ytdDeduction, hasPrevious }) => {
-          const expanded = expandedMonth === periodMonth;
+          ({ key, userId, periodMonth, versions, current, deltaMiles, deltaDeduction, ytdMiles, ytdDeduction, hasPrevious }) => {
+          const expanded = expandedMonth === key;
+          const ownerLabel = ownerLabels[userId] ?? `User ${userId.slice(0, 8)}`;
           return (
-            <article key={periodMonth} className="relative rounded-[22px] border border-border bg-surface shadow-card">
+            <article key={key} className="relative rounded-[22px] border border-border bg-surface shadow-card">
               <div className="grid gap-4 p-4 sm:grid-cols-[1.25fr_.55fr_.7fr_.8fr_1fr_1.1fr_auto] sm:items-center sm:p-5">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[16px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
+                    {canChangeOwner ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-subtle px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+                        <UserRound size={12} strokeWidth={1.7} />
+                        {ownerLabel}
+                      </span>
+                    ) : null}
                     <span
                       className={cn(
                         "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium",
@@ -186,18 +207,18 @@ export function MileageHistory({
                   <Button
                     className="h-10 min-h-10 w-10 p-0"
                     variant="ghost"
-                    onClick={() => setOpenMenu((value) => (value === periodMonth ? "" : periodMonth))}
+                    onClick={() => setOpenMenu((value) => (value === key ? "" : key))}
                     aria-label={`Actions for ${monthLabel(periodMonth)}`}
                   >
                     <MoreHorizontal size={19} />
                   </Button>
-                  {openMenu === periodMonth ? (
+                  {openMenu === key ? (
                     <div className="absolute right-3 top-14 z-20 w-56 rounded-2xl border border-border bg-surface p-1.5 shadow-[0_18px_48px_rgba(70,55,32,.14)] sm:right-4 sm:top-[58px]">
                       <button
                         type="button"
                         className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
                         onClick={() => {
-                          setExpandedMonth(expanded ? "" : periodMonth);
+                          setExpandedMonth(expanded ? "" : key);
                           setOpenMenu("");
                         }}
                       >
@@ -217,12 +238,26 @@ export function MileageHistory({
                           type="button"
                           className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
                           onClick={() => {
-                            setExpandedMonth(periodMonth);
+                            setExpandedMonth(key);
                             setOpenMenu("");
                           }}
                         >
                           <RotateCcw size={15} />
                           Restore previous version
+                        </button>
+                      ) : null}
+                      {canChangeOwner ? (
+                        <button
+                          type="button"
+                          className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] text-text-secondary hover:bg-subtle hover:text-text-primary"
+                          onClick={() => {
+                            setOwnerMenuUploadId(current.id);
+                            setExpandedMonth(key);
+                            setOpenMenu("");
+                          }}
+                        >
+                          <UserRound size={15} />
+                          Change owner
                         </button>
                       ) : null}
                     </div>
@@ -273,7 +308,46 @@ export function MileageHistory({
                               {restoringId === version.id ? "Restoring…" : "Restore"}
                             </Button>
                           ) : null}
+                          {canChangeOwner ? (
+                            <Button
+                              className="min-h-9 px-3 text-[12px]"
+                              variant="ghost"
+                              disabled={changingOwnerId === version.id}
+                              onClick={() => setOwnerMenuUploadId((current) => (current === version.id ? "" : version.id))}
+                            >
+                              <UserRound size={14} />
+                              Owner
+                            </Button>
+                          ) : null}
                         </div>
+                        {canChangeOwner && ownerMenuUploadId === version.id ? (
+                          <div className="sm:col-span-2 mt-1 rounded-2xl border border-border bg-[#FBF9F5] p-2">
+                            <div className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+                              Move to owner
+                            </div>
+                            <div className="grid gap-1 sm:grid-cols-2">
+                              {ownerOptions.map((owner) => (
+                                <button
+                                  key={owner.id}
+                                  className={cn(
+                                    "focus-ring min-h-9 rounded-xl px-3 text-left text-[13px] font-medium transition",
+                                    owner.id === version.user_id
+                                      ? "bg-accent-soft text-text-primary"
+                                      : "text-text-secondary hover:bg-surface"
+                                  )}
+                                  type="button"
+                                  disabled={owner.id === version.user_id || changingOwnerId === version.id}
+                                  onClick={() => {
+                                    setOwnerMenuUploadId("");
+                                    onChangeOwner?.(version, owner.id);
+                                  }}
+                                >
+                                  {owner.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>

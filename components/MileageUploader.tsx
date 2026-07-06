@@ -59,12 +59,14 @@ function warningCopy(preview: Preview) {
 
 export function MileageUploader({
   userId,
+  ownerLabel,
   uploads,
   onSaved,
   open,
   onClose
 }: {
   userId: string;
+  ownerLabel?: string;
   uploads: MileageUpload[];
   onSaved: (message: string) => void;
   open: boolean;
@@ -206,7 +208,7 @@ export function MileageUploader({
                   Log a MileIQ month
                 </h2>
                 <p className="mt-1 text-[14px] text-text-secondary">
-                  Add the export and Sviy Hub will identify the month, validate it, and calculate everything automatically.
+                  Add the export for {ownerLabel ?? "this user"} and Sviy Hub will identify the month, validate it, and calculate everything automatically.
                 </p>
               </div>
               <Button className="min-h-10 px-3" variant="ghost" onClick={onClose} aria-label="Close">

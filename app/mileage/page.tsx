@@ -12,7 +12,8 @@ import {
   Plus,
   Route,
   SlidersHorizontal,
-  Sparkles
+  Sparkles,
+  UserRound
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MileageHistory } from "@/components/MileageHistory";
@@ -33,6 +34,10 @@ const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
 
 type Period = "month" | "year" | "all";
 type DriveFilter = "all" | "short" | "long";
+type OwnerOption = {
+  id: string;
+  label: string;
+};
 
 function dateFromTimestamp(value: string) {
   return new Date(value.length === 10 ? `${value}T12:00:00` : value);
@@ -125,9 +130,11 @@ function SecondaryStat({
 
 export default function MileagePage() {
   const now = useMemo(() => new Date(), []);
-  const { user, authLoading } = useAuthUser();
+  const { user, isAdmin, authLoading } = useAuthUser();
   const [uploads, setUploads] = useState<MileageUpload[]>([]);
   const [trips, setTrips] = useState<MileageTrip[]>([]);
+  const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState("all");
   const [loading, setLoading] = useState(true);
   const [schemaError, setSchemaError] = useState("");
   const [toast, setToast] = useState("");
@@ -144,18 +151,34 @@ export default function MileagePage() {
   const [timeEnd, setTimeEnd] = useState("");
   const [drivePage, setDrivePage] = useState(0);
   const [restoringId, setRestoringId] = useState("");
+  const [changingOwnerId, setChangingOwnerId] = useState("");
+
+  const ownerLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    ownerOptions.forEach((owner) => {
+      labels[owner.id] = owner.label;
+    });
+    return labels;
+  }, [ownerOptions]);
+
+  const importOwnerId = isAdmin && selectedOwnerId !== "all" ? selectedOwnerId : user?.id ?? "";
+  const importOwnerLabel = ownerLabels[importOwnerId] ?? "your account";
 
   const loadMileage = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
     setSchemaError("");
 
-    const { data: uploadData, error: uploadError } = await supabase
+    let uploadQuery = supabase
       .from("mileage_uploads")
       .select("*")
-      .eq("user_id", user.id)
       .order("period_month", { ascending: false })
       .order("uploaded_at", { ascending: false });
+
+    if (!isAdmin) uploadQuery = uploadQuery.eq("user_id", user.id);
+    if (isAdmin && selectedOwnerId !== "all") uploadQuery = uploadQuery.eq("user_id", selectedOwnerId);
+
+    const { data: uploadData, error: uploadError } = await uploadQuery;
 
     if (uploadError) {
       setSchemaError(uploadError.message);
@@ -168,12 +191,16 @@ export default function MileagePage() {
     let nextTrips: MileageTrip[] = [];
 
     if (activeIds.length) {
-      const { data: tripData, error: tripError } = await supabase
+      let tripQuery = supabase
         .from("mileage_trips")
         .select("*")
-        .eq("user_id", user.id)
         .in("upload_id", activeIds)
         .order("start_at", { ascending: false });
+
+      if (!isAdmin) tripQuery = tripQuery.eq("user_id", user.id);
+      if (isAdmin && selectedOwnerId !== "all") tripQuery = tripQuery.eq("user_id", selectedOwnerId);
+
+      const { data: tripData, error: tripError } = await tripQuery;
       if (tripError) {
         setSchemaError(tripError.message);
         setLoading(false);
@@ -196,11 +223,44 @@ export default function MileagePage() {
     setUploads(nextUploads);
     setTrips(nextTrips);
     setLoading(false);
-  }, [user]);
+  }, [isAdmin, selectedOwnerId, user]);
 
   useEffect(() => {
     loadMileage();
   }, [loadMileage]);
+
+  useEffect(() => {
+    if (!supabase || !user || !isAdmin) return;
+    let active = true;
+
+    async function loadOwners() {
+      const {
+        data: { session }
+      } = await supabase!.auth.getSession();
+
+      if (!session?.access_token) return;
+
+      try {
+        const response = await fetch("/api/admin/users", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+
+        if (!response.ok) return;
+        const body = (await response.json()) as { users?: OwnerOption[] };
+        if (active) setOwnerOptions(body.users ?? []);
+      } catch {
+        if (active) setOwnerOptions([]);
+      }
+    }
+
+    loadOwners();
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, user]);
 
   const availableMonths = useMemo(
     () =>
@@ -394,7 +454,9 @@ export default function MileagePage() {
     if (!confirmed) return;
 
     setRestoringId(upload.id);
-    const current = uploads.find((item) => item.period_month === upload.period_month && item.is_active);
+    const current = uploads.find(
+      (item) => item.user_id === upload.user_id && item.period_month === upload.period_month && item.is_active
+    );
     if (current) {
       const { error } = await supabase.from("mileage_uploads").update({ is_active: false }).eq("id", current.id);
       if (error) {
@@ -417,6 +479,32 @@ export default function MileagePage() {
 
     setRestoringId("");
     flash(`${label} restored`);
+  }
+
+  async function changeUploadOwner(upload: MileageUpload, nextOwnerId: string) {
+    if (!supabase || !isAdmin || nextOwnerId === upload.user_id) return;
+    const nextOwnerLabel = ownerLabels[nextOwnerId] ?? `User ${nextOwnerId.slice(0, 8)}`;
+    const confirmed = window.confirm(`Move ${monthName(upload.period_month)} mileage to ${nextOwnerLabel}?`);
+    if (!confirmed) return;
+
+    setChangingOwnerId(upload.id);
+    const { error: uploadError } = await supabase.from("mileage_uploads").update({ user_id: nextOwnerId }).eq("id", upload.id);
+    if (uploadError) {
+      window.alert(uploadError.message);
+      setChangingOwnerId("");
+      return;
+    }
+
+    const { error: tripsError } = await supabase.from("mileage_trips").update({ user_id: nextOwnerId }).eq("upload_id", upload.id);
+    if (tripsError) {
+      await supabase.from("mileage_uploads").update({ user_id: upload.user_id }).eq("id", upload.id);
+      window.alert(tripsError.message);
+      setChangingOwnerId("");
+      return;
+    }
+
+    setChangingOwnerId("");
+    flash(`${monthName(upload.period_month)} moved to ${nextOwnerLabel}`);
   }
 
   if (!isSupabaseConfigured) return <SetupNotice />;
@@ -489,6 +577,24 @@ export default function MileagePage() {
               <div className="flex min-h-11 items-center px-3 text-[14px] text-text-tertiary">All imported mileage</div>
             )}
           </div>
+          {isAdmin ? (
+            <div className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-subtle px-3">
+              <UserRound size={16} strokeWidth={1.6} className="text-text-tertiary" />
+              <select
+                aria-label="Mileage owner"
+                className="focus-ring min-h-9 bg-transparent text-[14px] font-medium text-text-primary"
+                value={selectedOwnerId}
+                onChange={(event) => setSelectedOwnerId(event.target.value)}
+              >
+                <option value="all">All users</option>
+                {ownerOptions.map((owner) => (
+                  <option key={owner.id} value={owner.id}>
+                    {owner.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         {schemaError ? (
@@ -790,14 +896,24 @@ export default function MileagePage() {
               )}
             </section>
 
-            <MileageHistory uploads={uploads} restoringId={restoringId} onRestore={restore} />
+            <MileageHistory
+              uploads={uploads}
+              restoringId={restoringId}
+              changingOwnerId={changingOwnerId}
+              ownerLabels={ownerLabels}
+              ownerOptions={ownerOptions}
+              canChangeOwner={isAdmin}
+              onRestore={restore}
+              onChangeOwner={changeUploadOwner}
+            />
           </>
         )}
       </div>
 
       <MileageUploader
-        userId={user.id}
-        uploads={uploads}
+        userId={importOwnerId}
+        ownerLabel={importOwnerLabel}
+        uploads={uploads.filter((upload) => upload.user_id === importOwnerId)}
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onSaved={flash}
