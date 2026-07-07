@@ -52,11 +52,13 @@ export function DateField({
   label,
   value,
   error,
+  dimFutureDates = true,
   onChange
 }: {
   label: string;
   value: string;
   error?: string;
+  dimFutureDates?: boolean;
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -179,7 +181,10 @@ export function DateField({
                           value === toInputDate(date)
                             ? "bg-accent text-text-primary shadow-sm"
                             : "text-text-secondary hover:bg-subtle hover:text-text-primary",
-                          isFutureDate(date) && value !== toInputDate(date) && "text-text-tertiary opacity-40 hover:opacity-70"
+                          dimFutureDates &&
+                            isFutureDate(date) &&
+                            value !== toInputDate(date) &&
+                            "text-text-tertiary opacity-40 hover:opacity-70"
                         )}
                         type="button"
                         onClick={(event) => selectDate(event, date)}

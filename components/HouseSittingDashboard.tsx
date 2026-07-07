@@ -509,6 +509,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
       {formOpen ? (
         <HouseSittingForm
           booking={editingBooking ?? undefined}
+          bookings={bookings}
           userId={userId}
           canChangeOwner={isAdmin}
           ownerOptions={ownerOptions}
@@ -845,6 +846,7 @@ function EmptyLine({ text }: { text: string }) {
 
 function HouseSittingForm({
   booking,
+  bookings,
   userId,
   canChangeOwner,
   ownerOptions,
@@ -854,6 +856,7 @@ function HouseSittingForm({
   onSaved
 }: {
   booking?: HouseSittingBooking;
+  bookings: HouseSittingBooking[];
   userId: string;
   canChangeOwner: boolean;
   ownerOptions: OwnerOption[];
@@ -916,6 +919,24 @@ function HouseSittingForm({
       .slice(0, 8);
   }, [customerOptions, values.customer_name]);
 
+  const latestBookingByOption = useMemo(() => {
+    const byOption = new Map<string, HouseSittingBooking>();
+    bookings
+      .filter((nextBooking) => nextBooking.id !== booking?.id)
+      .slice()
+      .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))
+      .forEach((nextBooking) => {
+        if (nextBooking.customer_id && !byOption.has(`house-${nextBooking.customer_id}`)) {
+          byOption.set(`house-${nextBooking.customer_id}`, nextBooking);
+        }
+        if (nextBooking.regular_client_id && !byOption.has(`regular-${nextBooking.regular_client_id}`)) {
+          byOption.set(`regular-${nextBooking.regular_client_id}`, nextBooking);
+        }
+      });
+
+    return byOption;
+  }, [booking?.id, bookings]);
+
   const estimate = estimateHouseSitting({
     startDate: values.start_date,
     endDate: values.end_date,
@@ -945,12 +966,15 @@ function HouseSittingForm({
   }
 
   function chooseCustomer(option: CustomerOption) {
+    const latestBooking = latestBookingByOption.get(option.key);
     setSelectedCustomer(option);
     setValues((current) => ({
       ...current,
       customer_name: option.label,
       address: option.address || current.address,
-      pets: option.pets.length > 0 ? option.pets : current.pets
+      pets: option.pets.length > 0 ? option.pets : current.pets,
+      payment_method: !isEditing && latestBooking ? latestBooking.payment_method : current.payment_method,
+      nightly_rate: !isEditing && latestBooking ? String(Number(latestBooking.nightly_rate)) : current.nightly_rate
     }));
     if (canChangeOwner) setOwnerId(option.userId);
     setErrors((current) => ({ ...current, customer_name: undefined, address: undefined, pets: undefined }));
@@ -1251,8 +1275,20 @@ function HouseSittingForm({
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <DateField label="Start date" value={values.start_date} error={errors.start_date} onChange={(nextDate) => update("start_date", nextDate)} />
-            <DateField label="Finish date" value={values.end_date} error={errors.end_date} onChange={(nextDate) => update("end_date", nextDate)} />
+            <DateField
+              label="Start date"
+              value={values.start_date}
+              error={errors.start_date}
+              dimFutureDates={false}
+              onChange={(nextDate) => update("start_date", nextDate)}
+            />
+            <DateField
+              label="Finish date"
+              value={values.end_date}
+              error={errors.end_date}
+              dimFutureDates={false}
+              onChange={(nextDate) => update("end_date", nextDate)}
+            />
           </div>
 
           <AddressAutocomplete
