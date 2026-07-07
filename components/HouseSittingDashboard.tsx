@@ -140,7 +140,13 @@ function customerPetRecords(client: ClientWithPets): HouseSittingPet[] {
 }
 
 function petsLabel(pets: HouseSittingPet[]) {
-  return pets.map((pet) => pet.name.trim()).filter(Boolean).join(", ");
+  return pets
+    .map((pet) => {
+      const name = pet.name.trim();
+      return name ? `${name} (${pet.type})` : "";
+    })
+    .filter(Boolean)
+    .join(", ");
 }
 
 function normalizePets(pets: unknown, petNames: string): HouseSittingPet[] {
@@ -160,9 +166,19 @@ function normalizePets(pets: unknown, petNames: string): HouseSittingPet[] {
 
   return petNames
     .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean)
-    .map((name) => ({ name, type: "Dog" as PetType }));
+    .map((rawName) => {
+      const name = rawName.trim();
+      if (!name) return null;
+
+      const typeMatch = name.match(/\s+\((Dog|Cat|Bird|Exotic)\)$/);
+      if (!typeMatch) return { name, type: "Dog" as PetType };
+
+      return {
+        name: name.slice(0, -typeMatch[0].length).trim(),
+        type: typeMatch[1] as PetType
+      };
+    })
+    .filter(Boolean) as HouseSittingPet[];
 }
 
 function optionFromBooking(
