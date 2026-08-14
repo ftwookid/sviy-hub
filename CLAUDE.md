@@ -321,14 +321,26 @@ The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically p
 https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
 ```
 
-Only deploy production when explicitly told `push live`. To do that, fast-forward `main` from the tested `staging` branch, push `main` to `origin`, and then return the local workspace to `staging`:
+Only deploy production when explicitly told `push live`. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
 
 ```bash
 git checkout main
-git merge --ff-only staging
+git merge --no-ff staging -m "Promote <summary> to live"
 git push origin main
 git checkout staging
 ```
+
+`main` carries promote merge commits from every past deploy, so it structurally diverges from `staging` and `git merge --ff-only` will always fail. Use `--no-ff` and do not try to force a fast-forward, rebase `main`, or reset either branch.
+
+Before merging, confirm `main` holds no unique content — the promote commits should be merges only:
+
+```bash
+git diff staging..main --stat
+```
+
+That diff should show only staging's newer work in reverse. If it shows changes that exist nowhere on `staging`, stop and ask before merging.
+
+The promote commit message is the production changelog entry. Summarize the user-facing changes being shipped, not the individual staging commits.
 
 `main` deploys to the production URL:
 
