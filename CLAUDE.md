@@ -224,6 +224,35 @@ using (auth.uid() = user_id or is_admin())
 with check (auth.uid() = user_id or is_admin())
 ```
 
+### House Sitting Section
+
+- Lives inside the Clients tab as a separate view, backed by `supabase/house-sitting-schema.sql`.
+- Tables are `house_sittings` and `house_sitting_customers`, both with admin-aware RLS.
+- Calendar supports week, month, and year views.
+
+Responsive behavior (mobile-first):
+
+- All three calendars use a real `grid-cols-7` at every breakpoint. They must never collapse to a single column.
+- Below `lg` (1024px), day cells show colored dots per stay instead of text pills, and tapping a day opens a bottom day sheet.
+- At `lg` and above, day cells show the full text pills and the mobile tap overlay is hidden.
+- Dot color follows payment method. Cancelled stays render as a ringed grey dot.
+- Week view adds a "Stays this week" agenda list below the strip on small screens only.
+- Year view is a 2-up card grid on phones; tapping a month card jumps to that month in month view.
+- The mobile tap overlay is an absolutely positioned `lg:hidden` button so desktop pills never end up nested inside another button.
+
+Cancel and delete:
+
+- `house_sittings.status` is `'Planned'` or `'Cancelled'`, defaulting to `'Planned'`.
+- Cancelling keeps the stay visible everywhere, greyed out with a `Cancelled` chip and strikethrough.
+- Cancelled stays are excluded from booked nights, year net, upcoming counts, and next-stay stats.
+- Cancelled stays can be restored back to `Planned`.
+- Deleting permanently removes the row and cannot be undone.
+- Both actions are available from the edit slide-over and from each row in the day sheet.
+- Both actions route through `components/ui/ConfirmDialog.tsx` rather than `window.confirm`.
+- Reads normalize any unexpected status value to `'Planned'`.
+- Inserts and updates never send `status`, so the database default and the cancel/restore action stay the only writers.
+- If the `status` column is missing, cancel/restore surfaces a message telling the user to run `supabase/house-sitting-schema.sql`.
+
 ### Profile Section
 
 - Added `/profile`.
@@ -321,14 +350,26 @@ The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically p
 https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
 ```
 
-Only deploy production when explicitly told `push live`. To do that, fast-forward `main` from the tested `staging` branch, push `main` to `origin`, and then return the local workspace to `staging`:
+Only deploy production when explicitly told `push live`. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
 
 ```bash
 git checkout main
-git merge --ff-only staging
+git merge --no-ff staging -m "Promote <summary> to live"
 git push origin main
 git checkout staging
 ```
+
+`main` carries promote merge commits from every past deploy, so it structurally diverges from `staging` and `git merge --ff-only` will always fail. Use `--no-ff` and do not try to force a fast-forward, rebase `main`, or reset either branch.
+
+Before merging, confirm `main` holds no unique content — the promote commits should be merges only:
+
+```bash
+git diff staging..main --stat
+```
+
+That diff should show only staging's newer work in reverse. If it shows changes that exist nowhere on `staging`, stop and ask before merging.
+
+The promote commit message is the production changelog entry. Summarize the user-facing changes being shipped, not the individual staging commits.
 
 `main` deploys to the production URL:
 
@@ -355,7 +396,9 @@ The repo pre-commit hook always increments the last number in `version.json` and
 
 ## Next Step
 
-Create the private Supabase Storage bucket if it does not exist yet:
+Run `supabase/house-sitting-schema.sql` in Supabase. It is re-runnable and adds the `house_sittings.status` column that cancel/restore needs. Until it runs, the calendar still loads and delete still works, but cancelling shows a message asking for this migration.
+
+Then create the private Supabase Storage bucket if it does not exist yet:
 
 ```text
 pet-photos

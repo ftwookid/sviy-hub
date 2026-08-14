@@ -6,6 +6,8 @@ export type HouseSittingPet = {
   type: PetType;
 };
 
+export type HouseSittingStatus = "Planned" | "Cancelled";
+
 export type HouseSittingCustomer = {
   id: string;
   created_at: string;
@@ -33,6 +35,7 @@ export type HouseSittingBooking = {
   end_date: string;
   nightly_rate: number;
   rover_commission_rate: number;
+  status: HouseSittingStatus;
   notes: string | null;
 };
 

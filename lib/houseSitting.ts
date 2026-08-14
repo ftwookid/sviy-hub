@@ -60,6 +60,14 @@ export function nightsBetween(startDate: string, endDate: string) {
   return Math.max(1, diff);
 }
 
+export function isCancelled(booking: Pick<HouseSittingBooking, "status">) {
+  return booking.status === "Cancelled";
+}
+
+export function activeBookings(bookings: HouseSittingBooking[]) {
+  return bookings.filter((booking) => !isCancelled(booking));
+}
+
 export function bookingOverlapsDate(booking: Pick<HouseSittingBooking, "start_date" | "end_date">, date: Date) {
   const value = toInputDate(date);
   return booking.start_date <= value && booking.end_date >= value;
