@@ -25,12 +25,24 @@ create table if not exists house_sittings (
   end_date date not null,
   nightly_rate decimal(10,2) not null default 0 check (nightly_rate >= 0),
   rover_commission_rate decimal(4,3) not null default 0.20,
+  status text not null default 'Planned' check (status in ('Planned', 'Cancelled')),
   notes text,
   constraint house_sittings_valid_dates check (end_date >= start_date)
 );
 
 alter table house_sitting_customers add column if not exists pets jsonb not null default '[]'::jsonb;
 alter table house_sittings add column if not exists pets jsonb not null default '[]'::jsonb;
+alter table house_sittings add column if not exists status text not null default 'Planned';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'house_sittings_status_check'
+  ) then
+    alter table house_sittings
+      add constraint house_sittings_status_check check (status in ('Planned', 'Cancelled'));
+  end if;
+end $$;
 
 alter table house_sitting_customers enable row level security;
 alter table house_sittings enable row level security;
@@ -50,5 +62,6 @@ create policy "Users and admins can manage house sittings"
 create index if not exists house_sitting_customers_user_name_idx on house_sitting_customers (user_id, name);
 create index if not exists house_sittings_user_start_idx on house_sittings (user_id, start_date desc);
 create index if not exists house_sittings_date_range_idx on house_sittings (start_date, end_date);
+create index if not exists house_sittings_status_idx on house_sittings (status);
 create index if not exists house_sittings_customer_idx on house_sittings (customer_id);
 create index if not exists house_sittings_regular_client_idx on house_sittings (regular_client_id);

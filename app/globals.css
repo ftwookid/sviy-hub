@@ -94,6 +94,29 @@ button:disabled {
   animation: slide-over-enter 180ms ease-out both;
 }
 
+.sheet-panel {
+  animation: sheet-enter 200ms ease-out both;
+}
+
+@keyframes sheet-enter {
+  from {
+    opacity: 0.9;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-over-panel,
+  .sheet-panel {
+    animation: none;
+  }
+}
+
 @keyframes slide-over-enter {
   from {
     opacity: 0.96;

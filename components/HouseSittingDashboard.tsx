@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BedDouble,
   CalendarDays,
+  CalendarX,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -11,16 +12,20 @@ import {
   Minus,
   Moon,
   Plus,
+  RotateCcw,
   Search,
   Sparkles,
+  Trash2,
   X
 } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select } from "@/components/ui/Field";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { Toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
 import { CLIENT_PAYMENT_METHODS, PET_TYPES, ROVER_COMMISSION_RATE } from "@/lib/clients";
 import {
@@ -33,6 +38,7 @@ import {
   dateRangeLabel,
   endOfWeek,
   estimateHouseSitting,
+  isCancelled,
   nightsBetween,
   startOfWeek
 } from "@/lib/houseSitting";
@@ -69,26 +75,30 @@ type OwnerOption = {
   label: string;
 };
 
+type PendingAction = {
+  type: "cancel" | "restore" | "delete";
+  booking: HouseSittingBooking;
+};
+
 type FormErrors = Partial<Record<keyof HouseSittingFormValues | "owner", string>>;
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function defaultValues(): HouseSittingFormValues {
-  const today = todayInputValue();
+function defaultValues(initialDate?: string): HouseSittingFormValues {
+  const startDate = initialDate ?? todayInputValue();
   return {
     customer_name: "",
     address: "",
     pets: [],
     payment_method: "Rover",
-    start_date: today,
-    end_date: today,
+    start_date: startDate,
+    end_date: startDate,
     nightly_rate: ""
   };
 }
 
-function valuesFromBooking(booking?: HouseSittingBooking): HouseSittingFormValues {
-  if (!booking) return defaultValues();
+function valuesFromBooking(booking?: HouseSittingBooking, initialDate?: string): HouseSittingFormValues {
+  if (!booking) return defaultValues(initialDate);
   return {
     customer_name: booking.customer_name,
     address: booking.address,
@@ -113,8 +123,16 @@ function shortDate(dateValue: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(parseLocalDate(dateValue));
 }
 
+function fullDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(date);
+}
+
 function monthTitle(date: Date) {
   return new Intl.DateTimeFormat("en-US", { month: "long" }).format(date);
+}
+
+function shortMonthTitle(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
 }
 
 function isSameMonth(date: Date, cursorDate: Date) {
@@ -125,10 +143,21 @@ function bookingSort(a: HouseSittingBooking, b: HouseSittingBooking) {
   return a.start_date.localeCompare(b.start_date) || a.customer_name.localeCompare(b.customer_name);
 }
 
+function activeFirstSort(a: HouseSittingBooking, b: HouseSittingBooking) {
+  const cancelledDelta = Number(isCancelled(a)) - Number(isCancelled(b));
+  return cancelledDelta || bookingSort(a, b);
+}
+
 function paymentTone(method: ClientPaymentMethod) {
   if (method === "Rover") return "bg-success-soft text-success";
   if (method === "Venmo") return "bg-blue-100 text-blue-700";
   return "bg-[#F1F0ED] text-text-secondary";
+}
+
+function paymentDot(method: ClientPaymentMethod) {
+  if (method === "Rover") return "bg-success";
+  if (method === "Venmo") return "bg-blue-500";
+  return "bg-text-tertiary";
 }
 
 function customerPets(client: ClientWithPets) {
@@ -223,10 +252,14 @@ function optionFromBooking(
   return null;
 }
 
-function isMissingPetsColumn(error: unknown) {
+function isMissingColumn(error: unknown, column: string) {
   const postgrestError = error as { code?: string; message?: string } | null;
   const message = postgrestError?.message ?? "";
-  return (postgrestError?.code === "42703" || postgrestError?.code === "PGRST204") && message.includes("pets");
+  return (postgrestError?.code === "42703" || postgrestError?.code === "PGRST204") && message.includes(column);
+}
+
+function isMissingPetsColumn(error: unknown) {
+  return isMissingColumn(error, "pets");
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -242,9 +275,15 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
   const [loadError, setLoadError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<HouseSittingBooking | null>(null);
+  const [formInitialDate, setFormInitialDate] = useState<string | undefined>(undefined);
   const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
   const [calendarView, setCalendarView] = useState<HouseSittingCalendarView>("month");
   const [cursorDate, setCursorDate] = useState(() => parseLocalDate(todayInputValue()));
+  const [daySheetDate, setDaySheetDate] = useState<Date | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [toast, setToast] = useState("");
 
   const loadHouseSitting = useCallback(async () => {
     if (!supabase) return;
@@ -271,7 +310,12 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
     }
 
     setLoadError("");
-    setBookings((bookingData ?? []) as HouseSittingBooking[]);
+    setBookings(
+      ((bookingData ?? []) as HouseSittingBooking[]).map((booking) => ({
+        ...booking,
+        status: booking.status === "Cancelled" ? "Cancelled" : "Planned"
+      }))
+    );
     setHouseCustomers((customerData ?? []) as HouseSittingCustomer[]);
     setLoading(false);
   }, [isAdmin, userId]);
@@ -335,9 +379,10 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
     const yearEnd = `${cursorDate.getFullYear()}-12-31`;
     const monthStart = toInputDate(new Date(cursorDate.getFullYear(), cursorDate.getMonth(), 1));
     const monthEnd = toInputDate(new Date(cursorDate.getFullYear(), cursorDate.getMonth() + 1, 0));
-    const upcoming = bookings.filter((booking) => booking.end_date >= today).sort(bookingSort);
-    const monthBookings = bookings.filter((booking) => bookingOverlapsRange(booking, monthStart, monthEnd));
-    const yearBookings = bookings.filter((booking) => bookingOverlapsRange(booking, yearStart, yearEnd));
+    const planned = bookings.filter((booking) => !isCancelled(booking));
+    const upcoming = planned.filter((booking) => booking.end_date >= today).sort(bookingSort);
+    const monthBookings = planned.filter((booking) => bookingOverlapsRange(booking, monthStart, monthEnd));
+    const yearBookings = planned.filter((booking) => bookingOverlapsRange(booking, yearStart, yearEnd));
     const monthNights = monthBookings.reduce((total, booking) => total + nightsBetween(booking.start_date, booking.end_date), 0);
     const yearNet = yearBookings.reduce(
       (total, booking) =>
@@ -360,6 +405,16 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
     };
   }, [bookings, cursorDate]);
 
+  const daySheetBookings = useMemo(() => {
+    if (!daySheetDate) return [];
+    return bookings.filter((booking) => bookingOverlapsDate(booking, daySheetDate)).sort(activeFirstSort);
+  }, [bookings, daySheetDate]);
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2500);
+  }
+
   function moveCursor(offset: number) {
     setCursorDate((current) => {
       if (calendarView === "week") return addDays(current, offset * 7);
@@ -368,24 +423,109 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
     });
   }
 
-  function openNewStay() {
+  function openNewStay(initialDate?: string) {
     setEditingBooking(null);
+    setFormInitialDate(initialDate);
     setFormOpen(true);
   }
 
   function openBooking(booking: HouseSittingBooking) {
     setEditingBooking(booking);
+    setFormInitialDate(undefined);
     setFormOpen(true);
   }
 
   function closeForm() {
     setFormOpen(false);
     setEditingBooking(null);
+    setFormInitialDate(undefined);
   }
+
+  function openDay(date: Date) {
+    setDaySheetDate(date);
+  }
+
+  function requestAction(action: PendingAction) {
+    setActionError("");
+    setPendingAction(action);
+  }
+
+  async function runPendingAction() {
+    if (!supabase || !pendingAction) return;
+    setActionBusy(true);
+    setActionError("");
+
+    const { type, booking } = pendingAction;
+
+    try {
+      if (type === "delete") {
+        const { error } = await supabase.from("house_sittings").delete().eq("id", booking.id);
+        if (error) throw error;
+      } else {
+        const nextStatus = type === "cancel" ? "Cancelled" : "Planned";
+        const { error } = await supabase
+          .from("house_sittings")
+          .update({ status: nextStatus, updated_at: new Date().toISOString() })
+          .eq("id", booking.id);
+        if (error) {
+          if (isMissingColumn(error, "status")) {
+            throw new Error(
+              "Cancelling needs a database update. Run supabase/house-sitting-schema.sql in Supabase, then try again."
+            );
+          }
+          throw error;
+        }
+      }
+
+      setPendingAction(null);
+      if (editingBooking?.id === booking.id) closeForm();
+      await loadHouseSitting();
+      showToast(type === "delete" ? "Stay deleted" : type === "cancel" ? "Stay cancelled" : "Stay restored");
+    } catch (error) {
+      setActionError(errorMessage(error, "Could not update this house sitting stay."));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  const confirmCopy = pendingAction
+    ? pendingAction.type === "delete"
+      ? {
+          title: "Delete this stay?",
+          description: `${pendingAction.booking.customer_name} · ${dateRangeLabel(
+            pendingAction.booking.start_date,
+            pendingAction.booking.end_date
+          )} will be permanently removed. This cannot be undone.`,
+          confirmLabel: "Delete stay",
+          cancelLabel: "Keep it",
+          tone: "danger" as const
+        }
+      : pendingAction.type === "cancel"
+        ? {
+            title: "Cancel this stay?",
+            description: `${pendingAction.booking.customer_name} · ${dateRangeLabel(
+              pendingAction.booking.start_date,
+              pendingAction.booking.end_date
+            )} stays on the calendar as cancelled and stops counting toward booked nights and earnings. You can restore it later.`,
+            confirmLabel: "Cancel stay",
+            cancelLabel: "Keep it booked",
+            tone: "danger" as const
+          }
+        : {
+            title: "Restore this stay?",
+            description: `${pendingAction.booking.customer_name} · ${dateRangeLabel(
+              pendingAction.booking.start_date,
+              pendingAction.booking.end_date
+            )} goes back to planned and counts toward booked nights and earnings again.`,
+            confirmLabel: "Restore stay",
+            cancelLabel: "Leave cancelled",
+            tone: "accent" as const
+          }
+    : null;
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <HouseMetric
           icon={CalendarDays}
           label="Upcoming"
@@ -402,20 +542,22 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
         />
       </section>
 
-      <section className="overflow-hidden rounded-[24px] border border-border bg-surface shadow-card">
-        <div className="flex flex-col gap-4 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-[22px] font-medium leading-tight text-text-primary">House sitting calendar</h2>
-            <p className="mt-1 text-[14px] text-text-secondary">Past and future overnight stays, separate from regular walks.</p>
+      <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card sm:rounded-[24px]">
+        <div className="flex flex-col gap-3 border-b border-border p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+          <div className="min-w-0">
+            <h2 className="text-[19px] font-medium leading-tight text-text-primary sm:text-[22px]">House sitting calendar</h2>
+            <p className="mt-1 text-[13px] text-text-secondary sm:text-[14px]">
+              Past and future overnight stays, separate from regular walks.
+            </p>
           </div>
-          <Button variant="accent" onClick={openNewStay}>
+          <Button className="w-full shrink-0 sm:w-auto" variant="accent" onClick={() => openNewStay()}>
             <Plus size={18} strokeWidth={1.6} />
             Add stay
           </Button>
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-border bg-[#FFFEFB] p-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
+        <div className="flex flex-col gap-2.5 border-b border-border bg-[#FFFEFB] p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4">
+          <div className="grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 sm:w-fit">
             {(["week", "month", "year"] as HouseSittingCalendarView[]).map((view) => (
               <button
                 key={view}
@@ -432,40 +574,40 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
           </div>
 
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end">
-            <Button className="h-11 w-11 px-0" variant="soft" onClick={() => moveCursor(-1)} aria-label="Previous period">
+            <Button className="h-11 w-11 shrink-0 px-0" variant="soft" onClick={() => moveCursor(-1)} aria-label="Previous period">
               <ChevronLeft size={18} strokeWidth={1.7} />
             </Button>
             <button
-              className="focus-ring min-h-11 min-w-0 rounded-xl px-3 text-center text-[16px] font-medium text-text-primary transition hover:bg-subtle sm:min-w-48"
+              className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-xl px-2 text-center text-[15px] font-medium text-text-primary transition hover:bg-subtle sm:flex-none sm:px-3 sm:text-[16px] lg:min-w-48"
               type="button"
               onClick={() => setCursorDate(parseLocalDate(todayInputValue()))}
             >
               {titleForView(calendarView, cursorDate)}
             </button>
-            <Button className="h-11 w-11 px-0" variant="soft" onClick={() => moveCursor(1)} aria-label="Next period">
+            <Button className="h-11 w-11 shrink-0 px-0" variant="soft" onClick={() => moveCursor(1)} aria-label="Next period">
               <ChevronRight size={18} strokeWidth={1.7} />
             </Button>
           </div>
         </div>
 
-        <div className="p-4">
+        <div className="p-2.5 sm:p-4">
           {loading ? <SkeletonRows /> : null}
           {!loading && loadError ? (
-            <section className="rounded-[20px] border border-warning/30 bg-warning-soft px-5 py-6">
-              <h3 className="text-[18px] font-medium text-text-primary">House sitting needs database setup</h3>
+            <section className="rounded-[20px] border border-warning/30 bg-warning-soft px-4 py-5 sm:px-5 sm:py-6">
+              <h3 className="text-[17px] font-medium text-text-primary sm:text-[18px]">House sitting needs database setup</h3>
               <p className="mt-2 text-[14px] text-text-secondary">{loadError}</p>
             </section>
           ) : null}
           {!loading && !loadError && bookings.length === 0 ? (
-            <section className="rounded-[20px] border border-border bg-page px-5 py-12 text-center">
+            <section className="rounded-[20px] border border-border bg-page px-4 py-10 text-center sm:px-5 sm:py-12">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-accent-soft">
                 <Home size={28} strokeWidth={1.5} className="text-accent" />
               </div>
-              <h3 className="mt-5 text-[20px] font-medium text-text-primary">No house sitting stays yet</h3>
+              <h3 className="mt-5 text-[19px] font-medium text-text-primary sm:text-[20px]">No house sitting stays yet</h3>
               <p className="mx-auto mt-2 max-w-sm text-[14px] text-text-secondary">
                 Add a booked date range and it will appear on the calendar for weekly, monthly, and yearly planning.
               </p>
-              <Button className="mt-5" variant="accent" onClick={openNewStay}>
+              <Button className="mt-5 w-full sm:w-auto" variant="accent" onClick={() => openNewStay()}>
                 <Plus size={18} strokeWidth={1.6} />
                 Add stay
               </Button>
@@ -479,6 +621,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
                   bookings={bookings}
                   ownerLabels={isAdmin ? ownerLabels : {}}
                   onOpenBooking={openBooking}
+                  onOpenDay={openDay}
                 />
               ) : null}
               {calendarView === "month" ? (
@@ -487,6 +630,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
                   bookings={bookings}
                   ownerLabels={isAdmin ? ownerLabels : {}}
                   onOpenBooking={openBooking}
+                  onOpenDay={openDay}
                 />
               ) : null}
               {calendarView === "year" ? (
@@ -495,6 +639,10 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
                   bookings={bookings}
                   ownerLabels={isAdmin ? ownerLabels : {}}
                   onOpenBooking={openBooking}
+                  onSelectMonth={(month) => {
+                    setCursorDate(new Date(cursorDate.getFullYear(), month, 1));
+                    setCalendarView("month");
+                  }}
                 />
               ) : null}
             </>
@@ -506,9 +654,29 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
         <BookingList bookings={bookings} ownerLabels={isAdmin ? ownerLabels : {}} onOpenBooking={openBooking} />
       ) : null}
 
+      {daySheetDate ? (
+        <DaySheet
+          date={daySheetDate}
+          bookings={daySheetBookings}
+          ownerLabels={isAdmin ? ownerLabels : {}}
+          onClose={() => setDaySheetDate(null)}
+          onOpenBooking={(booking) => {
+            setDaySheetDate(null);
+            openBooking(booking);
+          }}
+          onAddStay={() => {
+            const dateValue = toInputDate(daySheetDate);
+            setDaySheetDate(null);
+            openNewStay(dateValue);
+          }}
+          onRequestAction={requestAction}
+        />
+      ) : null}
+
       {formOpen ? (
         <HouseSittingForm
           booking={editingBooking ?? undefined}
+          initialDate={formInitialDate}
           bookings={bookings}
           userId={userId}
           canChangeOwner={isAdmin}
@@ -516,12 +684,33 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
           regularClients={regularClients}
           houseCustomers={houseCustomers}
           onClose={closeForm}
+          onRequestAction={requestAction}
           onSaved={() => {
             closeForm();
             loadHouseSitting();
           }}
         />
       ) : null}
+
+      {pendingAction && confirmCopy ? (
+        <ConfirmDialog
+          title={confirmCopy.title}
+          description={confirmCopy.description}
+          confirmLabel={confirmCopy.confirmLabel}
+          cancelLabel={confirmCopy.cancelLabel}
+          tone={confirmCopy.tone}
+          busy={actionBusy}
+          error={actionError}
+          onConfirm={runPendingAction}
+          onCancel={() => {
+            if (actionBusy) return;
+            setPendingAction(null);
+            setActionError("");
+          }}
+        />
+      ) : null}
+
+      {toast ? <Toast message={toast} /> : null}
     </div>
   );
 }
@@ -538,17 +727,31 @@ function HouseMetric({
   detail: string;
 }) {
   return (
-    <div className="min-h-[128px] rounded-[18px] border border-border bg-surface p-4 shadow-card">
-      <div className="flex items-start justify-between gap-3">
+    <div className="min-h-[108px] rounded-[18px] border border-border bg-surface p-3 shadow-card sm:min-h-[128px] sm:p-4">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-tertiary">{label}</div>
-          <div className="mt-2 truncate text-[26px] font-medium leading-none text-text-primary">{value}</div>
+          <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary sm:text-[11px]">{label}</div>
+          <div className="mt-2 truncate text-[21px] font-medium leading-none text-text-primary sm:text-[26px]">{value}</div>
         </div>
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] bg-accent-soft text-accent">
-          <Icon size={18} strokeWidth={1.6} />
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[13px] bg-accent-soft text-accent sm:h-10 sm:w-10 sm:rounded-[16px]">
+          <Icon size={16} strokeWidth={1.6} className="sm:hidden" />
+          <Icon size={18} strokeWidth={1.6} className="hidden sm:block" />
         </span>
       </div>
-      <p className="mt-4 line-clamp-2 text-[14px] leading-snug text-text-secondary">{detail}</p>
+      <p className="mt-3 line-clamp-2 text-[12px] leading-snug text-text-secondary sm:mt-4 sm:text-[14px]">{detail}</p>
+    </div>
+  );
+}
+
+function WeekdayHeader() {
+  return (
+    <div className="grid grid-cols-7 gap-1 pb-1.5 text-center text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary sm:pb-2 sm:text-[11px] lg:gap-2">
+      {WEEK_DAYS.map((day) => (
+        <span key={day}>
+          <span className="sm:hidden">{day.slice(0, 1)}</span>
+          <span className="hidden sm:inline">{day}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -557,31 +760,56 @@ function WeekCalendar({
   cursorDate,
   bookings,
   ownerLabels,
-  onOpenBooking
+  onOpenBooking,
+  onOpenDay
 }: {
   cursorDate: Date;
   bookings: HouseSittingBooking[];
   ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
+  onOpenDay: (date: Date) => void;
 }) {
   const weekStart = startOfWeek(cursorDate);
+  const weekEnd = endOfWeek(cursorDate);
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const weekBookings = bookings
+    .filter((booking) => bookingOverlapsRange(booking, toInputDate(weekStart), toInputDate(weekEnd)))
+    .sort(activeFirstSort);
 
   return (
-    <div className="grid gap-2 lg:grid-cols-7">
-      {days.map((date) => {
-        const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(bookingSort);
-        return (
-          <CalendarDayCell
-            key={toInputDate(date)}
-            date={date}
-            bookings={dateBookings}
-            ownerLabels={ownerLabels}
-            compact={false}
-            onOpenBooking={onOpenBooking}
-          />
-        );
-      })}
+    <div className="space-y-4">
+      <div>
+        <WeekdayHeader />
+        <div className="grid grid-cols-7 gap-1 lg:gap-2">
+          {days.map((date) => {
+            const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(activeFirstSort);
+            return (
+              <CalendarDayCell
+                key={toInputDate(date)}
+                date={date}
+                bookings={dateBookings}
+                ownerLabels={ownerLabels}
+                compact={false}
+                onOpenBooking={onOpenBooking}
+                onOpenDay={onOpenDay}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="lg:hidden">
+        <h3 className="text-[13px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Stays this week</h3>
+        <div className="mt-2 space-y-2">
+          {weekBookings.length > 0 ? (
+            weekBookings.map((booking) => (
+              <BookingRow key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
+            ))
+          ) : (
+            <EmptyLine text="No stays booked this week." />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -590,23 +818,21 @@ function MonthCalendar({
   cursorDate,
   bookings,
   ownerLabels,
-  onOpenBooking
+  onOpenBooking,
+  onOpenDay
 }: {
   cursorDate: Date;
   bookings: HouseSittingBooking[];
   ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
+  onOpenDay: (date: Date) => void;
 }) {
   return (
     <div>
-      <div className="hidden grid-cols-7 gap-2 pb-2 text-center text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary lg:grid">
-        {WEEK_DAYS.map((day) => (
-          <span key={day}>{day}</span>
-        ))}
-      </div>
-      <div className="grid gap-2 lg:grid-cols-7">
+      <WeekdayHeader />
+      <div className="grid grid-cols-7 gap-1 lg:gap-2">
         {calendarMonthDays(cursorDate).map((date) => {
-          const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(bookingSort);
+          const dateBookings = bookings.filter((booking) => bookingOverlapsDate(booking, date)).sort(activeFirstSort);
           return (
             <CalendarDayCell
               key={toInputDate(date)}
@@ -616,10 +842,12 @@ function MonthCalendar({
               muted={!isSameMonth(date, cursorDate)}
               compact
               onOpenBooking={onOpenBooking}
+              onOpenDay={onOpenDay}
             />
           );
         })}
       </div>
+      <p className="mt-3 text-center text-[12px] text-text-tertiary lg:hidden">Tap a day to see or add stays.</p>
     </div>
   );
 }
@@ -630,7 +858,8 @@ function CalendarDayCell({
   ownerLabels,
   muted = false,
   compact,
-  onOpenBooking
+  onOpenBooking,
+  onOpenDay
 }: {
   date: Date;
   bookings: HouseSittingBooking[];
@@ -638,29 +867,56 @@ function CalendarDayCell({
   muted?: boolean;
   compact: boolean;
   onOpenBooking: (booking: HouseSittingBooking) => void;
+  onOpenDay: (date: Date) => void;
 }) {
   const today = toInputDate(date) === todayInputValue();
+  const plannedCount = bookings.filter((booking) => !isCancelled(booking)).length;
+  const visibleDots = bookings.slice(0, 3);
+
   return (
     <div
       className={cn(
-        "min-h-[118px] rounded-[18px] border border-border bg-[#FFFEFB] p-2.5",
+        "relative min-h-[58px] rounded-xl border border-border bg-[#FFFEFB] p-1 sm:min-h-[76px] sm:p-1.5 lg:min-h-[118px] lg:rounded-[18px] lg:p-2.5",
         muted && "bg-page/60 text-text-tertiary",
-        bookings.length > 0 && "border-accent/50 bg-accent-soft/35"
+        plannedCount > 0 && "border-accent/50 bg-accent-soft/35"
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <button
+        className="focus-ring absolute inset-0 z-10 rounded-xl lg:hidden"
+        type="button"
+        onClick={() => onOpenDay(date)}
+        aria-label={`${fullDate(date)}, ${bookings.length} ${bookings.length === 1 ? "stay" : "stays"}`}
+      />
+
+      <div className="flex items-center justify-between gap-1">
         <span
           className={cn(
-            "grid h-7 w-7 place-items-center rounded-full text-[13px] font-medium",
+            "grid h-6 w-6 place-items-center rounded-full text-[12px] font-medium sm:h-7 sm:w-7 sm:text-[13px]",
             today ? "bg-accent text-text-primary" : "text-text-secondary",
             muted && !today && "text-text-tertiary"
           )}
         >
           {date.getDate()}
         </span>
-        {bookings.length > 0 ? <span className="text-[11px] font-medium text-accent">{bookings.length}</span> : null}
+        {plannedCount > 0 ? (
+          <span className="hidden text-[11px] font-medium text-accent lg:inline">{plannedCount}</span>
+        ) : null}
       </div>
-      <div className="mt-2 space-y-1">
+
+      <div className="mt-1 flex flex-wrap items-center gap-1 px-0.5 lg:hidden">
+        {visibleDots.map((booking) => (
+          <span
+            key={booking.id}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2",
+              isCancelled(booking) ? "bg-border-emphasis ring-1 ring-inset ring-text-tertiary/40" : paymentDot(booking.payment_method)
+            )}
+          />
+        ))}
+        {bookings.length > 3 ? <span className="text-[9px] font-medium text-text-tertiary sm:text-[10px]">+{bookings.length - 3}</span> : null}
+      </div>
+
+      <div className="mt-2 hidden space-y-1 lg:block">
         {bookings.slice(0, compact ? 2 : 4).map((booking) => (
           <BookingPill key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
         ))}
@@ -676,21 +932,25 @@ function YearCalendar({
   cursorDate,
   bookings,
   ownerLabels,
-  onOpenBooking
+  onOpenBooking,
+  onSelectMonth
 }: {
   cursorDate: Date;
   bookings: HouseSittingBooking[];
   ownerLabels: Record<string, string>;
   onOpenBooking: (booking: HouseSittingBooking) => void;
+  onSelectMonth: (month: number) => void;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
       {Array.from({ length: 12 }, (_, month) => {
-        const start = toInputDate(new Date(cursorDate.getFullYear(), month, 1));
+        const monthDate = new Date(cursorDate.getFullYear(), month, 1);
+        const start = toInputDate(monthDate);
         const end = toInputDate(new Date(cursorDate.getFullYear(), month + 1, 0));
-        const monthBookings = bookings.filter((booking) => bookingOverlapsRange(booking, start, end)).sort(bookingSort);
-        const nights = monthBookings.reduce((total, booking) => total + nightsBetween(booking.start_date, booking.end_date), 0);
-        const net = monthBookings.reduce(
+        const monthBookings = bookings.filter((booking) => bookingOverlapsRange(booking, start, end)).sort(activeFirstSort);
+        const plannedBookings = monthBookings.filter((booking) => !isCancelled(booking));
+        const nights = plannedBookings.reduce((total, booking) => total + nightsBetween(booking.start_date, booking.end_date), 0);
+        const net = plannedBookings.reduce(
           (total, booking) =>
             total +
             estimateHouseSitting({
@@ -704,17 +964,49 @@ function YearCalendar({
         );
 
         return (
-          <div key={month} className="min-h-[156px] rounded-[18px] border border-border bg-[#FFFEFB] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-[16px] font-medium text-text-primary">{monthTitle(new Date(cursorDate.getFullYear(), month, 1))}</h3>
-                <p className="mt-1 text-[13px] text-text-secondary">
-                  {nights} {nights === 1 ? "night" : "nights"} booked
+          <div
+            key={month}
+            className="relative min-h-[100px] rounded-[18px] border border-border bg-[#FFFEFB] p-3 sm:min-h-[124px] lg:min-h-[156px] lg:p-4"
+          >
+            <button
+              className="focus-ring absolute inset-0 z-10 rounded-[18px] lg:hidden"
+              type="button"
+              onClick={() => onSelectMonth(month)}
+              aria-label={`Open ${monthTitle(monthDate)}`}
+            />
+
+            <div className="flex items-start justify-between gap-2 lg:gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-medium text-text-primary sm:text-[16px]">
+                  <span className="sm:hidden">{shortMonthTitle(monthDate)}</span>
+                  <span className="hidden sm:inline">{monthTitle(monthDate)}</span>
+                </h3>
+                <p className="mt-1 text-[12px] text-text-secondary sm:text-[13px]">
+                  {nights} {nights === 1 ? "night" : "nights"}
                 </p>
               </div>
-              <span className="text-[13px] font-medium tabular-nums text-text-secondary">{formatCurrency(net)}</span>
+              <span className="shrink-0 text-[12px] font-medium tabular-nums text-text-secondary sm:text-[13px]">
+                {formatCurrency(net)}
+              </span>
             </div>
-            <div className="mt-3 space-y-1">
+
+            <div className="mt-2 flex flex-wrap items-center gap-1 lg:hidden">
+              {monthBookings.slice(0, 4).map((booking) => (
+                <span
+                  key={booking.id}
+                  className={cn(
+                    "h-2 w-2 rounded-full",
+                    isCancelled(booking) ? "bg-border-emphasis ring-1 ring-inset ring-text-tertiary/40" : paymentDot(booking.payment_method)
+                  )}
+                />
+              ))}
+              {monthBookings.length > 4 ? (
+                <span className="text-[10px] font-medium text-text-tertiary">+{monthBookings.length - 4}</span>
+              ) : null}
+              {monthBookings.length === 0 ? <span className="text-[12px] text-text-tertiary">Open month</span> : null}
+            </div>
+
+            <div className="mt-3 hidden space-y-1 lg:block">
               {monthBookings.slice(0, 3).map((booking) => (
                 <BookingPill key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
               ))}
@@ -730,6 +1022,19 @@ function YearCalendar({
   );
 }
 
+function CancelledChip({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full bg-[#F1F0ED] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-text-tertiary",
+        className
+      )}
+    >
+      Cancelled
+    </span>
+  );
+}
+
 function BookingPill({
   booking,
   ownerLabel,
@@ -740,18 +1045,22 @@ function BookingPill({
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
   const label = ownerLabel ?? "";
+  const cancelled = isCancelled(booking);
+
   return (
     <button
       className={cn(
         "focus-ring block w-full min-w-0 rounded-xl px-2 py-1 text-left text-[12px] font-medium transition hover:brightness-[0.98]",
-        paymentTone(booking.payment_method)
+        cancelled ? "bg-[#F1F0ED] text-text-tertiary" : paymentTone(booking.payment_method)
       )}
       type="button"
       onClick={() => onOpenBooking(booking)}
-      title={label ? `${booking.customer_name} · ${label}` : booking.customer_name}
+      title={`${booking.customer_name}${cancelled ? " (cancelled)" : ""}${label ? ` · ${label}` : ""}`}
     >
-      <div className="truncate">{booking.customer_name}</div>
-      <div className="truncate text-[11px] opacity-75">{label || dateRangeLabel(booking.start_date, booking.end_date)}</div>
+      <div className={cn("truncate", cancelled && "line-through")}>{booking.customer_name}</div>
+      <div className="truncate text-[11px] opacity-75">
+        {cancelled ? "Cancelled" : label || dateRangeLabel(booking.start_date, booking.end_date)}
+      </div>
     </button>
   );
 }
@@ -766,13 +1075,16 @@ function BookingList({
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
   const today = todayInputValue();
-  const upcoming = bookings.filter((booking) => booking.end_date >= today).sort(bookingSort).slice(0, 6);
-  const recent = bookings.filter((booking) => booking.end_date < today).sort((a, b) => b.end_date.localeCompare(a.end_date)).slice(0, 4);
+  const upcoming = bookings.filter((booking) => booking.end_date >= today).sort(activeFirstSort).slice(0, 6);
+  const recent = bookings
+    .filter((booking) => booking.end_date < today)
+    .sort((a, b) => b.end_date.localeCompare(a.end_date))
+    .slice(0, 4);
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-      <div className="rounded-[24px] border border-border bg-surface p-4 shadow-card">
-        <h2 className="text-[18px] font-medium text-text-primary">Upcoming stays</h2>
+    <section className="grid gap-3 sm:gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+      <div className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:rounded-[24px] sm:p-4">
+        <h2 className="text-[17px] font-medium text-text-primary sm:text-[18px]">Upcoming stays</h2>
         <div className="mt-3 space-y-2">
           {upcoming.length > 0 ? (
             upcoming.map((booking) => (
@@ -783,8 +1095,8 @@ function BookingList({
           )}
         </div>
       </div>
-      <div className="rounded-[24px] border border-border bg-surface p-4 shadow-card">
-        <h2 className="text-[18px] font-medium text-text-primary">Recently finished</h2>
+      <div className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:rounded-[24px] sm:p-4">
+        <h2 className="text-[17px] font-medium text-text-primary sm:text-[18px]">Recently finished</h2>
         <div className="mt-3 space-y-2">
           {recent.length > 0 ? (
             recent.map((booking) => (
@@ -810,6 +1122,7 @@ function BookingRow({
   compact?: boolean;
   onOpenBooking: (booking: HouseSittingBooking) => void;
 }) {
+  const cancelled = isCancelled(booking);
   const estimate = estimateHouseSitting({
     startDate: booking.start_date,
     endDate: booking.end_date,
@@ -820,18 +1133,28 @@ function BookingRow({
 
   return (
     <button
-      className="focus-ring flex w-full items-center justify-between gap-3 rounded-2xl bg-subtle px-3 py-3 text-left transition hover:bg-border"
+      className={cn(
+        "focus-ring flex w-full items-center justify-between gap-2.5 rounded-2xl bg-subtle px-3 py-3 text-left transition hover:bg-border sm:gap-3",
+        cancelled && "opacity-70"
+      )}
       type="button"
       onClick={() => onOpenBooking(booking)}
     >
       <div className="min-w-0">
-        <div className="truncate text-[15px] font-medium text-text-primary">{booking.customer_name}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={cn("truncate text-[15px] font-medium text-text-primary", cancelled && "line-through")}>
+            {booking.customer_name}
+          </span>
+          {cancelled ? <CancelledChip /> : null}
+        </div>
         <div className="mt-0.5 truncate text-[13px] text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
         {ownerLabel ? <div className="mt-0.5 truncate text-[12px] font-medium text-text-tertiary">{ownerLabel}</div> : null}
         {!compact ? <div className="mt-0.5 truncate text-[12px] text-text-tertiary">{booking.pet_names || "Pets not listed"}</div> : null}
       </div>
       <div className="shrink-0 text-right">
-        <div className="text-[15px] font-medium tabular-nums text-text-primary">{formatCurrency(estimate.net)}</div>
+        <div className={cn("text-[15px] font-medium tabular-nums text-text-primary", cancelled && "line-through")}>
+          {formatCurrency(estimate.net)}
+        </div>
         <div className="mt-0.5 text-[12px] text-text-tertiary">
           {estimate.nights} {estimate.nights === 1 ? "night" : "nights"}
         </div>
@@ -844,8 +1167,157 @@ function EmptyLine({ text }: { text: string }) {
   return <p className="rounded-2xl bg-subtle px-3 py-4 text-[14px] text-text-secondary">{text}</p>;
 }
 
+function DaySheet({
+  date,
+  bookings,
+  ownerLabels,
+  onClose,
+  onOpenBooking,
+  onAddStay,
+  onRequestAction
+}: {
+  date: Date;
+  bookings: HouseSittingBooking[];
+  ownerLabels: Record<string, string>;
+  onClose: () => void;
+  onOpenBooking: (booking: HouseSittingBooking) => void;
+  onAddStay: () => void;
+  onRequestAction: (action: PendingAction) => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-[#1A1916]/25 backdrop-blur-sm sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="sheet-panel flex max-h-[85vh] w-full flex-col rounded-t-[28px] border border-border bg-page shadow-[0_-8px_40px_rgba(48,38,24,0.18)] sm:max-w-[520px] sm:rounded-[24px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+          <div className="min-w-0">
+            <h2 className="text-[19px] font-medium leading-tight text-text-primary">{fullDate(date)}</h2>
+            <p className="mt-0.5 text-[13px] text-text-secondary">
+              {bookings.length === 0 ? "No stays booked" : `${bookings.length} ${bookings.length === 1 ? "stay" : "stays"}`}
+            </p>
+          </div>
+          <Button className="h-10 w-10 shrink-0 px-0" variant="ghost" onClick={onClose} aria-label="Close">
+            <X size={20} strokeWidth={1.6} />
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+          {bookings.length === 0 ? (
+            <EmptyLine text="Nothing booked on this day yet." />
+          ) : (
+            bookings.map((booking) => (
+              <DaySheetRow
+                key={booking.id}
+                booking={booking}
+                ownerLabel={ownerLabels[booking.user_id]}
+                onOpenBooking={onOpenBooking}
+                onRequestAction={onRequestAction}
+              />
+            ))
+          )}
+        </div>
+
+        <div className="border-t border-border p-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:pb-4">
+          <Button className="w-full" variant="accent" onClick={onAddStay}>
+            <Plus size={18} strokeWidth={1.6} />
+            Add stay on {shortDate(toInputDate(date))}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DaySheetRow({
+  booking,
+  ownerLabel,
+  onOpenBooking,
+  onRequestAction
+}: {
+  booking: HouseSittingBooking;
+  ownerLabel?: string;
+  onOpenBooking: (booking: HouseSittingBooking) => void;
+  onRequestAction: (action: PendingAction) => void;
+}) {
+  const cancelled = isCancelled(booking);
+  const estimate = estimateHouseSitting({
+    startDate: booking.start_date,
+    endDate: booking.end_date,
+    nightlyRate: Number(booking.nightly_rate),
+    paymentMethod: booking.payment_method,
+    commissionRate: Number(booking.rover_commission_rate)
+  });
+
+  return (
+    <div className={cn("rounded-[20px] border border-border bg-surface p-3 shadow-card", cancelled && "opacity-75")}>
+      <button
+        className="focus-ring flex w-full items-start justify-between gap-3 rounded-xl text-left"
+        type="button"
+        onClick={() => onOpenBooking(booking)}
+      >
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className={cn("truncate text-[15px] font-medium text-text-primary", cancelled && "line-through")}>
+              {booking.customer_name}
+            </span>
+            {cancelled ? <CancelledChip /> : null}
+          </div>
+          <div className="mt-0.5 truncate text-[13px] text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+          <div className="mt-0.5 truncate text-[12px] text-text-tertiary">{booking.pet_names || "Pets not listed"}</div>
+          {ownerLabel ? <div className="mt-0.5 truncate text-[12px] font-medium text-text-tertiary">{ownerLabel}</div> : null}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className={cn("text-[15px] font-medium tabular-nums text-text-primary", cancelled && "line-through")}>
+            {formatCurrency(estimate.net)}
+          </div>
+          <div className="mt-0.5 text-[12px] text-text-tertiary">
+            {estimate.nights} {estimate.nights === 1 ? "night" : "nights"}
+          </div>
+        </div>
+      </button>
+
+      <div className="mt-3 flex gap-2 border-t border-border pt-3">
+        <Button
+          className="flex-1 text-[14px]"
+          variant="soft"
+          type="button"
+          onClick={() => onRequestAction({ type: cancelled ? "restore" : "cancel", booking })}
+        >
+          {cancelled ? <RotateCcw size={16} strokeWidth={1.7} /> : <CalendarX size={16} strokeWidth={1.7} />}
+          {cancelled ? "Restore" : "Cancel stay"}
+        </Button>
+        <Button
+          className="w-11 shrink-0 px-0"
+          variant="danger"
+          type="button"
+          aria-label={`Delete stay for ${booking.customer_name}`}
+          onClick={() => onRequestAction({ type: "delete", booking })}
+        >
+          <Trash2 size={16} strokeWidth={1.7} />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function HouseSittingForm({
   booking,
+  initialDate,
   bookings,
   userId,
   canChangeOwner,
@@ -853,9 +1325,11 @@ function HouseSittingForm({
   regularClients,
   houseCustomers,
   onClose,
-  onSaved
+  onSaved,
+  onRequestAction
 }: {
   booking?: HouseSittingBooking;
+  initialDate?: string;
   bookings: HouseSittingBooking[];
   userId: string;
   canChangeOwner: boolean;
@@ -864,9 +1338,11 @@ function HouseSittingForm({
   houseCustomers: HouseSittingCustomer[];
   onClose: () => void;
   onSaved: () => void;
+  onRequestAction: (action: PendingAction) => void;
 }) {
   const isEditing = Boolean(booking);
-  const [values, setValues] = useState<HouseSittingFormValues>(() => valuesFromBooking(booking));
+  const cancelled = Boolean(booking && isCancelled(booking));
+  const [values, setValues] = useState<HouseSittingFormValues>(() => valuesFromBooking(booking, initialDate));
   const [ownerId, setOwnerId] = useState(booking?.user_id ?? userId);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState("");
@@ -1169,19 +1645,30 @@ function HouseSittingForm({
         className="slide-over-panel ml-auto flex h-full w-full max-w-[620px] flex-col overflow-y-auto bg-page p-4 shadow-[0_20px_70px_rgba(48,38,24,0.18)] sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-[28px] font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">
+        <div className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
+          <div className="min-w-0">
+            <h2 className="text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[28px] sm:leading-[1.1]">
               {isEditing ? "House sitting details" : "Add house sitting"}
             </h2>
-            <p className="mt-1 text-[15px] text-text-secondary">
-              {isEditing ? "Review the booked stay and update details when plans change." : "Log the booked stay without adding anyone to regular customers."}
+            <p className="mt-1 text-[14px] text-text-secondary sm:text-[15px]">
+              {isEditing
+                ? "Review the booked stay and update details when plans change."
+                : "Log the booked stay without adding anyone to regular customers."}
             </p>
           </div>
-          <Button variant="ghost" onClick={onClose} aria-label="Close">
+          <Button className="h-11 w-11 shrink-0 px-0" variant="ghost" onClick={onClose} aria-label="Close">
             <X size={20} strokeWidth={1.6} />
           </Button>
         </div>
+
+        {cancelled ? (
+          <div className="mb-5 flex items-start gap-3 rounded-[18px] border border-border bg-subtle p-3.5">
+            <CalendarX size={18} strokeWidth={1.6} className="mt-0.5 shrink-0 text-text-tertiary" />
+            <p className="text-[13px] leading-snug text-text-secondary">
+              This stay is cancelled. It stays on the calendar for reference but does not count toward booked nights or earnings.
+            </p>
+          </div>
+        ) : null}
 
         <form className="space-y-5" onSubmit={saveBooking}>
           <FieldShell label="Customer" error={errors.customer_name}>
@@ -1303,7 +1790,7 @@ function HouseSittingForm({
             {values.pets.length > 0 ? (
               <div className="space-y-3">
                 {values.pets.map((pet, index) => (
-                  <div key={index} className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
+                  <div key={index} className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:p-4">
                     <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto] sm:items-end">
                       <Input
                         label="Pet name"
@@ -1311,40 +1798,42 @@ function HouseSittingForm({
                         placeholder="Coco"
                         onChange={(event) => updatePet(index, { name: event.target.value })}
                       />
-                      <Select
-                        label="Type"
-                        value={pet.type}
-                        onChange={(event) => updatePet(index, { type: event.target.value as PetType })}
-                      >
-                        {PET_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </Select>
-                      <Button
-                        className="min-w-11 px-3"
-                        variant="ghost"
-                        type="button"
-                        onClick={() => removePet(index)}
-                        aria-label="Remove pet"
-                      >
-                        <Minus size={18} strokeWidth={1.6} />
-                      </Button>
+                      <div className="grid grid-cols-[1fr_auto] items-end gap-3 sm:contents">
+                        <Select
+                          label="Type"
+                          value={pet.type}
+                          onChange={(event) => updatePet(index, { type: event.target.value as PetType })}
+                        >
+                          {PET_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </Select>
+                        <Button
+                          className="min-w-11 px-3"
+                          variant="ghost"
+                          type="button"
+                          onClick={() => removePet(index)}
+                          aria-label="Remove pet"
+                        >
+                          <Minus size={18} strokeWidth={1.6} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : null}
 
-            <Button variant="soft" type="button" onClick={addPet}>
+            <Button className="w-full sm:w-auto" variant="soft" type="button" onClick={addPet}>
               <Plus size={16} strokeWidth={1.8} />
               Add pet
             </Button>
             {errors.pets ? <p className="text-[12px] text-danger">{errors.pets}</p> : null}
           </div>
 
-          <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
+          <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:p-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldShell label="Payment method">
                 <div className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
@@ -1352,7 +1841,7 @@ function HouseSittingForm({
                     <button
                       key={method}
                       className={cn(
-                        "rounded-xl text-[14px] font-medium transition duration-150 ease-out",
+                        "focus-ring rounded-xl text-[13px] font-medium transition duration-150 ease-out sm:text-[14px]",
                         values.payment_method === method ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
                       )}
                       onClick={() => update("payment_method", method)}
@@ -1380,12 +1869,12 @@ function HouseSittingForm({
             </div>
           </section>
 
-          <section className="rounded-[20px] border border-border bg-[#FFFEFB] p-4 shadow-card">
+          <section className="rounded-[20px] border border-border bg-[#FFFEFB] p-3.5 shadow-card sm:p-4">
             <div className="flex items-center gap-2 text-[15px] font-medium text-text-primary">
               <Sparkles size={17} strokeWidth={1.6} className="text-accent" />
               Stay estimate
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
               <EstimateMetric label="Nights" value={String(estimate.nights)} />
               <EstimateMetric label="Gross" value={formatCurrency(estimate.gross)} />
               <EstimateMetric label={values.payment_method === "Rover" ? "After fee" : "Net"} value={formatCurrency(estimate.net)} />
@@ -1400,11 +1889,40 @@ function HouseSittingForm({
 
           {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}
 
-          <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-border bg-page/90 px-4 py-4 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+          {isEditing && booking ? (
+            <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:p-4">
+              <h3 className="text-[13px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Manage this stay</h3>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="w-full sm:flex-1"
+                  variant="soft"
+                  type="button"
+                  onClick={() => onRequestAction({ type: cancelled ? "restore" : "cancel", booking })}
+                >
+                  {cancelled ? <RotateCcw size={17} strokeWidth={1.7} /> : <CalendarX size={17} strokeWidth={1.7} />}
+                  {cancelled ? "Restore stay" : "Cancel stay"}
+                </Button>
+                <Button
+                  className="w-full sm:w-auto"
+                  variant="danger"
+                  type="button"
+                  onClick={() => onRequestAction({ type: "delete", booking })}
+                >
+                  <Trash2 size={17} strokeWidth={1.7} />
+                  Delete
+                </Button>
+              </div>
+              <p className="mt-2.5 text-[12px] leading-snug text-text-secondary">
+                Cancelling keeps the stay on the calendar as a record. Deleting removes it permanently.
+              </p>
+            </section>
+          ) : null}
+
+          <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-border bg-page/90 px-4 py-4 pb-[calc(16px+env(safe-area-inset-bottom))] backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
             <Button className="w-full" variant="accent" type="submit" disabled={saving}>
               {saving ? "Saving..." : isEditing ? "Save changes" : "Add house sitting"}
             </Button>
-            <Button variant="soft" type="button" onClick={onClose} aria-label="Cancel">
+            <Button className="w-11 shrink-0 px-0" variant="soft" type="button" onClick={onClose} aria-label="Cancel">
               <X size={18} strokeWidth={1.6} />
             </Button>
           </div>
@@ -1416,11 +1934,13 @@ function HouseSittingForm({
 
 function EstimateMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex h-[94px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-subtle p-3">
+    <div className="flex h-[82px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-subtle p-3 sm:h-[94px]">
       <div className="line-clamp-2 min-h-[28px] text-[11px] font-medium uppercase leading-[1.25] tracking-[0.04em] text-text-tertiary">
         {label}
       </div>
-      <div className="truncate font-medium tabular-nums leading-none text-text-primary text-[clamp(15px,3.6vw,18px)]">{value}</div>
+      <div className="truncate text-[17px] font-medium tabular-nums leading-none text-text-primary sm:text-[clamp(15px,3.6vw,18px)]">
+        {value}
+      </div>
     </div>
   );
 }
