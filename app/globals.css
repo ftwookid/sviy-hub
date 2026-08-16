@@ -98,6 +98,19 @@ button:disabled {
   animation: sheet-enter 200ms ease-out both;
 }
 
+/*
+ * Reserve the scrollbar track the way `html` already does.
+ *
+ * These panels scroll, and their content height changes as you use them — an
+ * inline error clearing, a pet row added, a dropdown closing. Crossing the
+ * scrollable threshold used to add or remove the 10px scrollbar, which
+ * reflowed every field inside by 10px and read as the panel shaking.
+ */
+.slide-over-panel,
+.sheet-panel {
+  scrollbar-gutter: stable;
+}
+
 @keyframes sheet-enter {
   from {
     opacity: 0.9;
