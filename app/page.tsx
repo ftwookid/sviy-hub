@@ -1,27 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  Plus,
-  Receipt as ReceiptIcon,
-  Wallet
-} from "lucide-react";
+import { CircleAlert, Plus, Receipt as ReceiptIcon, Wallet } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CategoryTag } from "@/components/CategoryTag";
 import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { DriveArchiveCard } from "@/components/expenses/DriveArchiveCard";
 import { ExpenseSlideOver } from "@/components/expenses/ExpenseSlideOver";
+import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
 import { Button } from "@/components/ui/Button";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
 import {
-  currentPeriodMonth,
   expenseTotal,
   periodMonthBounds,
   periodMonthLabel,
@@ -172,8 +165,6 @@ export default function ExpensesPage() {
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
-  const isCurrentMonth = periodMonth === currentPeriodMonth();
-
   return (
     <AppShell user={user}>
       <div className="space-y-5">
@@ -188,41 +179,7 @@ export default function ExpensesPage() {
 
         <ExpenseSectionTabs />
 
-        {/* Month navigation */}
-        <div className="flex items-center justify-between gap-2 rounded-[20px] border border-border bg-surface p-2 shadow-card">
-          <Button
-            className="h-11 w-11 shrink-0 px-0"
-            variant="soft"
-            aria-label="Previous month"
-            onClick={() => setPeriodMonth((current) => shiftPeriodMonth(current, -1))}
-          >
-            <ChevronLeft size={18} strokeWidth={1.7} />
-          </Button>
-          <div className="min-w-0 text-center">
-            <div className="truncate text-[16px] font-medium text-text-primary">
-              {periodMonthLabel(periodMonth)}
-            </div>
-            {!isCurrentMonth ? (
-              <button
-                className="focus-ring rounded-md text-[12px] text-text-tertiary underline-offset-2 hover:underline"
-                type="button"
-                onClick={() => setPeriodMonth(currentPeriodMonth())}
-              >
-                Jump to this month
-              </button>
-            ) : (
-              <div className="text-[12px] text-text-tertiary">Current month</div>
-            )}
-          </div>
-          <Button
-            className="h-11 w-11 shrink-0 px-0"
-            variant="soft"
-            aria-label="Next month"
-            onClick={() => setPeriodMonth((current) => shiftPeriodMonth(current, 1))}
-          >
-            <ChevronRight size={18} strokeWidth={1.7} />
-          </Button>
-        </div>
+        <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
 
         {/* Month summary */}
         <section className="grid grid-cols-3 gap-2.5 sm:gap-3">
