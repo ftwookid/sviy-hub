@@ -250,6 +250,69 @@ with check (auth.uid() = user_id or is_admin())
     are recorded on `receipts.drive_error` and surface as "Waiting to archive".
 - The manual Sync button still drains the full backlog and is the retry path.
 
+### Statement Import
+
+The primary way transactions get into the books. Lives at `/import`, as a third
+Expenses sub-tab next to Expenses and Reports, backed by
+`supabase/statement-import-schema.sql`.
+
+Flow:
+
+1. The user drops a bank or card statement PDF on `/import`.
+2. `POST /api/statements/parse` reads it and returns a reviewable list.
+3. The user goes through the list — every row is Include, Flag, or Not business,
+   and every field is editable in place.
+4. Confirming writes the Included rows into `expenses` and remembers the
+   decisions for next month.
+
+Accuracy over speed, deliberately:
+
+- `lib/statementExtraction.ts` runs **two** model passes over the same PDF. Pass
+  one extracts; pass two re-reads the document holding pass one's output and
+  returns a corrected list. The audit pass wins.
+- Both passes are pinned to a JSON schema via `output_config.format`, so the
+  response is always parseable — there is no bad-JSON retry path.
+- `reconcile()` in `lib/statementImports.ts` sums the extracted debits and
+  compares them against the total the statement prints on itself. The result is
+  shown to the user as "Totals match" / "Totals do not match" / "nothing to check
+  against" rather than assumed correct.
+- Default model is `claude-haiku-4-5` — cheap, and the passes plus the
+  reconciliation are what buy the accuracy. Override with
+  `TRANSACTION_PARSER_MODEL`.
+- The route is `runtime = "nodejs"` with `maxDuration = 300`. Two passes over a
+  multi-page PDF take a minute or more; the dropzone walks through progress copy
+  rather than showing a bare spinner. Vercel must allow that duration.
+
+Review behaviour:
+
+- Rows live in `statement_import_rows`, not a jsonb blob, so a half-finished
+  review survives a refresh or a different device. Every edit persists on change.
+- Each row carries date, amount, merchant, category, note, and an invoice
+  attachment with an attached/missing indicator. Invoices reuse `uploadReceipt`
+  and the existing Drive archive — they are refiled and synced on import.
+- Credits (money in) are pre-set to Not business, since they are never
+  deductible, but stay visible so refunds are easy to spot.
+- Rows the model was unsure about are marked `low` confidence and flagged in the
+  list with a warning icon.
+- `Add one` appends a `source = 'Manual'` row for cash or anything the statement
+  never saw. Manual rows never write merchant rules.
+- Import is blocked while an Included row is missing a date, merchant, amount, or
+  category — the count of blocked rows is shown above the button.
+- Flagged rows are never written to the books. An import only reaches `Imported`
+  once no rows are still flagged; otherwise it stays in `Review`.
+
+Merchant memory (`merchant_rules`):
+
+- Confirming an import upserts one rule per decided row, keyed on
+  `merchantMatchKey(description)` — a fingerprint with card numbers, store ids,
+  and POS noise stripped, so "SQ *CHEWY 4417" and "SQ *CHEWY 9902" match.
+- The next import pre-fills category and Include/Exclude from those rules and
+  marks the row `auto_applied` (a sparkle icon in the list).
+- Flagged rows deliberately write no rule — "not sure" is not worth replaying.
+- Rules are per-user and **not** admin-wide, so one person's sense of what counts
+  as business never pre-selects rows on someone else's statement. Admins still
+  see every import and every row through the normal admin-aware RLS.
+
 ### House Sitting Section
 
 - Lives inside the Clients tab as a separate view, backed by `supabase/house-sitting-schema.sql`.
@@ -311,6 +374,15 @@ Cancel and delete:
 
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports sub-section.
+- `app/import/page.tsx`: Statement import — dropzone, review list, confirm.
+- `app/api/statements/parse/route.ts`: Reads an uploaded statement PDF into rows.
+- `lib/statementExtraction.ts`: The two model passes and their JSON schemas.
+- `lib/statementImports.ts`: Merchant fingerprinting, reconciliation, row validation.
+- `lib/statementImportClient.ts`: Browser-side import queries, confirm, merchant memory.
+- `components/expenses/StatementDropzone.tsx`: PDF drop target and scan progress.
+- `components/expenses/ImportRowCard.tsx`: One reviewable transaction.
+- `components/expenses/ImportSummaryCard.tsx`: Totals cross-check banner.
+- `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
 - `app/clients/page.tsx`: Clients section.
 - `app/api/admin/user-labels/route.ts`: Admin-only API route for resolving owner labels.
 - `app/onboarding/page.tsx`: Post-signup nickname onboarding screen.
@@ -422,7 +494,24 @@ The repo pre-commit hook always increments the last number in `version.json` and
 
 ## Next Step
 
-Run `supabase/house-sitting-schema.sql` in Supabase. It is re-runnable and adds the `house_sittings.status` column that cancel/restore needs. Until it runs, the calendar still loads and delete still works, but cancelling shows a message asking for this migration.
+Run `supabase/statement-import-schema.sql` in Supabase. It is re-runnable and
+creates `statement_imports`, `statement_import_rows`, and `merchant_rules`, plus
+the `expenses.statement_import_id` column. Until it runs, `/import` shows a setup
+notice instead of the dropzone.
+
+Then test the statement import end to end:
+
+1. Open `/import` and drop a real bank statement PDF.
+2. Confirm the totals banner says the extracted total matches the statement.
+3. Spot-check a few rows against the PDF — dates, amounts, and directions.
+4. Set one row to Flag and one to Not business.
+5. Attach an invoice to a row and confirm the indicator flips to `Invoice ✓`.
+6. Add a manual transaction with `Add one`.
+7. Import, and confirm the rows land in the Expenses tab under the right month.
+8. Import a second statement from the same account and confirm the merchants you
+   already categorised come back pre-filled with a sparkle icon.
+
+Then run `supabase/house-sitting-schema.sql` in Supabase. It is re-runnable and adds the `house_sittings.status` column that cancel/restore needs. Until it runs, the calendar still loads and delete still works, but cancelling shows a message asking for this migration.
 
 Then create the private Supabase Storage bucket if it does not exist yet:
 
