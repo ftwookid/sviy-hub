@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/serverAuth";
-import { ensureMonthFolder, getAccessToken, uploadFileToDrive } from "@/lib/googleDrive";
+import { ensureMonthFolder, uploadFileToDrive } from "@/lib/googleDrive";
+import { resolveArchiveTarget } from "@/lib/receiptArchive";
 
 /**
  * Archives receipts that are in Supabase Storage but not yet in Drive.
  *
  * Batched so a serverless invocation cannot time out on a large backlog: the
  * response reports whether more remain, and the client calls again until done.
+ *
+ * A `receiptId` in the body narrows the run to a single receipt. That is what
+ * saving a transaction uses, so attaching proof archives just that file rather
+ * than dragging along every other receipt that happens to be pending.
  */
 const BATCH_SIZE = 8;
 
@@ -24,30 +29,30 @@ export async function POST(request: Request) {
 
   const { admin, userId } = auth.caller;
 
-  let accessToken: string;
-  let rootFolderId: string | null;
-  try {
-    const resolved = await getAccessToken(admin, userId);
-    accessToken = resolved.accessToken;
-    rootFolderId = resolved.account.root_folder_id;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Google Drive is not connected.";
-    return NextResponse.json({ error: message }, { status: 400 });
+  const body = (await request.json().catch(() => ({}))) as { receiptId?: string };
+
+  const setup = await resolveArchiveTarget(admin, userId);
+  if (!setup.ok) {
+    // A save that auto-archives should not fail because Drive is not set up
+    // yet, so an unconfigured archive reports zero work instead of an error.
+    if (body.receiptId) {
+      return NextResponse.json({ synced: 0, failed: 0, hasMore: false, errors: [], skipped: true });
+    }
+    return NextResponse.json({ error: setup.message }, { status: 400 });
   }
 
-  if (!rootFolderId) {
-    return NextResponse.json(
-      { error: "Choose the Drive folder to archive into before syncing." },
-      { status: 400 }
-    );
-  }
+  const { accessToken, rootFolderId } = setup.target;
 
-  const { data: pending, error: pendingError } = await admin
+  let query = admin
     .from("receipts")
     .select("id, filename, mime_type, storage_path, period_month")
     .eq("user_id", userId)
     .is("drive_file_id", null)
-    .not("storage_path", "is", null)
+    .not("storage_path", "is", null);
+
+  if (body.receiptId) query = query.eq("id", body.receiptId);
+
+  const { data: pending, error: pendingError } = await query
     .order("period_month", { ascending: true })
     .limit(BATCH_SIZE + 1);
 

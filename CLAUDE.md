@@ -224,6 +224,32 @@ using (auth.uid() = user_id or is_admin())
 with check (auth.uid() = user_id or is_admin())
 ```
 
+### Google Drive Receipt Archive
+
+- Receipts are mirrored into the Drive folder chosen through the Google Picker.
+- Folder layout is `<chosen folder>/<Year>/<MM Month>/<file>`, e.g. `2026/06 June`.
+  Folders are find-or-create by name, so re-syncing never duplicates them.
+- The Picker needs `GOOGLE_PICKER_API_KEY` — an API key with the **Google Picker
+  API** enabled, in the same Cloud project as the OAuth client. The Maps key does
+  not work; Google rejects it with "The API developer key is invalid."
+- The Picker app id is derived from the OAuth client id's project number. With
+  the `drive.file` scope this is what grants the app access to a picked folder.
+- Archive lifecycle:
+  - Saving a transaction archives its receipt automatically, scoped to that one
+    receipt via `POST /api/receipts/sync` with a `receiptId`.
+  - Changing a transaction's date to another month re-files the receipt through
+    `POST /api/receipts/refile`, which moves the Drive file and restamps
+    `receipts.period_month`. The file id and share link survive the move.
+  - Deleting a transaction, detaching a receipt, or replacing one retires it via
+    `POST /api/receipts/discard`: the Drive file is **trashed** (recoverable for
+    30 days, never hard-deleted), the Storage object is removed, and the row is
+    deleted.
+  - Retirement only happens on a successful save, so closing the slide-over
+    without saving leaves Drive untouched.
+  - Archive steps are non-fatal: the expense is saved first, and Drive failures
+    are recorded on `receipts.drive_error` and surface as "Waiting to archive".
+- The manual Sync button still drains the full backlog and is the retry path.
+
 ### House Sitting Section
 
 - Lives inside the Clients tab as a separate view, backed by `supabase/house-sitting-schema.sql`.

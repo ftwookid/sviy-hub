@@ -20,7 +20,6 @@ export const DRIVE_SCOPES = [
   "email"
 ].join(" ");
 
-export const INVOICES_FOLDER_NAME = "Invoices";
 
 export function googleOAuthConfigured() {
   return Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
@@ -267,10 +266,47 @@ export async function ensureFolder(accessToken: string, name: string, parentId: 
  * Builds (or reuses) `<root>/<year>/Invoices/<MM Month>` and returns the month
  * folder id. Idempotent — safe to call for every upload.
  */
+/** Resolves `<root>/2026/06 June`, creating either level if it is missing. */
 export async function ensureMonthFolder(accessToken: string, rootFolderId: string, periodMonth: string) {
   const yearFolderId = await ensureFolder(accessToken, driveYearFolderName(periodMonth), rootFolderId);
-  const invoicesFolderId = await ensureFolder(accessToken, INVOICES_FOLDER_NAME, yearFolderId);
-  return ensureFolder(accessToken, driveMonthFolderName(periodMonth), invoicesFolderId);
+  return ensureFolder(accessToken, driveMonthFolderName(periodMonth), yearFolderId);
+}
+
+/**
+ * Re-parents a receipt after its transaction date moved to another month.
+ *
+ * Drive keeps the file id and its share link across a move, so anything already
+ * pointing at the receipt keeps working.
+ */
+export async function moveFileToFolder(accessToken: string, fileId: string, parentId: string) {
+  const current = await driveRequest(
+    accessToken,
+    `${DRIVE_FILES}/${encodeURIComponent(fileId)}?fields=${encodeURIComponent("parents")}`
+  );
+  const { parents } = (await current.json()) as { parents?: string[] };
+
+  if (parents?.length === 1 && parents[0] === parentId) return;
+
+  const params = new URLSearchParams({ addParents: parentId, fields: "id,parents" });
+  if (parents?.length) params.set("removeParents", parents.join(","));
+
+  await driveRequest(accessToken, `${DRIVE_FILES}/${encodeURIComponent(fileId)}?${params}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+}
+
+/**
+ * Trashes rather than deletes. The file stays recoverable from Drive's trash
+ * for 30 days, so removing a transaction can never destroy tax proof outright.
+ */
+export async function trashFile(accessToken: string, fileId: string) {
+  await driveRequest(accessToken, `${DRIVE_FILES}/${encodeURIComponent(fileId)}?fields=id`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true })
+  });
 }
 
 export async function uploadFileToDrive(
