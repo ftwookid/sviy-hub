@@ -61,9 +61,14 @@ export function useDriveConnection() {
       const credentials = await authedFetch<{
         accessToken: string;
         developerKey: string | null;
+        appId: string | null;
       }>("/api/google/picker-token");
 
-      const picked = await openDriveFolderPicker(credentials.accessToken, credentials.developerKey);
+      const picked = await openDriveFolderPicker(
+        credentials.accessToken,
+        credentials.developerKey,
+        credentials.appId
+      );
       if (!picked) return;
 
       await authedFetch("/api/google/folder", {
