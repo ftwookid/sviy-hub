@@ -8,11 +8,12 @@ export function ExpenseSectionTabs() {
   const pathname = usePathname();
   const tabs = [
     { label: "Expenses", href: "/" },
+    { label: "Import", href: "/import" },
     { label: "Reports", href: "/reports" }
   ];
 
   return (
-    <div className="inline-grid min-h-11 grid-cols-2 rounded-2xl border border-border bg-subtle p-1">
+    <div className="inline-grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
       {tabs.map((tab) => {
         const active = pathname === tab.href;
         return (
