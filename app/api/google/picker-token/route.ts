@@ -9,6 +9,18 @@ import { getAccessToken } from "@/lib/googleDrive";
  * minted here rather than stored client-side, and it expires within the hour.
  * The refresh token never leaves the server.
  */
+/**
+ * The Picker's app id is the Cloud project number, which is the leading segment
+ * of the OAuth client id. With the drive.file scope the Picker only grants the
+ * app access to the picked folder when this matches the project that owns the
+ * OAuth client, so it is derived rather than configured separately.
+ */
+function pickerAppId() {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? "";
+  const projectNumber = clientId.split("-")[0];
+  return /^\d+$/.test(projectNumber) ? projectNumber : null;
+}
+
 export async function GET(request: Request) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -18,7 +30,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       accessToken,
-      developerKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null,
+      // Must be a key with the Picker API enabled. The Maps key is not one: it
+      // is restricted to Maps/Places, and the Picker rejects it outright with
+      // "The API developer key is invalid." No fallback for that reason.
+      developerKey: process.env.GOOGLE_PICKER_API_KEY ?? null,
+      appId: pickerAppId(),
       clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? null
     });
   } catch (error) {

@@ -36,6 +36,7 @@ type GooglePickerView = {
 type GooglePickerBuilder = {
   setOAuthToken: (token: string) => GooglePickerBuilder;
   setDeveloperKey: (key: string) => GooglePickerBuilder;
+  setAppId: (appId: string) => GooglePickerBuilder;
   setTitle: (title: string) => GooglePickerBuilder;
   addView: (view: GooglePickerView) => GooglePickerBuilder;
   enableFeature: (feature: string) => GooglePickerBuilder;
@@ -98,8 +99,17 @@ function loadPickerModule(): Promise<void> {
 /** Resolves with the chosen folder, or null when the user cancels. */
 export async function openDriveFolderPicker(
   accessToken: string,
-  developerKey: string | null
+  developerKey: string | null,
+  appId: string | null
 ): Promise<PickedFolder | null> {
+  // Without a Picker-enabled key Google renders its own opaque "The API
+  // developer key is invalid" dialog, so say what is actually missing instead.
+  if (!developerKey) {
+    throw new Error(
+      "Google Picker is not configured. Set GOOGLE_PICKER_API_KEY to an API key with the Google Picker API enabled."
+    );
+  }
+
   await loadGapi();
   await loadPickerModule();
 
@@ -126,7 +136,8 @@ export async function openDriveFolderPicker(
           if (response.action === picker.Action.CANCEL) resolve(null);
         });
 
-      if (developerKey) builder.setDeveloperKey(developerKey);
+      builder.setDeveloperKey(developerKey);
+      if (appId) builder.setAppId(appId);
 
       builder.build().setVisible(true);
     } catch (error) {
