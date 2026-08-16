@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { authedFetch } from "@/lib/apiClient";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
@@ -72,6 +73,9 @@ export function ExpenseSlideOver({
   const [saving, setSaving] = useState(false);
 
   const [attachedReceipt, setAttachedReceipt] = useState<Receipt | null>(receipt ?? null);
+  // Receipts dropped or swapped out during this edit. They are only retired
+  // once the save succeeds, so closing without saving leaves Drive untouched.
+  const [retiredReceiptIds, setRetiredReceiptIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadNote, setUploadNote] = useState("");
   const [waived, setWaived] = useState(expense?.proof_waived ?? false);
@@ -103,6 +107,50 @@ export function ExpenseSlideOver({
     return Object.keys(next).length === 0;
   }
 
+  function retireReceipt(receiptId: string) {
+    setRetiredReceiptIds((current) =>
+      current.includes(receiptId) ? current : [...current, receiptId]
+    );
+  }
+
+  /**
+   * Brings Drive in line with the transaction that was just saved: retires the
+   * receipts this edit dropped, re-files the attached one if its month moved,
+   * and archives it if it is not in Drive yet.
+   *
+   * Deliberately non-fatal. The expense is already saved by this point, so a
+   * Drive hiccup is recorded against the receipt (and shown as "Waiting to
+   * archive") rather than presented as a failed save.
+   */
+  async function reconcileArchive() {
+    for (const receiptId of retiredReceiptIds) {
+      try {
+        await authedFetch("/api/receipts/discard", {
+          method: "POST",
+          body: JSON.stringify({ receiptId })
+        });
+      } catch {
+        // Recorded server-side; the receipt row is the source of truth.
+      }
+    }
+    setRetiredReceiptIds([]);
+
+    if (!attachedReceipt) return;
+
+    try {
+      await authedFetch("/api/receipts/refile", {
+        method: "POST",
+        body: JSON.stringify({ receiptId: attachedReceipt.id, date: values.date })
+      });
+      await authedFetch("/api/receipts/sync", {
+        method: "POST",
+        body: JSON.stringify({ receiptId: attachedReceipt.id })
+      });
+    } catch {
+      // Same reasoning: the manual Sync button retries anything left behind.
+    }
+  }
+
   async function handleFile(file: File | null) {
     if (!file) return;
     setUploading(true);
@@ -111,6 +159,7 @@ export function ExpenseSlideOver({
 
     try {
       const result = await uploadReceipt(file, userId, values.date);
+      if (attachedReceipt) retireReceipt(attachedReceipt.id);
       setAttachedReceipt(result.receipt);
       setWaived(false);
       setUploadNote(
@@ -160,6 +209,7 @@ export function ExpenseSlideOver({
         : await supabase.from("expenses").insert({ ...payload, expense_type: "Standard" });
 
       if (error) throw error;
+      await reconcileArchive();
       onSaved();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Could not save this expense.");
@@ -174,6 +224,19 @@ export function ExpenseSlideOver({
     try {
       const { error } = await supabase.from("expenses").delete().eq("id", expense.id);
       if (error) throw error;
+
+      if (attachedReceipt) {
+        try {
+          await authedFetch("/api/receipts/discard", {
+            method: "POST",
+            body: JSON.stringify({ receiptId: attachedReceipt.id })
+          });
+        } catch {
+          // The expense is already gone; a stranded Drive file is the lesser
+          // problem and stays recoverable from the folder itself.
+        }
+      }
+
       setConfirmingDelete(false);
       onDeleted();
     } catch (error) {
@@ -317,7 +380,10 @@ export function ExpenseSlideOver({
                     variant="ghost"
                     type="button"
                     aria-label="Remove receipt"
-                    onClick={() => setAttachedReceipt(null)}
+                    onClick={() => {
+                      retireReceipt(attachedReceipt.id);
+                      setAttachedReceipt(null);
+                    }}
                   >
                     <X size={16} strokeWidth={1.7} />
                   </Button>
@@ -410,7 +476,7 @@ export function ExpenseSlideOver({
       {confirmingDelete && expense ? (
         <ConfirmDialog
           title="Delete this transaction?"
-          description={`${expense.merchant} will be permanently removed from your records. Any attached receipt stays in Drive.`}
+          description={`${expense.merchant} will be permanently removed from your records. Any attached receipt moves to your Drive trash, where it stays recoverable for 30 days.`}
           confirmLabel="Delete"
           cancelLabel="Keep it"
           busy={deleting}
