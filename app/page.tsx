@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleAlert, Plus, Receipt as ReceiptIcon } from "lucide-react";
+import { CircleAlert, Plus, Receipt as ReceiptIcon, Tag } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CategoryTag } from "@/components/CategoryTag";
 import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { AddTransactionDialog } from "@/components/expenses/AddTransactionDialog";
+import { BulkAction, BulkBar } from "@/components/expenses/BulkBar";
+import { CategoryPicker } from "@/components/expenses/CategoryPicker";
 import { DriveArchiveAlert } from "@/components/expenses/DriveArchiveAlert";
 import { ExpenseSlideOver } from "@/components/expenses/ExpenseSlideOver";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
@@ -52,6 +54,11 @@ export default function TransactionsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [toast, setToast] = useState("");
+
+  // Selection drives bulk edits; `categorising` holds the ids the picker will
+  // apply to — one row from its chip, or everything ticked.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [categorising, setCategorising] = useState<string[] | null>(null);
 
   // Statement import lives on this page now, as a mode rather than a route.
   const [imports, setImports] = useState<StatementImport[]>([]);
@@ -195,6 +202,47 @@ export default function TransactionsPage() {
     () => (onlyMissing ? expenses.filter((expense) => proofState(expense) === "Missing") : expenses),
     [expenses, onlyMissing]
   );
+
+  const allVisibleSelected =
+    visibleExpenses.length > 0 && visibleExpenses.every((expense) => selectedIds.has(expense.id));
+
+  function toggleSelectAll() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) visibleExpenses.forEach((expense) => next.delete(expense.id));
+      else visibleExpenses.forEach((expense) => next.add(expense.id));
+      return next;
+    });
+  }
+
+  function toggleOne(id: string, isSelected: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (isSelected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  /** Recategorise one row or a whole selection, in a single write. */
+  async function applyCategory(category: string) {
+    const ids = categorising ?? [];
+    setCategorising(null);
+    if (!supabase || ids.length === 0) return;
+
+    setExpenses((current) =>
+      current.map((expense) => (ids.includes(expense.id) ? { ...expense, category } : expense))
+    );
+    setSelectedIds(new Set());
+
+    const { error } = await supabase.from("expenses").update({ category }).in("id", ids);
+    if (error) {
+      showToast("That change did not save.");
+      loadMonth();
+      return;
+    }
+    showToast(`${ids.length} transaction${ids.length === 1 ? "" : "s"} set to ${category}`);
+  }
 
   const unfinishedImports = useMemo(
     () => imports.filter((item) => item.status === "Review" || item.status === "Parsing"),
@@ -378,21 +426,62 @@ export default function TransactionsPage() {
                 ) : null}
 
                 {!loading && visibleExpenses.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {visibleExpenses.map((expense) => (
-                      <ExpenseRow
-                        key={expense.id}
-                        expense={expense}
-                        onOpen={() => openExpense(expense)}
+                  <>
+                    <label className="mb-1.5 flex w-fit cursor-pointer items-center gap-2 px-2 text-[12px] text-text-secondary">
+                      <input
+                        className="h-4 w-4 cursor-pointer accent-[#C9A96E]"
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAll}
                       />
-                    ))}
-                  </div>
+                      {allVisibleSelected ? "Clear" : `Select all ${visibleExpenses.length}`}
+                    </label>
+                    <div className="space-y-1.5">
+                      {visibleExpenses.map((expense) => (
+                        <ExpenseRow
+                          key={expense.id}
+                          expense={expense}
+                          selected={selectedIds.has(expense.id)}
+                          onSelect={(isSelected) => toggleOne(expense.id, isSelected)}
+                          onOpen={() => openExpense(expense)}
+                          onCategory={() => setCategorising([expense.id])}
+                        />
+                      ))}
+                    </div>
+                  </>
                 ) : null}
               </div>
             </section>
           </>
         )}
       </div>
+
+      {!reviewingId ? (
+        <BulkBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())}>
+          <BulkAction
+            icon={Tag}
+            label="Set category"
+            onClick={() => setCategorising(Array.from(selectedIds))}
+          />
+        </BulkBar>
+      ) : null}
+
+      {categorising ? (
+        <CategoryPicker
+          title={
+            categorising.length === 1
+              ? "Choose a category"
+              : `Category for ${categorising.length} transactions`
+          }
+          current={
+            categorising.length === 1
+              ? expenses.find((expense) => expense.id === categorising[0])?.category
+              : undefined
+          }
+          onPick={applyCategory}
+          onClose={() => setCategorising(null)}
+        />
+      ) : null}
 
       {addOpen ? (
         <AddTransactionDialog
@@ -483,36 +572,73 @@ function StatCell({
   );
 }
 
-function ExpenseRow({ expense, onOpen }: { expense: Expense; onOpen: () => void }) {
+function ExpenseRow({
+  expense,
+  selected,
+  onSelect,
+  onOpen,
+  onCategory
+}: {
+  expense: Expense;
+  selected: boolean;
+  onSelect: (selected: boolean) => void;
+  onOpen: () => void;
+  onCategory: () => void;
+}) {
   const state = proofState(expense);
 
   return (
-    <button
-      className="focus-ring flex w-full items-center justify-between gap-3 rounded-xl bg-subtle px-3 py-2.5 text-left transition hover:bg-border"
-      type="button"
-      onClick={onOpen}
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-xl px-2 transition",
+        selected ? "bg-accent-soft/70" : "bg-subtle hover:bg-border"
+      )}
     >
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[14.5px] font-medium text-text-primary">
-            {expense.merchant}
+      <input
+        className="h-4 w-4 shrink-0 cursor-pointer accent-[#C9A96E]"
+        type="checkbox"
+        checked={selected}
+        aria-label={`Select ${expense.merchant}`}
+        onChange={(event) => onSelect(event.target.checked)}
+      />
+
+      <button
+        className="focus-ring flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left"
+        type="button"
+        onClick={onOpen}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-[14.5px] font-medium text-text-primary">
+              {expense.merchant}
+            </span>
+            {state !== "Attached" ? <ProofBadge state={state} /> : null}
           </span>
-          {state !== "Attached" ? <ProofBadge state={state} /> : null}
-        </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-text-tertiary">
-          <span>{formatShortDate(expense.date)}</span>
-          <span aria-hidden>·</span>
-          <CategoryTag category={expense.category} />
-        </div>
-      </div>
-      <div className="shrink-0 text-right">
-        <div className="text-[14.5px] font-medium tabular-nums text-text-primary">
-          {formatCurrency(expense.amount)}
-        </div>
-        {state === "Attached" ? (
-          <div className="text-[11px] font-medium text-success">Proof</div>
-        ) : null}
-      </div>
-    </button>
+          <span className="mt-0.5 block text-[12px] text-text-tertiary">
+            {formatShortDate(expense.date)}
+          </span>
+        </span>
+
+        {/* Fixed width, right aligned: an amount column that sizes to its own
+            digits drags everything beside it around from row to row. */}
+        <span className="w-[92px] shrink-0 text-right">
+          <span className="block text-[14.5px] font-medium tabular-nums text-text-primary">
+            {formatCurrency(expense.amount)}
+          </span>
+          {state === "Attached" ? (
+            <span className="block text-[11px] font-medium text-success">Proof</span>
+          ) : null}
+        </span>
+      </button>
+
+      <button
+        className="focus-ring hidden w-[116px] shrink-0 items-center rounded-md transition hover:brightness-[0.97] sm:flex"
+        type="button"
+        aria-label={`Category: ${expense.category}. Change it`}
+        onClick={onCategory}
+      >
+        <CategoryTag category={expense.category} fixedWidth />
+      </button>
+    </div>
   );
 }

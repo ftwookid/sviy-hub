@@ -13,10 +13,12 @@ import {
   Upload,
   X
 } from "lucide-react";
+import { CategoryTag } from "@/components/CategoryTag";
+import { CategoryPicker } from "@/components/expenses/CategoryPicker";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { Input, Select } from "@/components/ui/Field";
-import { SCHEDULE_C_CATEGORIES } from "@/lib/categories";
+import { EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { formatCurrency, parseLocalDate } from "@/lib/formatters";
 import { receiptViewUrl, uploadReceipt } from "@/lib/receiptUpload";
@@ -82,6 +84,7 @@ export function ImportRow({
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [pickingCategory, setPickingCategory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const blockers = rowBlockers(row);
@@ -187,19 +190,11 @@ export function ImportRow({
             ) : null}
           </span>
 
-          {/* Category earns its space only where there is space. */}
+          {/* Both columns are fixed width. Sizing them to their own contents is
+              what made the amount slide left and right from row to row. */}
           <span
             className={cn(
-              "hidden max-w-[132px] shrink-0 truncate rounded-md px-1.5 py-0.5 text-[11px] md:inline",
-              row.category ? "bg-subtle text-text-secondary" : "text-text-tertiary"
-            )}
-          >
-            {row.category ?? "No category"}
-          </span>
-
-          <span
-            className={cn(
-              "shrink-0 text-right text-[13.5px] font-medium tabular-nums",
+              "w-[86px] shrink-0 text-right text-[13.5px] font-medium tabular-nums",
               row.direction === "Credit"
                 ? "text-success"
                 : muted
@@ -210,6 +205,23 @@ export function ImportRow({
             {row.direction === "Credit" ? "+" : ""}
             {formatCurrency(row.amount)}
           </span>
+        </button>
+
+        {/* Changing a category is the most common single edit, so it does not
+            require opening the row. */}
+        <button
+          className="focus-ring hidden w-[116px] shrink-0 items-center rounded-md transition hover:brightness-[0.97] md:flex"
+          type="button"
+          aria-label={`Category: ${row.category ?? "none"}. Change it`}
+          onClick={() => setPickingCategory(true)}
+        >
+          {row.category ? (
+            <CategoryTag category={row.category} fixedWidth />
+          ) : (
+            <span className="w-full rounded-md border border-dashed border-border-emphasis px-2 py-1 text-center text-[11px] text-text-tertiary">
+              Set category
+            </span>
+          )}
         </button>
 
         <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-subtle p-0.5">
@@ -263,11 +275,13 @@ export function ImportRow({
             />
             <Select
               label="Category"
-              value={row.category ?? ""}
+              // A row still carrying an old Schedule C heading matches no option
+              // here, which would show the wrong one as selected.
+              value={normalizeCategory(row.category) ?? ""}
               onChange={(event) => onChange({ category: event.target.value || null })}
             >
               <option value="">Choose a category</option>
-              {SCHEDULE_C_CATEGORIES.map((category) => (
+              {EXPENSE_CATEGORIES.map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>
@@ -354,6 +368,18 @@ export function ImportRow({
             Remove from this list
           </Button>
         </div>
+      ) : null}
+
+      {pickingCategory ? (
+        <CategoryPicker
+          title={row.merchant || "Choose a category"}
+          current={row.category}
+          onPick={(category) => {
+            onChange({ category });
+            setPickingCategory(false);
+          }}
+          onClose={() => setPickingCategory(false)}
+        />
       ) : null}
     </div>
   );

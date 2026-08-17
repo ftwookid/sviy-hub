@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Ban, Check, Flag, Plus, X } from "lucide-react";
+import { ArrowLeft, Ban, Check, Flag, Plus, Tag } from "lucide-react";
+import { BulkAction, BulkBar } from "@/components/expenses/BulkBar";
+import { CategoryPicker } from "@/components/expenses/CategoryPicker";
 import { ImportRow } from "@/components/expenses/ImportRow";
 import { ImportSummaryCard } from "@/components/expenses/ImportSummaryCard";
 import { Button } from "@/components/ui/Button";
@@ -69,6 +71,7 @@ export function StatementReview({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Main card");
   const [importing, setImporting] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const [pickingBulkCategory, setPickingBulkCategory] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,21 +108,27 @@ export function StatementReview({
     saveRow(rowId, patch).catch(() => showToast("That change did not save. Check your connection."));
   }
 
-  /** One decision across a selection. The whole point of the page. */
-  function decideSelected(decision: RowDecision) {
+  /** One change across a selection. The whole point of the page. */
+  function patchSelected(patch: Partial<StatementImportRow>, describe: (n: number) => string) {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
-    setRows((current) =>
-      current.map((row) => (selectedIds.has(row.id) ? { ...row, decision } : row))
-    );
+    setRows((current) => current.map((row) => (selectedIds.has(row.id) ? { ...row, ...patch } : row)));
     setSelectedIds(new Set());
 
-    Promise.all(ids.map((id) => saveRow(id, { decision })))
-      .then(() =>
-        showToast(`${ids.length} transaction${ids.length === 1 ? "" : "s"} set to ${decision === "Exclude" ? "not business" : decision.toLowerCase()}`)
-      )
+    Promise.all(ids.map((id) => saveRow(id, patch)))
+      .then(() => showToast(describe(ids.length)))
       .catch(() => showToast("Some of those changes did not save. Check your connection."));
+  }
+
+  function decideSelected(decision: RowDecision) {
+    const label = decision === "Exclude" ? "not business" : decision.toLowerCase();
+    patchSelected({ decision }, (n) => `${n} transaction${n === 1 ? "" : "s"} set to ${label}`);
+  }
+
+  function categoriseSelected(category: string) {
+    setPickingBulkCategory(false);
+    patchSelected({ category }, (n) => `${n} transaction${n === 1 ? "" : "s"} set to ${category}`);
   }
 
   async function handleAddManual() {
@@ -429,46 +438,19 @@ export function StatementReview({
         </div>
       </section>
 
-      {/* One decision for the whole selection. Sits above the mobile tab bar. */}
-      {selectedIds.size > 0 ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-5">
-          {/* Two rows on a phone, one on a laptop. These three words are the
-              whole job, so they never collapse to bare icons. */}
-          <div className="pointer-events-auto w-full max-w-[560px] rounded-2xl bg-text-primary/95 p-1.5 shadow-[0_18px_48px_rgba(48,38,24,0.32)] backdrop-blur-xl sm:flex sm:items-center sm:gap-2 sm:pl-3">
-            <div className="flex items-center justify-between px-1.5 py-1 sm:p-0">
-              <span className="shrink-0 text-[13px] font-medium text-white">
-                {selectedIds.size} selected
-              </span>
-              <button
-                className="focus-ring grid h-7 w-7 place-items-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white sm:hidden"
-                type="button"
-                aria-label="Clear selection"
-                onClick={() => setSelectedIds(new Set())}
-              >
-                <X size={16} strokeWidth={2} />
-              </button>
-            </div>
+      <BulkBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())}>
+        <BulkAction icon={Check} label="Keep" onClick={() => decideSelected("Include")} />
+        <BulkAction icon={Flag} label="Flag" onClick={() => decideSelected("Flag")} />
+        <BulkAction icon={Ban} label="Not business" onClick={() => decideSelected("Exclude")} />
+        <BulkAction icon={Tag} label="Category" onClick={() => setPickingBulkCategory(true)} />
+      </BulkBar>
 
-            <div className="mt-1 grid grid-cols-3 gap-1 sm:ml-auto sm:mt-0 sm:flex sm:items-center">
-              <BulkAction icon={Check} label="Keep" onClick={() => decideSelected("Include")} />
-              <BulkAction icon={Flag} label="Flag" onClick={() => decideSelected("Flag")} />
-              <BulkAction
-                icon={Ban}
-                label="Not business"
-                onClick={() => decideSelected("Exclude")}
-              />
-            </div>
-
-            <button
-              className="focus-ring hidden h-9 w-9 shrink-0 place-items-center rounded-xl text-white/60 transition hover:bg-white/10 hover:text-white sm:grid"
-              type="button"
-              aria-label="Clear selection"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              <X size={16} strokeWidth={2} />
-            </button>
-          </div>
-        </div>
+      {pickingBulkCategory ? (
+        <CategoryPicker
+          title={`Category for ${selectedIds.size} transaction${selectedIds.size === 1 ? "" : "s"}`}
+          onPick={categoriseSelected}
+          onClose={() => setPickingBulkCategory(false)}
+        />
       ) : null}
 
       {confirmingDiscard ? (
@@ -482,26 +464,5 @@ export function StatementReview({
         />
       ) : null}
     </div>
-  );
-}
-
-function BulkAction({
-  icon: Icon,
-  label,
-  onClick
-}: {
-  icon: typeof Check;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="focus-ring inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white/12 px-1.5 text-[12px] font-medium text-white transition hover:bg-white/22 sm:px-2.5 sm:text-[13px]"
-      type="button"
-      onClick={onClick}
-    >
-      <Icon size={15} strokeWidth={2.1} />
-      {label}
-    </button>
   );
 }

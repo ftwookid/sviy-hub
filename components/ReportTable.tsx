@@ -1,10 +1,20 @@
-import { SCHEDULE_C_CATEGORIES } from "@/lib/categories";
+import { EXPENSE_CATEGORIES, DEFAULT_CATEGORY, normalizeCategory } from "@/lib/categories";
 import { formatCurrency } from "@/lib/formatters";
 import type { Expense } from "@/types/expense";
 
+/**
+ * Totals per category, counting every expense exactly once.
+ *
+ * Rows written before the category list changed still carry old Schedule C
+ * values, so each expense is normalized before it is grouped. Matching on the
+ * raw stored value would drop those rows out of the report entirely — a total
+ * that is quietly too low is the worst possible failure here.
+ */
 export function buildCategorySummary(expenses: Expense[]) {
-  return SCHEDULE_C_CATEGORIES.map((category) => {
-    const categoryExpenses = expenses.filter((expense) => expense.category === category);
+  return EXPENSE_CATEGORIES.map((category) => {
+    const categoryExpenses = expenses.filter(
+      (expense) => (normalizeCategory(expense.category) ?? DEFAULT_CATEGORY) === category
+    );
     return {
       category,
       transactions: categoryExpenses.length,

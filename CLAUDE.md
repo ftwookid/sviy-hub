@@ -492,9 +492,33 @@ major.feature.patch
 
 The repo pre-commit hook always increments the last number in `version.json` and stages it automatically. When setting a structural or major-feature version before commit, account for that hook so the committed version still follows the intended version family.
 
+## Expense Categories
+
+The app uses nine categories, ordered most-used first, defined in
+`lib/categories.ts` as `EXPENSE_CATEGORIES`:
+
+Transportation, Supplies, Software & Apps, Insurance, Professional Services,
+Meals, Phone & Communications, Home Office, Miscellaneous.
+
+This replaced the full 22-item Schedule C list. Rules:
+
+- `normalizeCategory()` maps any old Schedule C value onto a current one, so
+  rows written before the change still read correctly. Every list, report, and
+  select normalizes on read — never compare a raw stored `category` string.
+- Unrecognised values fall back to `Miscellaneous` rather than being dropped, so
+  nothing silently disappears from a tax total.
+- Tag colours are fixed per category in `lib/categories.ts`, not hashed.
+- `CategoryTag` takes `fixedWidth` for use inside transaction lists, where the
+  column must not resize per row.
+
 ## Next Step
 
-Run `supabase/statement-import-schema.sql` in Supabase. It is re-runnable and
+Run `supabase/category-migration.sql` in Supabase to rewrite stored categories
+onto the nine above. It is re-runnable and covers `expenses`,
+`statement_import_rows`, and `merchant_rules`. The app works before and after
+it runs; running it just makes the stored data match what is displayed.
+
+Then run `supabase/statement-import-schema.sql` in Supabase. It is re-runnable and
 creates `statement_imports`, `statement_import_rows`, and `merchant_rules`, plus
 the `expenses.statement_import_id` column. Until it runs, `/import` shows a setup
 notice instead of the dropzone.
