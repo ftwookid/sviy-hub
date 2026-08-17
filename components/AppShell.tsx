@@ -16,8 +16,13 @@ const navItems = [
   { label: "Profile", href: "/profile", icon: UserRound }
 ];
 
+// Expenses is one section spread over a couple of routes, so every one of them
+// has to light up the same nav item — otherwise a page like /reports leaves the
+// sidebar with nothing selected at all.
+const EXPENSES_ROUTES = ["/", "/reports", "/import"];
+
 function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/" || pathname === "/reports";
+  if (href === "/") return EXPENSES_ROUTES.includes(pathname);
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -46,16 +51,24 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex min-h-11 items-center gap-3 rounded-2xl px-3 text-[15px] font-medium transition duration-150 ease-out",
+                  "group relative flex min-h-11 items-center gap-3 rounded-2xl py-2 pl-4 pr-3 text-[15px] transition duration-150 ease-out",
                   active
-                    ? "bg-accent-soft text-text-primary shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
-                    : "text-text-secondary hover:bg-surface/80 hover:text-text-primary"
+                    ? "bg-accent-soft font-semibold text-text-primary ring-1 ring-inset ring-accent/45"
+                    : "font-medium text-text-secondary hover:bg-surface/80 hover:text-text-primary"
                 )}
               >
+                {/* A gold marker on the edge, so the selected section reads at a glance. */}
+                {active ? (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent"
+                  />
+                ) : null}
                 <Icon
                   size={20}
-                  strokeWidth={1.6}
+                  strokeWidth={active ? 2 : 1.6}
                   className={active ? "text-accent" : "text-text-tertiary transition group-hover:text-text-secondary"}
                 />
                 {item.label}
@@ -104,12 +117,15 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] font-medium transition duration-150 ease-out",
-                  active ? "bg-accent-soft text-accent" : "text-text-tertiary hover:bg-subtle hover:text-text-secondary"
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] transition duration-150 ease-out",
+                  active
+                    ? "bg-accent-soft font-semibold text-accent ring-1 ring-inset ring-accent/45"
+                    : "font-medium text-text-tertiary hover:bg-subtle hover:text-text-secondary"
                 )}
               >
-                <Icon size={21} strokeWidth={1.6} />
+                <Icon size={21} strokeWidth={active ? 2.1 : 1.6} />
                 <span>{item.label}</span>
               </Link>
             );
