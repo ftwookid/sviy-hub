@@ -395,7 +395,7 @@ export function ExpenseSlideOver({
               <>
                 <label
                   className={cn(
-                    "focus-ring mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[14px] text-text-secondary transition hover:bg-border",
+                    "focus-ring-within mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[14px] text-text-secondary transition hover:bg-border",
                     uploading && "pointer-events-none opacity-60"
                   )}
                 >

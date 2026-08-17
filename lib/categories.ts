@@ -87,20 +87,27 @@ export function normalizeCategory(category: string | null | undefined): ExpenseC
   return LEGACY_CATEGORY_MAP[category] ?? DEFAULT_CATEGORY;
 }
 
-/** Fixed per category, so a tag never changes colour as the list is re-sorted. */
+/**
+ * Fixed per category, so a tag never changes colour as the list is re-sorted.
+ *
+ * These are spaced around the wheel on purpose. The first version of this
+ * palette was nine barely-tinted neutrals, which looked calm in isolation and
+ * was useless in a list — the whole point of a colour is telling two rows apart
+ * at a glance, so each category now owns a hue rather than a shade of beige.
+ */
 const CATEGORY_COLORS: Record<ExpenseCategory, { background: string; text: string }> = {
-  Transportation: { background: "#E7EEF3", text: "#3B5A6E" },
-  Supplies: { background: "#F0E8D8", text: "#6F562B" },
-  "Software & Apps": { background: "#ECE9F1", text: "#5C5268" },
-  Insurance: { background: "#EAF4EE", text: "#37684F" },
-  "Professional Services": { background: "#E8F1F0", text: "#3F6663" },
-  Meals: { background: "#FAEAEA", text: "#733030" },
-  "Phone & Communications": { background: "#EEF0E8", text: "#596141" },
-  "Home Office": { background: "#F3ECE5", text: "#6A5140" },
-  Miscellaneous: { background: "#EFEEEB", text: "#65625C" }
+  Transportation: { background: "#DCE9F7", text: "#27567F" },
+  Supplies: { background: "#F7E6C4", text: "#855F0F" },
+  "Software & Apps": { background: "#E5DEF8", text: "#543E92" },
+  Insurance: { background: "#D5EEDE", text: "#1F6A46" },
+  "Professional Services": { background: "#D0E9EC", text: "#185F6B" },
+  Meals: { background: "#FADEDA", text: "#A63A28" },
+  "Phone & Communications": { background: "#E6EBC9", text: "#5A6420" },
+  "Home Office": { background: "#F7E1CE", text: "#96521F" },
+  Miscellaneous: { background: "#E7E4DE", text: "#5C5850" }
 };
 
-const UNKNOWN_COLORS = { background: "#EFEEEB", text: "#65625C" };
+const UNKNOWN_COLORS = { background: "#E7E4DE", text: "#5C5850" };
 
 export function categoryTagColors(category: string) {
   return CATEGORY_COLORS[normalizeCategory(category) ?? DEFAULT_CATEGORY] ?? UNKNOWN_COLORS;

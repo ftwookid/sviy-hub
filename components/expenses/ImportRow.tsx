@@ -68,6 +68,7 @@ export function ImportRow({
   onToggle,
   onSelect,
   onChange,
+  onCategoryChange,
   onReceiptChange,
   onDelete
 }: {
@@ -79,6 +80,8 @@ export function ImportRow({
   onToggle: () => void;
   onSelect: (selected: boolean) => void;
   onChange: (patch: Partial<StatementImportRow>) => void;
+  /** Separate from `onChange` so the page can offer to carry the pick across similar rows. */
+  onCategoryChange: (category: string | null) => void;
   onReceiptChange: (receipt: Receipt | null) => void;
   onDelete: () => void;
 }) {
@@ -224,6 +227,15 @@ export function ImportRow({
           )}
         </button>
 
+        {/* Once a row is in the books its decision is settled — this list can no
+            longer change it, and offering the buttons anyway invites edits that
+            silently go nowhere. */}
+        {row.expense_id ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-success-soft px-2 py-1 text-[11px] font-medium text-success">
+            <Check size={12} strokeWidth={2.4} />
+            <span className="hidden sm:inline">In your books</span>
+          </span>
+        ) : (
         <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-subtle p-0.5">
           {DECISION_OPTIONS.map((option) => {
             const Icon = option.icon;
@@ -246,6 +258,7 @@ export function ImportRow({
             );
           })}
         </div>
+        )}
       </div>
 
       {blockers.length > 0 && !expanded ? (
@@ -254,7 +267,11 @@ export function ImportRow({
 
       {expanded ? (
         <div className="space-y-3 border-t border-border px-3 py-3">
-          <p className="text-[12px] text-text-tertiary">{DECISION_HINTS[row.decision]}</p>
+          <p className="text-[12px] text-text-tertiary">
+            {row.expense_id
+              ? "Already in your books. Edit it from the transactions list."
+              : DECISION_HINTS[row.decision]}
+          </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <DateField label="Date" value={row.date} onChange={(date) => onChange({ date })} />
@@ -278,7 +295,7 @@ export function ImportRow({
               // A row still carrying an old Schedule C heading matches no option
               // here, which would show the wrong one as selected.
               value={normalizeCategory(row.category) ?? ""}
-              onChange={(event) => onChange({ category: event.target.value || null })}
+              onChange={(event) => onCategoryChange(event.target.value || null)}
             >
               <option value="">Choose a category</option>
               {EXPENSE_CATEGORIES.map((category) => (
@@ -338,7 +355,7 @@ export function ImportRow({
             ) : (
               <label
                 className={cn(
-                  "focus-ring flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[13.5px] text-text-secondary transition hover:bg-border",
+                  "focus-ring-within flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[13.5px] text-text-secondary transition hover:bg-border",
                   uploading && "pointer-events-none opacity-60"
                 )}
               >
@@ -363,10 +380,14 @@ export function ImportRow({
             </p>
           ) : null}
 
-          <Button className="w-full sm:w-auto" variant="danger" type="button" onClick={onDelete}>
-            <Trash2 size={15} strokeWidth={1.8} />
-            Remove from this list
-          </Button>
+          {/* Removing an imported row would drop the review record and leave the
+              expense behind with nothing pointing at it. */}
+          {row.expense_id ? null : (
+            <Button className="w-full sm:w-auto" variant="danger" type="button" onClick={onDelete}>
+              <Trash2 size={15} strokeWidth={1.8} />
+              Remove from this list
+            </Button>
+          )}
         </div>
       ) : null}
 
@@ -375,8 +396,8 @@ export function ImportRow({
           title={row.merchant || "Choose a category"}
           current={row.category}
           onPick={(category) => {
-            onChange({ category });
             setPickingCategory(false);
+            onCategoryChange(category);
           }}
           onClose={() => setPickingCategory(false)}
         />

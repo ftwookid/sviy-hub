@@ -77,6 +77,14 @@ http://localhost:3000/*
 - Added receipt upload support using Supabase Storage.
 - Added expense list with filters.
 - Added edit/delete expense behavior.
+- Added a quick receipt attach button on transaction rows with no proof
+  (`components/expenses/QuickReceiptButton.tsx`). It opens the file picker
+  straight from the row and does the same three steps as the slide-over —
+  upload, point the expense at the receipt, archive to Drive — clearing
+  `proof_waived`/`proof_note` on the way. It shows only for `Missing` proof, not
+  `Waived`, and updates the row in place rather than calling `loadMonth()`,
+  which would flash a skeleton over the list mid-run. Swapping or removing a
+  receipt still belongs to the slide-over.
 - Added reports page with Schedule C table, monthly breakdown, and CSV export.
 - Moved Reports into the Expenses section as an Expenses/Reports segmented sub-tab.
 
@@ -292,6 +300,42 @@ Review behaviour:
   and the existing Drive archive — they are refiled and synced on import.
 - Credits (money in) are pre-set to Not business, since they are never
   deductible, but stay visible so refunds are easy to spot.
+- Rows the scan already answered — credits, and both halves of a refund pair —
+  are grouped into a **Set aside** section below the list rather than left in
+  amongst the rows that still need a decision. A statement that opens with a run
+  of credits otherwise buries the real work below the fold.
+  - Membership is by what a row *is*, not what it is currently set to, so a row
+    does not jump sections when the user overrides its decision.
+  - The section is collapsible and open by default: these rows were decided by a
+    rule, and a tax review is the wrong place to hide that behind a click.
+  - Each refund pair renders as one tinted block, charge above its credit, so
+    the two halves read as a single event instead of adjacent coincidences.
+  - The grouping is recomputed client-side from `refundPairIndexes()`. It is a
+    pure function of the rows, so it needs no column and cannot go stale against
+    edits made during the review.
+- Refunded charges are detected at scan time by `refundPairIndexes()` in
+  `lib/statementImports.ts`. A charge and a same-amount credit from the same
+  payee, within 120 days, are a wash — both sides are pre-set to Not business
+  and both carry a note naming the other. Matching needs the amount **and** the
+  merchant fingerprint to agree; amount alone would pair a refund with whichever
+  unrelated charge happened to be nearest. Each charge is claimed once, so one
+  refund against three identical charges retires exactly one of them.
+- Changing a category offers to carry the pick across the other rows from the
+  same payee (`SimilarCategoryDialog`). Rows are listed with a checkbox each,
+  pre-ticked, and the prompt only appears when a similar row exists whose
+  category would actually change. `Just this one` dismisses it.
+- The offer follows **every** category edit — the row chip, the expanded row's
+  dropdown, and the selection bar's bulk edit. Selecting three of six Chewy rows
+  says nothing about the three the user never scrolled to, so the rest are still
+  worth asking about.
+- `similarCandidates()` in `lib/statementImports.ts` is the single rule both
+  surfaces use. It takes a list of targets (one row, or a whole selection),
+  excludes the targets themselves, excludes import rows already written to the
+  books, and compares categories **normalized** — so a row still carrying an old
+  Schedule C heading is never offered as differing from the category it maps to.
+- The same offer runs on the Expenses list in `app/page.tsx`, over that month's
+  rows. The `ExpenseSlideOver` edit form is deliberately excluded: it is a
+  full-record edit behind a Save button, not a quick recategorise.
 - Rows the model was unsure about are marked `low` confidence and flagged in the
   list with a warning icon.
 - `Add one` appends a `source = 'Manual'` row for cash or anything the statement
@@ -300,6 +344,15 @@ Review behaviour:
   category — the count of blocked rows is shown above the button.
 - Flagged rows are never written to the books. An import only reaches `Imported`
   once no rows are still flagged; otherwise it stays in `Review`.
+- Confirming a finished import closes the review screen and returns to the
+  transactions list, landing on the month most of the imported rows filed under
+  (`inferPeriodMonth` over their dates) rather than whatever month was selected
+  — otherwise the books read as empty and the import looks like it did nothing.
+- A partial import — flagged rows still undecided — deliberately stays open,
+  since there is work left. The rows that did land show an `In your books` badge
+  instead of decision buttons, their delete button is hidden, and bulk actions
+  skip them: their decision is settled, and editing them here would go nowhere
+  (or, for delete, orphan the expense).
 
 Merchant memory (`merchant_rules`):
 
@@ -381,6 +434,10 @@ Cancel and delete:
 - `lib/statementImportClient.ts`: Browser-side import queries, confirm, merchant memory.
 - `components/expenses/StatementDropzone.tsx`: PDF drop target and scan progress.
 - `components/expenses/ImportRowCard.tsx`: One reviewable transaction.
+- `components/expenses/CategoryPicker.tsx`: Category sheet — close button, and
+  the row's current category shown above the list.
+- `components/expenses/SimilarCategoryDialog.tsx`: "Apply this to the other
+  Chewy rows too?" after a single category edit.
 - `components/expenses/ImportSummaryCard.tsx`: Totals cross-check banner.
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
 - `app/clients/page.tsx`: Clients section.
@@ -507,7 +564,9 @@ This replaced the full 22-item Schedule C list. Rules:
   select normalizes on read — never compare a raw stored `category` string.
 - Unrecognised values fall back to `Miscellaneous` rather than being dropped, so
   nothing silently disappears from a tax total.
-- Tag colours are fixed per category in `lib/categories.ts`, not hashed.
+- Tag colours are fixed per category in `lib/categories.ts`, not hashed. Each
+  category owns a distinct hue — the first palette was nine near-identical
+  neutrals that were impossible to tell apart in a list.
 - `CategoryTag` takes `fixedWidth` for use inside transaction lists, where the
   column must not resize per row.
 

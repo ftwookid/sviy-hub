@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { Check } from "lucide-react";
-import { EXPENSE_CATEGORIES, categoryTagColors } from "@/lib/categories";
+import { Check, X } from "lucide-react";
+import { CategoryTag } from "@/components/CategoryTag";
+import { EXPENSE_CATEGORIES, categoryTagColors, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 
 /**
@@ -32,6 +33,10 @@ export function CategoryPicker({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  // A row still carrying an old Schedule C heading matches none of the options
+  // below, which would show the sheet as if nothing were set at all.
+  const currentCategory = normalizeCategory(current);
+
   return (
     <div
       className="fixed inset-0 z-[90] flex items-end justify-center bg-[#1A1916]/30 backdrop-blur-sm sm:items-center sm:p-4"
@@ -44,12 +49,37 @@ export function CategoryPicker({
         className="sheet-panel w-full max-w-[400px] rounded-t-[28px] border border-border bg-surface p-3 pb-[calc(12px+env(safe-area-inset-bottom))] shadow-[0_24px_70px_rgba(48,38,24,0.24)] sm:rounded-[24px] sm:pb-3"
         onClick={(event) => event.stopPropagation()}
       >
-        <h3 className="px-1.5 pb-2 pt-1 text-[15px] font-medium text-text-primary">{title}</h3>
+        <div className="flex items-start gap-2 px-1.5 pb-2 pt-1">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-[15px] font-medium text-text-primary">{title}</h3>
+            {/* Which category this already sits in is the first thing you need
+                to know before changing it — a tick halfway down a list of nine
+                is not an answer to that. */}
+            {current === undefined ? null : (
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-[11.5px] text-text-tertiary">Currently</span>
+                {currentCategory ? (
+                  <CategoryTag category={currentCategory} />
+                ) : (
+                  <span className="text-[11.5px] font-medium text-text-secondary">Not set</span>
+                )}
+              </div>
+            )}
+          </div>
+          <button
+            className="focus-ring -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X size={17} strokeWidth={1.9} />
+          </button>
+        </div>
 
         <div className="space-y-0.5">
           {EXPENSE_CATEGORIES.map((category) => {
             const colors = categoryTagColors(category);
-            const isCurrent = current === category;
+            const isCurrent = currentCategory === category;
 
             return (
               <button

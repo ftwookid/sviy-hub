@@ -13,6 +13,7 @@ import { DriveArchiveAlert } from "@/components/expenses/DriveArchiveAlert";
 import { ExpenseSlideOver } from "@/components/expenses/ExpenseSlideOver";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
+import { QuickReceiptButton } from "@/components/expenses/QuickReceiptButton";
 import { StatementReview } from "@/components/expenses/StatementReview";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
@@ -26,7 +27,9 @@ import {
   shiftPeriodMonth
 } from "@/lib/expenses";
 import { formatCurrency, formatShortDate } from "@/lib/formatters";
+import { SimilarCategoryDialog } from "@/components/expenses/SimilarCategoryDialog";
 import { loadImports, scanStatement } from "@/lib/statementImportClient";
+import { similarCandidates } from "@/lib/statementImports";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { Expense, Receipt } from "@/types/expense";
@@ -59,6 +62,10 @@ export default function TransactionsPage() {
   // apply to — one row from its chip, or everything ticked.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [categorising, setCategorising] = useState<string[] | null>(null);
+  const [similarPrompt, setSimilarPrompt] = useState<{
+    category: string;
+    rows: Expense[];
+  } | null>(null);
 
   // Statement import lives on this page now, as a mode rather than a route.
   const [imports, setImports] = useState<StatementImport[]>([]);
@@ -230,6 +237,10 @@ export default function TransactionsPage() {
     setCategorising(null);
     if (!supabase || ids.length === 0) return;
 
+    // Captured before the write, so the offer below compares against the
+    // categories these rows had rather than the one just applied.
+    const targets = expenses.filter((expense) => ids.includes(expense.id));
+
     setExpenses((current) =>
       current.map((expense) => (ids.includes(expense.id) ? { ...expense, category } : expense))
     );
@@ -242,6 +253,52 @@ export default function TransactionsPage() {
       return;
     }
     showToast(`${ids.length} transaction${ids.length === 1 ? "" : "s"} set to ${category}`);
+
+    // Same offer the import review makes: this month's other rows from the same
+    // payee are almost always the same category, and re-picking each one by hand
+    // is the tedious half of tidying up a month.
+    const candidates = similarCandidates(targets, expenses, category);
+    if (candidates.length > 0) setSimilarPrompt({ category, rows: candidates });
+  }
+
+  /**
+   * Folds a quick-attached receipt into the page state.
+   *
+   * Deliberately not a `loadMonth()`: that flips the page back to its loading
+   * state and flashes a skeleton over the whole list, which is a poor trade for
+   * a one-field change when you are working through a stack of receipts. The
+   * write already succeeded, so the row is updated in place. The Drive pending
+   * count is the one thing left slightly behind, and it refreshes on the next
+   * natural load.
+   */
+  function attachReceipt(expenseId: string, receipt: Receipt) {
+    setReceipts((current) => ({ ...current, [receipt.id]: receipt }));
+    setExpenses((current) =>
+      current.map((expense) =>
+        expense.id === expenseId
+          ? { ...expense, receipt_id: receipt.id, proof_waived: false, proof_note: null }
+          : expense
+      )
+    );
+    showToast("Receipt attached");
+  }
+
+  async function applySimilarCategory(ids: string[]) {
+    const category = similarPrompt?.category;
+    setSimilarPrompt(null);
+    if (!supabase || !category || ids.length === 0) return;
+
+    setExpenses((current) =>
+      current.map((expense) => (ids.includes(expense.id) ? { ...expense, category } : expense))
+    );
+
+    const { error } = await supabase.from("expenses").update({ category }).in("id", ids);
+    if (error) {
+      showToast("That change did not save.");
+      loadMonth();
+      return;
+    }
+    showToast(`${ids.length} more transaction${ids.length === 1 ? "" : "s"} set to ${category}`);
   }
 
   const unfinishedImports = useMemo(
@@ -306,9 +363,18 @@ export default function TransactionsPage() {
             userId={user.id}
             ownerLabel={isAdmin ? reviewingOwnerLabel : undefined}
             onBack={() => setReviewingId(null)}
-            onImported={() => {
-              loadMonth();
+            onImported={(outcome) => {
               refreshImports();
+              // Land on the month the rows actually filed under, or the books
+              // read as empty and the import looks like it did nothing.
+              // Changing the month reloads on its own; only reload when it does not.
+              if (outcome.periodMonth && outcome.periodMonth !== periodMonth) {
+                setPeriodMonth(outcome.periodMonth);
+              } else {
+                loadMonth();
+              }
+              // Flagged rows are the only reason to keep this screen open.
+              if (outcome.complete) setReviewingId(null);
             }}
             onDiscarded={() => {
               setReviewingId(null);
@@ -441,10 +507,13 @@ export default function TransactionsPage() {
                         <ExpenseRow
                           key={expense.id}
                           expense={expense}
+                          userId={user.id}
                           selected={selectedIds.has(expense.id)}
                           onSelect={(isSelected) => toggleOne(expense.id, isSelected)}
                           onOpen={() => openExpense(expense)}
                           onCategory={() => setCategorising([expense.id])}
+                          onAttached={(receipt) => attachReceipt(expense.id, receipt)}
+                          onAttachError={showToast}
                         />
                       ))}
                     </div>
@@ -480,6 +549,15 @@ export default function TransactionsPage() {
           }
           onPick={applyCategory}
           onClose={() => setCategorising(null)}
+        />
+      ) : null}
+
+      {similarPrompt ? (
+        <SimilarCategoryDialog
+          category={similarPrompt.category}
+          rows={similarPrompt.rows}
+          onApply={applySimilarCategory}
+          onDismiss={() => setSimilarPrompt(null)}
         />
       ) : null}
 
@@ -574,16 +652,22 @@ function StatCell({
 
 function ExpenseRow({
   expense,
+  userId,
   selected,
   onSelect,
   onOpen,
-  onCategory
+  onCategory,
+  onAttached,
+  onAttachError
 }: {
   expense: Expense;
+  userId: string;
   selected: boolean;
   onSelect: (selected: boolean) => void;
   onOpen: () => void;
   onCategory: () => void;
+  onAttached: (receipt: Receipt) => void;
+  onAttachError: (message: string) => void;
 }) {
   const state = proofState(expense);
 
@@ -630,6 +714,17 @@ function ExpenseRow({
           ) : null}
         </span>
       </button>
+
+      {/* Only where there is nothing yet. A row that already has proof, or was
+          deliberately waived, is not a row you are hunting a receipt for. */}
+      {state === "Missing" ? (
+        <QuickReceiptButton
+          expense={expense}
+          userId={userId}
+          onAttached={onAttached}
+          onError={onAttachError}
+        />
+      ) : null}
 
       <button
         className="focus-ring hidden w-[116px] shrink-0 items-center rounded-md transition hover:brightness-[0.97] sm:flex"

@@ -84,6 +84,20 @@ button:disabled {
   box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.28);
 }
 
+/*
+ * The same ring, for a control whose focusable element is hidden inside it —
+ * a label wrapping an sr-only file input. `.focus-ring` on the label does
+ * nothing there: the label never receives focus, so its :focus-visible never
+ * matches and the control is invisible to a keyboard.
+ *
+ * `:has(:focus-visible)` rather than `:focus-within`, because clicking a label
+ * forwards focus to its input, and :focus-within cannot tell that apart from
+ * tabbing to it — the ring would stick on after every mouse click.
+ */
+.focus-ring-within:has(:focus-visible) {
+  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.28);
+}
+
 .collapsible-grid {
   display: grid;
   grid-template-rows: 0fr;

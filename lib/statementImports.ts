@@ -1,4 +1,8 @@
-import { DEFAULT_CATEGORY, isKnownCategory as isCurrentCategory } from "@/lib/categories";
+import {
+  DEFAULT_CATEGORY,
+  isKnownCategory as isCurrentCategory,
+  normalizeCategory
+} from "@/lib/categories";
 import { parseLocalDate, toInputDate } from "@/lib/formatters";
 import type {
   MerchantRule,
@@ -68,6 +72,146 @@ export function merchantMatchKey(descriptor: string) {
   // Everything was noise — fall back to the raw descriptor so unrelated rows
   // never collapse into one empty-key rule.
   return cleaned || descriptor.toUpperCase().replace(/\s+/g, " ").trim();
+}
+
+/** The text a row should be fingerprinted on — the raw descriptor when it has one. */
+function descriptorOf(row: { description?: string | null; merchant?: string | null }) {
+  return (row.description || row.merchant || "").trim();
+}
+
+/**
+ * True when two fingerprints describe the same payee.
+ *
+ * Identical is the normal case. The subset arm is for the descriptors banks
+ * write on a return, which carry the charge's words plus one of their own —
+ * "CHEWY COM FL" against "CHEWY COM RETURN FL", where a plain prefix test
+ * fails because the extra word lands in the middle. The smaller side has to
+ * contribute a real word, so a key that survived fingerprinting as one short
+ * token never sweeps up unrelated rows.
+ */
+function keysRelated(a: string, b: string) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const [small, large] =
+    a.length <= b.length ? [a.split(" "), b.split(" ")] : [b.split(" "), a.split(" ")];
+
+  if (!small.some((token) => token.length >= 3)) return false;
+
+  const big = new Set(large);
+  return small.every((token) => big.has(token));
+}
+
+/** The shape both the import review and the books list share for this purpose. */
+export type CategorisableRow = {
+  id: string;
+  date: string;
+  merchant?: string | null;
+  description?: string | null;
+  amount: number;
+  category: string | null;
+  /** Import rows already written to the books — see below. */
+  expense_id?: string | null;
+};
+
+/**
+ * Rows from the same payee as `targets` that would actually change.
+ *
+ * Used to offer "the other five Chewy charges too?" after a category edit. It
+ * takes a list of targets rather than one row because the same offer has to
+ * follow a bulk edit: selecting three of the six Chewy rows says nothing about
+ * the three the user never scrolled to, so the rest are still worth asking
+ * about. Targets are excluded, and so is anything already in the chosen
+ * category — an empty prompt is worse than no prompt.
+ *
+ * Categories are compared normalized, so a row still carrying an old Schedule C
+ * heading is not offered as "different" from the current one it maps onto.
+ *
+ * Import rows already written to the books are left out: their category lives
+ * on the expense now, and rewriting it here would not follow.
+ */
+export function similarCandidates<T extends CategorisableRow>(
+  targets: T[],
+  rows: T[],
+  category: string
+): T[] {
+  const keys = new Set(
+    targets.map((target) => merchantMatchKey(descriptorOf(target))).filter(Boolean)
+  );
+  if (keys.size === 0) return [];
+
+  const targetIds = new Set(targets.map((target) => target.id));
+  const picked = normalizeCategory(category);
+
+  return rows.filter(
+    (row) =>
+      !targetIds.has(row.id) &&
+      !row.expense_id &&
+      keys.has(merchantMatchKey(descriptorOf(row))) &&
+      normalizeCategory(row.category) !== picked
+  );
+}
+
+type PairableRow = Pick<
+  StatementImportRow,
+  "date" | "amount" | "direction" | "description" | "merchant"
+>;
+
+/** A refund can post weeks after the charge, but not across an unrelated quarter. */
+const REFUND_MAX_DAYS = 120;
+
+function daysApart(a: string, b: string) {
+  if (!a || !b) return Number.POSITIVE_INFINITY;
+  const gap = parseLocalDate(a).getTime() - parseLocalDate(b).getTime();
+  return Math.abs(gap) / 86_400_000;
+}
+
+/**
+ * Charges that were handed straight back, as `[chargeIndex, creditIndex]` pairs.
+ *
+ * A charge and a same-amount credit from the same payee is a cancelled order or
+ * a returned item: the money never left, so neither side is a business expense
+ * and counting only the debit would overstate the deduction. Matching needs the
+ * amount *and* the payee to agree — amount alone would pair a $40 refund with
+ * whichever unrelated $40 charge happened to be nearest.
+ *
+ * Greedy, nearest-in-time first, and each charge is claimed once, so a month
+ * with three identical charges and one refund retires exactly one of them.
+ */
+export function refundPairIndexes(rows: PairableRow[]): [number, number][] {
+  const cents = (value: number) => Math.round(Number(value) * 100);
+
+  const debits = rows
+    .map((row, index) => ({ row, index }))
+    .filter((entry) => entry.row.direction === "Debit");
+
+  const claimed = new Set<number>();
+  const pairs: [number, number][] = [];
+
+  rows.forEach((credit, creditIndex) => {
+    if (credit.direction !== "Credit") return;
+    const key = merchantMatchKey(descriptorOf(credit));
+    const amount = cents(credit.amount);
+
+    const match = debits
+      .filter(
+        ({ row, index }) =>
+          !claimed.has(index) &&
+          cents(row.amount) === amount &&
+          keysRelated(key, merchantMatchKey(descriptorOf(row))) &&
+          daysApart(row.date, credit.date) <= REFUND_MAX_DAYS
+      )
+      .sort(
+        (a, b) => daysApart(a.row.date, credit.date) - daysApart(b.row.date, credit.date)
+      )[0];
+
+    if (match) {
+      claimed.add(match.index);
+      pairs.push([match.index, creditIndex]);
+    }
+  });
+
+  return pairs;
 }
 
 /** Title-cases the fingerprint so an unnamed row still reads like a merchant. */
