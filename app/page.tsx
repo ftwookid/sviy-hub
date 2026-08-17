@@ -13,6 +13,7 @@ import { DriveArchiveAlert } from "@/components/expenses/DriveArchiveAlert";
 import { ExpenseSlideOver } from "@/components/expenses/ExpenseSlideOver";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
+import { QuickReceiptButton } from "@/components/expenses/QuickReceiptButton";
 import { StatementReview } from "@/components/expenses/StatementReview";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
@@ -260,6 +261,28 @@ export default function TransactionsPage() {
     if (candidates.length > 0) setSimilarPrompt({ category, rows: candidates });
   }
 
+  /**
+   * Folds a quick-attached receipt into the page state.
+   *
+   * Deliberately not a `loadMonth()`: that flips the page back to its loading
+   * state and flashes a skeleton over the whole list, which is a poor trade for
+   * a one-field change when you are working through a stack of receipts. The
+   * write already succeeded, so the row is updated in place. The Drive pending
+   * count is the one thing left slightly behind, and it refreshes on the next
+   * natural load.
+   */
+  function attachReceipt(expenseId: string, receipt: Receipt) {
+    setReceipts((current) => ({ ...current, [receipt.id]: receipt }));
+    setExpenses((current) =>
+      current.map((expense) =>
+        expense.id === expenseId
+          ? { ...expense, receipt_id: receipt.id, proof_waived: false, proof_note: null }
+          : expense
+      )
+    );
+    showToast("Receipt attached");
+  }
+
   async function applySimilarCategory(ids: string[]) {
     const category = similarPrompt?.category;
     setSimilarPrompt(null);
@@ -484,10 +507,13 @@ export default function TransactionsPage() {
                         <ExpenseRow
                           key={expense.id}
                           expense={expense}
+                          userId={user.id}
                           selected={selectedIds.has(expense.id)}
                           onSelect={(isSelected) => toggleOne(expense.id, isSelected)}
                           onOpen={() => openExpense(expense)}
                           onCategory={() => setCategorising([expense.id])}
+                          onAttached={(receipt) => attachReceipt(expense.id, receipt)}
+                          onAttachError={showToast}
                         />
                       ))}
                     </div>
@@ -626,16 +652,22 @@ function StatCell({
 
 function ExpenseRow({
   expense,
+  userId,
   selected,
   onSelect,
   onOpen,
-  onCategory
+  onCategory,
+  onAttached,
+  onAttachError
 }: {
   expense: Expense;
+  userId: string;
   selected: boolean;
   onSelect: (selected: boolean) => void;
   onOpen: () => void;
   onCategory: () => void;
+  onAttached: (receipt: Receipt) => void;
+  onAttachError: (message: string) => void;
 }) {
   const state = proofState(expense);
 
@@ -682,6 +714,17 @@ function ExpenseRow({
           ) : null}
         </span>
       </button>
+
+      {/* Only where there is nothing yet. A row that already has proof, or was
+          deliberately waived, is not a row you are hunting a receipt for. */}
+      {state === "Missing" ? (
+        <QuickReceiptButton
+          expense={expense}
+          userId={userId}
+          onAttached={onAttached}
+          onError={onAttachError}
+        />
+      ) : null}
 
       <button
         className="focus-ring hidden w-[116px] shrink-0 items-center rounded-md transition hover:brightness-[0.97] sm:flex"

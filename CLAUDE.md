@@ -77,6 +77,14 @@ http://localhost:3000/*
 - Added receipt upload support using Supabase Storage.
 - Added expense list with filters.
 - Added edit/delete expense behavior.
+- Added a quick receipt attach button on transaction rows with no proof
+  (`components/expenses/QuickReceiptButton.tsx`). It opens the file picker
+  straight from the row and does the same three steps as the slide-over —
+  upload, point the expense at the receipt, archive to Drive — clearing
+  `proof_waived`/`proof_note` on the way. It shows only for `Missing` proof, not
+  `Waived`, and updates the row in place rather than calling `loadMonth()`,
+  which would flash a skeleton over the list mid-run. Swapping or removing a
+  receipt still belongs to the slide-over.
 - Added reports page with Schedule C table, monthly breakdown, and CSV export.
 - Moved Reports into the Expenses section as an Expenses/Reports segmented sub-tab.
 
