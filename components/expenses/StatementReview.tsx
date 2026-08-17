@@ -6,6 +6,7 @@ import { BulkAction, BulkBar } from "@/components/expenses/BulkBar";
 import { CategoryPicker } from "@/components/expenses/CategoryPicker";
 import { ImportRow } from "@/components/expenses/ImportRow";
 import { ImportSummaryCard } from "@/components/expenses/ImportSummaryCard";
+import { SimilarCategoryDialog } from "@/components/expenses/SimilarCategoryDialog";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -21,7 +22,7 @@ import {
   loadRows,
   saveRow
 } from "@/lib/statementImportClient";
-import { decisionCounts, rowBlockers, rowTotal } from "@/lib/statementImports";
+import { decisionCounts, rowBlockers, rowTotal, similarRows } from "@/lib/statementImports";
 import { supabase } from "@/lib/supabase";
 import type { PaymentMethod, Receipt } from "@/types/expense";
 import type { RowDecision, StatementImportRow, StatementImport } from "@/types/statementImport";
@@ -72,6 +73,10 @@ export function StatementReview({
   const [importing, setImporting] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [pickingBulkCategory, setPickingBulkCategory] = useState(false);
+  const [similarPrompt, setSimilarPrompt] = useState<{
+    category: string;
+    rows: StatementImportRow[];
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +111,42 @@ export function StatementReview({
   function updateRow(rowId: string, patch: Partial<StatementImportRow>) {
     setRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...patch } : row)));
     saveRow(rowId, patch).catch(() => showToast("That change did not save. Check your connection."));
+  }
+
+  /**
+   * A single row's category edit, plus the offer to carry it across.
+   *
+   * The same shop turns up five or six times on one statement, so re-picking the
+   * category row by row is most of the work of a review. Only rows that are not
+   * already in the chosen category are offered, so the prompt never appears with
+   * nothing to do — which is also why it is not shown for every edit.
+   */
+  function updateCategory(rowId: string, category: string | null) {
+    updateRow(rowId, { category });
+    if (!category) return;
+
+    const target = rows.find((row) => row.id === rowId);
+    if (!target) return;
+
+    const candidates = similarRows(target, rows).filter((row) => row.category !== category);
+    if (candidates.length > 0) setSimilarPrompt({ category, rows: candidates });
+  }
+
+  function applySimilar(rowIds: string[]) {
+    const category = similarPrompt?.category;
+    setSimilarPrompt(null);
+    if (!category || rowIds.length === 0) return;
+
+    const ids = new Set(rowIds);
+    setRows((current) => current.map((row) => (ids.has(row.id) ? { ...row, category } : row)));
+
+    Promise.all(rowIds.map((id) => saveRow(id, { category })))
+      .then(() =>
+        showToast(
+          `${rowIds.length} more transaction${rowIds.length === 1 ? "" : "s"} set to ${category}`
+        )
+      )
+      .catch(() => showToast("Some of those changes did not save. Check your connection."));
   }
 
   /** One change across a selection. The whole point of the page. */
@@ -356,6 +397,7 @@ export function StatementReview({
                 onToggle={() => setExpandedId((current) => (current === row.id ? null : row.id))}
                 onSelect={(selected) => toggleOne(row.id, selected)}
                 onChange={(patch) => updateRow(row.id, patch)}
+                onCategoryChange={(category) => updateCategory(row.id, category)}
                 onReceiptChange={(receipt) =>
                   setReceipts((current) => {
                     if (!receipt) return current;
@@ -450,6 +492,15 @@ export function StatementReview({
           title={`Category for ${selectedIds.size} transaction${selectedIds.size === 1 ? "" : "s"}`}
           onPick={categoriseSelected}
           onClose={() => setPickingBulkCategory(false)}
+        />
+      ) : null}
+
+      {similarPrompt ? (
+        <SimilarCategoryDialog
+          category={similarPrompt.category}
+          rows={similarPrompt.rows}
+          onApply={applySimilar}
+          onDismiss={() => setSimilarPrompt(null)}
         />
       ) : null}
 

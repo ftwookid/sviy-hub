@@ -9,12 +9,14 @@ import {
   merchantFromDescriptor,
   merchantMatchKey,
   reconcile,
+  refundPairIndexes,
   rulesByKey
 } from "@/lib/statementImports";
 import type {
   ExtractedTransaction,
   MerchantRule,
-  RowDecision
+  RowDecision,
+  RowDirection
 } from "@/types/statementImport";
 
 export const runtime = "nodejs";
@@ -26,6 +28,11 @@ export const maxDuration = 300;
  * raw PDF leaves comfortable headroom, and a bank statement is a fraction of that.
  */
 const MAX_BYTES = 18 * 1024 * 1024;
+
+/** "$41.20" — the note text is written server-side, away from the app's formatters. */
+function formatAmount(value: number) {
+  return `$${Number(value).toFixed(2)}`;
+}
 
 function isoDateOrNull(value: string | undefined) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
@@ -153,7 +160,7 @@ export async function POST(request: Request) {
         description,
         merchant: (row.merchant || merchantFromDescriptor(description)).trim(),
         amount: Number(Number(row.amount).toFixed(2)),
-        direction: isCredit ? "Credit" : "Debit",
+        direction: (isCredit ? "Credit" : "Debit") as RowDirection,
         category: isKnownCategory(rule?.category)
           ? rule!.category
           : isCredit
@@ -165,6 +172,23 @@ export async function POST(request: Request) {
         auto_applied: Boolean(rule),
         source: "Statement"
       };
+    });
+
+    // A charge that was handed straight back is a wash, not a deduction, so both
+    // halves start excluded. The rows stay visible and the note says why, because
+    // the user still needs to see that the pair was found rather than dropped.
+    refundPairIndexes(rows).forEach(([chargeIndex, creditIndex]) => {
+      const charge = rows[chargeIndex];
+      const credit = rows[creditIndex];
+
+      charge.decision = "Exclude";
+      credit.decision = "Exclude";
+
+      const note = `Refunded — matched by a ${formatAmount(credit.amount)} credit on ${credit.date}.`;
+      charge.notes = charge.notes ? `${charge.notes} ${note}` : note;
+      credit.notes =
+        credit.notes ??
+        `Refund of the ${formatAmount(charge.amount)} charge on ${charge.date}.`;
     });
 
     if (rows.length > 0) {

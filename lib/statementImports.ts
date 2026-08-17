@@ -70,6 +70,114 @@ export function merchantMatchKey(descriptor: string) {
   return cleaned || descriptor.toUpperCase().replace(/\s+/g, " ").trim();
 }
 
+/** The text a row should be fingerprinted on — the raw descriptor when it has one. */
+function descriptorOf(row: Pick<StatementImportRow, "description" | "merchant">) {
+  return (row.description || row.merchant || "").trim();
+}
+
+/**
+ * True when two fingerprints describe the same payee.
+ *
+ * Identical is the normal case. The subset arm is for the descriptors banks
+ * write on a return, which carry the charge's words plus one of their own —
+ * "CHEWY COM FL" against "CHEWY COM RETURN FL", where a plain prefix test
+ * fails because the extra word lands in the middle. The smaller side has to
+ * contribute a real word, so a key that survived fingerprinting as one short
+ * token never sweeps up unrelated rows.
+ */
+function keysRelated(a: string, b: string) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const [small, large] =
+    a.length <= b.length ? [a.split(" "), b.split(" ")] : [b.split(" "), a.split(" ")];
+
+  if (!small.some((token) => token.length >= 3)) return false;
+
+  const big = new Set(large);
+  return small.every((token) => big.has(token));
+}
+
+/**
+ * Other rows on the same statement that came from the same payee.
+ *
+ * Used to offer "the other five Chewy charges too?" after a single category
+ * edit. Rows already written to the books are left out — their category lives
+ * on the expense now, and changing it here would not follow.
+ */
+export function similarRows<T extends Pick<StatementImportRow, "id" | "description" | "merchant" | "expense_id">>(
+  target: T,
+  rows: T[]
+): T[] {
+  const key = merchantMatchKey(descriptorOf(target));
+  if (!key) return [];
+  return rows.filter(
+    (row) => row.id !== target.id && !row.expense_id && merchantMatchKey(descriptorOf(row)) === key
+  );
+}
+
+type PairableRow = Pick<
+  StatementImportRow,
+  "date" | "amount" | "direction" | "description" | "merchant"
+>;
+
+/** A refund can post weeks after the charge, but not across an unrelated quarter. */
+const REFUND_MAX_DAYS = 120;
+
+function daysApart(a: string, b: string) {
+  if (!a || !b) return Number.POSITIVE_INFINITY;
+  const gap = parseLocalDate(a).getTime() - parseLocalDate(b).getTime();
+  return Math.abs(gap) / 86_400_000;
+}
+
+/**
+ * Charges that were handed straight back, as `[chargeIndex, creditIndex]` pairs.
+ *
+ * A charge and a same-amount credit from the same payee is a cancelled order or
+ * a returned item: the money never left, so neither side is a business expense
+ * and counting only the debit would overstate the deduction. Matching needs the
+ * amount *and* the payee to agree — amount alone would pair a $40 refund with
+ * whichever unrelated $40 charge happened to be nearest.
+ *
+ * Greedy, nearest-in-time first, and each charge is claimed once, so a month
+ * with three identical charges and one refund retires exactly one of them.
+ */
+export function refundPairIndexes(rows: PairableRow[]): [number, number][] {
+  const cents = (value: number) => Math.round(Number(value) * 100);
+
+  const debits = rows
+    .map((row, index) => ({ row, index }))
+    .filter((entry) => entry.row.direction === "Debit");
+
+  const claimed = new Set<number>();
+  const pairs: [number, number][] = [];
+
+  rows.forEach((credit, creditIndex) => {
+    if (credit.direction !== "Credit") return;
+    const key = merchantMatchKey(descriptorOf(credit));
+    const amount = cents(credit.amount);
+
+    const match = debits
+      .filter(
+        ({ row, index }) =>
+          !claimed.has(index) &&
+          cents(row.amount) === amount &&
+          keysRelated(key, merchantMatchKey(descriptorOf(row))) &&
+          daysApart(row.date, credit.date) <= REFUND_MAX_DAYS
+      )
+      .sort(
+        (a, b) => daysApart(a.row.date, credit.date) - daysApart(b.row.date, credit.date)
+      )[0];
+
+    if (match) {
+      claimed.add(match.index);
+      pairs.push([match.index, creditIndex]);
+    }
+  });
+
+  return pairs;
+}
+
 /** Title-cases the fingerprint so an unnamed row still reads like a merchant. */
 export function merchantFromDescriptor(descriptor: string) {
   const key = merchantMatchKey(descriptor);

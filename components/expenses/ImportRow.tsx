@@ -68,6 +68,7 @@ export function ImportRow({
   onToggle,
   onSelect,
   onChange,
+  onCategoryChange,
   onReceiptChange,
   onDelete
 }: {
@@ -79,6 +80,8 @@ export function ImportRow({
   onToggle: () => void;
   onSelect: (selected: boolean) => void;
   onChange: (patch: Partial<StatementImportRow>) => void;
+  /** Separate from `onChange` so the page can offer to carry the pick across similar rows. */
+  onCategoryChange: (category: string | null) => void;
   onReceiptChange: (receipt: Receipt | null) => void;
   onDelete: () => void;
 }) {
@@ -278,7 +281,7 @@ export function ImportRow({
               // A row still carrying an old Schedule C heading matches no option
               // here, which would show the wrong one as selected.
               value={normalizeCategory(row.category) ?? ""}
-              onChange={(event) => onChange({ category: event.target.value || null })}
+              onChange={(event) => onCategoryChange(event.target.value || null)}
             >
               <option value="">Choose a category</option>
               {EXPENSE_CATEGORIES.map((category) => (
@@ -375,8 +378,8 @@ export function ImportRow({
           title={row.merchant || "Choose a category"}
           current={row.category}
           onPick={(category) => {
-            onChange({ category });
             setPickingCategory(false);
+            onCategoryChange(category);
           }}
           onClose={() => setPickingCategory(false)}
         />

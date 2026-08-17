@@ -292,6 +292,18 @@ Review behaviour:
   and the existing Drive archive — they are refiled and synced on import.
 - Credits (money in) are pre-set to Not business, since they are never
   deductible, but stay visible so refunds are easy to spot.
+- Refunded charges are detected at scan time by `refundPairIndexes()` in
+  `lib/statementImports.ts`. A charge and a same-amount credit from the same
+  payee, within 120 days, are a wash — both sides are pre-set to Not business
+  and both carry a note naming the other. Matching needs the amount **and** the
+  merchant fingerprint to agree; amount alone would pair a refund with whichever
+  unrelated charge happened to be nearest. Each charge is claimed once, so one
+  refund against three identical charges retires exactly one of them.
+- Changing one row's category offers to carry the pick across the other rows
+  from the same payee (`SimilarCategoryDialog`). Rows are listed with a checkbox
+  each, pre-ticked, and the prompt only appears when a similar row exists whose
+  category would actually change. `Just this one` dismisses it. Bulk category
+  edits from the selection bar never prompt — the user already chose the rows.
 - Rows the model was unsure about are marked `low` confidence and flagged in the
   list with a warning icon.
 - `Add one` appends a `source = 'Manual'` row for cash or anything the statement
@@ -381,6 +393,10 @@ Cancel and delete:
 - `lib/statementImportClient.ts`: Browser-side import queries, confirm, merchant memory.
 - `components/expenses/StatementDropzone.tsx`: PDF drop target and scan progress.
 - `components/expenses/ImportRowCard.tsx`: One reviewable transaction.
+- `components/expenses/CategoryPicker.tsx`: Category sheet — close button, and
+  the row's current category shown above the list.
+- `components/expenses/SimilarCategoryDialog.tsx`: "Apply this to the other
+  Chewy rows too?" after a single category edit.
 - `components/expenses/ImportSummaryCard.tsx`: Totals cross-check banner.
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
 - `app/clients/page.tsx`: Clients section.
@@ -507,7 +523,9 @@ This replaced the full 22-item Schedule C list. Rules:
   select normalizes on read — never compare a raw stored `category` string.
 - Unrecognised values fall back to `Miscellaneous` rather than being dropped, so
   nothing silently disappears from a tax total.
-- Tag colours are fixed per category in `lib/categories.ts`, not hashed.
+- Tag colours are fixed per category in `lib/categories.ts`, not hashed. Each
+  category owns a distinct hue — the first palette was nine near-identical
+  neutrals that were impossible to tell apart in a list.
 - `CategoryTag` takes `fixedWidth` for use inside transaction lists, where the
   column must not resize per row.
 
