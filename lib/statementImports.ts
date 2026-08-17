@@ -10,14 +10,6 @@ import type {
 /** What a row falls back to when nothing has taught us better. */
 export const DEFAULT_IMPORT_CATEGORY = "Other Expense";
 
-export const ROW_DECISIONS: RowDecision[] = ["Include", "Flag", "Exclude"];
-
-export const DECISION_LABELS: Record<RowDecision, string> = {
-  Include: "Include",
-  Flag: "Flag",
-  Exclude: "Not business"
-};
-
 export const DECISION_HINTS: Record<RowDecision, string> = {
   Include: "Becomes a transaction in your books.",
   Flag: "Kept here for later — nothing is written to your books yet.",

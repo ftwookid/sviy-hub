@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
-import { ImportRowCard } from "@/components/expenses/ImportRowCard";
+import { ArrowLeft, Ban, Check, Flag, Plus, X } from "lucide-react";
+import { ImportRow } from "@/components/expenses/ImportRow";
 import { ImportSummaryCard } from "@/components/expenses/ImportSummaryCard";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { FieldShell } from "@/components/ui/Field";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { formatCurrency, todayInputValue } from "@/lib/formatters";
@@ -23,15 +22,25 @@ import {
 import { decisionCounts, rowBlockers, rowTotal } from "@/lib/statementImports";
 import { supabase } from "@/lib/supabase";
 import type { PaymentMethod, Receipt } from "@/types/expense";
-import type { StatementImportRow, StatementImport } from "@/types/statementImport";
+import type { RowDecision, StatementImportRow, StatementImport } from "@/types/statementImport";
 
-type Filter = "All" | "Include" | "Flag" | "Exclude";
+type Filter = "All" | "Needs a look" | "Include" | "Exclude";
+
+/**
+ * A row the user should not skip past: flagged, hard to read, or missing
+ * something it needs before it can be written to the books.
+ */
+function needsALook(row: StatementImportRow) {
+  return row.decision === "Flag" || row.confidence === "low" || rowBlockers(row).length > 0;
+}
 
 /**
  * Reviewing a scanned statement, hosted inside the transactions page.
  *
- * It takes over the page while it is open: going through a hundred rows is a
- * focused job, and leaving the month's list underneath it would only compete.
+ * A statement runs to a hundred rows or more, and they are usually wrong in
+ * bulk rather than one at a time — a month of personal spending all defaults to
+ * Include. So the page is built around acting on many rows at once: select a
+ * filter, select everything in it, and make one decision for the lot.
  */
 export function StatementReview({
   importId,
@@ -55,6 +64,7 @@ export function StatementReview({
   const [receipts, setReceipts] = useState<Record<string, Receipt>>({});
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("All");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Main card");
   const [importing, setImporting] = useState(false);
@@ -65,6 +75,7 @@ export function StatementReview({
     const [record, rowList] = await Promise.all([loadImport(importId), loadRows(importId)]);
     setStatementImport(record);
     setRows(rowList);
+    setSelectedIds(new Set());
 
     const receiptIds = Array.from(
       new Set(rowList.map((row) => row.receipt_id).filter(Boolean))
@@ -92,6 +103,23 @@ export function StatementReview({
   function updateRow(rowId: string, patch: Partial<StatementImportRow>) {
     setRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...patch } : row)));
     saveRow(rowId, patch).catch(() => showToast("That change did not save. Check your connection."));
+  }
+
+  /** One decision across a selection. The whole point of the page. */
+  function decideSelected(decision: RowDecision) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    setRows((current) =>
+      current.map((row) => (selectedIds.has(row.id) ? { ...row, decision } : row))
+    );
+    setSelectedIds(new Set());
+
+    Promise.all(ids.map((id) => saveRow(id, { decision })))
+      .then(() =>
+        showToast(`${ids.length} transaction${ids.length === 1 ? "" : "s"} set to ${decision === "Exclude" ? "not business" : decision.toLowerCase()}`)
+      )
+      .catch(() => showToast("Some of those changes did not save. Check your connection."));
   }
 
   async function handleAddManual() {
@@ -147,16 +175,50 @@ export function StatementReview({
   }
 
   const counts = useMemo(() => decisionCounts(rows), [rows]);
+  const lookCount = useMemo(() => rows.filter(needsALook).length, [rows]);
   const includedRows = useMemo(() => rows.filter((row) => row.decision === "Include"), [rows]);
   const pendingRows = useMemo(() => includedRows.filter((row) => !row.expense_id), [includedRows]);
   const blocked = useMemo(
     () => pendingRows.filter((row) => rowBlockers(row).length > 0).length,
     [pendingRows]
   );
-  const visibleRows = useMemo(
-    () => (filter === "All" ? rows : rows.filter((row) => row.decision === filter)),
-    [filter, rows]
-  );
+
+  const visibleRows = useMemo(() => {
+    if (filter === "All") return rows;
+    if (filter === "Needs a look") return rows.filter(needsALook);
+    return rows.filter((row) => row.decision === filter);
+  }, [filter, rows]);
+
+  const allVisibleSelected =
+    visibleRows.length > 0 && visibleRows.every((row) => selectedIds.has(row.id));
+
+  function toggleSelectAll() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        visibleRows.forEach((row) => next.delete(row.id));
+      } else {
+        visibleRows.forEach((row) => next.add(row.id));
+      }
+      return next;
+    });
+  }
+
+  function toggleOne(rowId: string, selected: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(rowId);
+      else next.delete(rowId);
+      return next;
+    });
+  }
+
+  const filters: { key: Filter; label: string; count: number; tone?: "warning" }[] = [
+    { key: "All", label: "All", count: rows.length },
+    { key: "Needs a look", label: "Needs a look", count: lookCount, tone: "warning" },
+    { key: "Include", label: "Keeping", count: counts.include },
+    { key: "Exclude", label: "Not business", count: counts.exclude }
+  ];
 
   if (loading && !statementImport) {
     return (
@@ -196,69 +258,94 @@ export function StatementReview({
         </p>
       ) : null}
 
-      <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2.5">
-          <div className="min-w-0 flex-1">
-            <span className="text-[15px] font-medium text-text-primary">
-              {rows.length} transaction{rows.length === 1 ? "" : "s"}
-            </span>
-            <span className="ml-2 text-[12.5px] text-text-secondary">
-              {counts.include} to import · {formatCurrency(rowTotal(includedRows))}
-              {counts.flag > 0 ? ` · ${counts.flag} flagged` : ""}
-            </span>
+      {/* No overflow-hidden on the section: it would clip the sticky toolbar to
+          the card and stop it tracking the page scroll. The rows are clipped
+          instead, which is all the rounded corners actually needed. */}
+      <section className="rounded-[20px] border border-border bg-surface shadow-card">
+        {/* The toolbar stays put through a long list — filters and select-all are
+            needed most at row 80, which is exactly where a static header is gone. */}
+        <div className="sticky top-0 z-20 rounded-t-[19px] border-b border-border bg-surface/95 backdrop-blur-sm">
+          <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-2.5 py-2">
+            {filters.map((option) => (
+              <button
+                key={option.key}
+                className={cn(
+                  "focus-ring inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition",
+                  filter === option.key
+                    ? "bg-text-primary text-white"
+                    : "bg-subtle text-text-secondary hover:text-text-primary"
+                )}
+                type="button"
+                onClick={() => setFilter(option.key)}
+              >
+                {option.label}
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    filter === option.key
+                      ? "text-white/70"
+                      : option.tone === "warning" && option.count > 0
+                        ? "font-semibold text-warning"
+                        : "text-text-tertiary"
+                  )}
+                >
+                  {option.count}
+                </span>
+              </button>
+            ))}
           </div>
-          <button
-            className="focus-ring inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3 text-[13px] font-medium text-text-primary transition hover:bg-border"
-            type="button"
-            onClick={handleAddManual}
-          >
-            <Plus size={15} strokeWidth={2} />
-            Add one
-          </button>
-        </div>
 
-        <div className="flex flex-wrap gap-1.5 border-b border-border px-3 py-2">
-          {(["All", "Include", "Flag", "Exclude"] as Filter[]).map((option) => (
+          <div className="flex items-center gap-2 border-t border-border px-2.5 py-1.5">
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] text-text-secondary">
+              <input
+                className="h-4 w-4 cursor-pointer accent-[#C9A96E]"
+                type="checkbox"
+                checked={allVisibleSelected}
+                disabled={visibleRows.length === 0}
+                onChange={toggleSelectAll}
+              />
+              {allVisibleSelected ? "Clear" : `Select all ${visibleRows.length}`}
+            </label>
+            <span className="ml-auto truncate text-[12px] text-text-tertiary">
+              {counts.include} to import
+              <span className="hidden sm:inline">
+                {" "}
+                · {formatCurrency(rowTotal(includedRows))}
+              </span>
+            </span>
             <button
-              key={option}
-              className={cn(
-                "focus-ring min-h-8 rounded-lg px-2.5 text-[12.5px] font-medium transition",
-                filter === option
-                  ? "bg-text-primary text-white"
-                  : "bg-subtle text-text-secondary hover:text-text-primary"
-              )}
+              className="focus-ring inline-flex min-h-7 shrink-0 items-center gap-1 rounded-lg bg-subtle px-2 text-[12px] font-medium text-text-primary transition hover:bg-border"
               type="button"
-              onClick={() => setFilter(option)}
+              onClick={handleAddManual}
             >
-              {option === "All"
-                ? `All ${rows.length}`
-                : option === "Include"
-                  ? `Keeping ${counts.include}`
-                  : option === "Flag"
-                    ? `Flagged ${counts.flag}`
-                    : `Not business ${counts.exclude}`}
+              <Plus size={13} strokeWidth={2.2} />
+              Add one
             </button>
-          ))}
+          </div>
         </div>
 
-        <div className="space-y-2 p-2.5 sm:p-3">
+        <div className="divide-y divide-border overflow-hidden rounded-b-[19px]">
           {visibleRows.length === 0 ? (
-            <div className="rounded-[16px] border border-border bg-page px-4 py-8 text-center">
-              <p className="mx-auto max-w-sm text-[14px] text-text-secondary">
+            <div className="px-4 py-8 text-center">
+              <p className="mx-auto max-w-sm text-[13.5px] text-text-secondary">
                 {rows.length === 0
                   ? "The scan found no transactions on this statement. Add them by hand, or try a different PDF."
-                  : "No transactions in this view."}
+                  : filter === "Needs a look"
+                    ? "Nothing needs a second look. Every transaction is readable and has what it needs."
+                    : "No transactions in this view."}
               </p>
             </div>
           ) : (
             visibleRows.map((row) => (
-              <ImportRowCard
+              <ImportRow
                 key={row.id}
                 row={row}
                 receipt={row.receipt_id ? receipts[row.receipt_id] ?? null : null}
                 userId={userId}
                 expanded={expandedId === row.id}
+                selected={selectedIds.has(row.id)}
                 onToggle={() => setExpandedId((current) => (current === row.id ? null : row.id))}
+                onSelect={(selected) => toggleOne(row.id, selected)}
                 onChange={(patch) => updateRow(row.id, patch)}
                 onReceiptChange={(receipt) =>
                   setReceipts((current) => {
@@ -273,14 +360,17 @@ export function StatementReview({
         </div>
       </section>
 
-      <section className="space-y-3 rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
-        <FieldShell label="Paid with">
-          <div className="grid min-h-10 grid-cols-3 rounded-xl border border-border bg-subtle p-0.5">
+      <section className="space-y-2.5 rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+            Paid with
+          </span>
+          <div className="flex min-h-9 gap-0.5 rounded-xl border border-border bg-subtle p-0.5">
             {PAYMENT_METHODS.map((method) => (
               <button
                 key={method}
                 className={cn(
-                  "focus-ring rounded-[10px] text-[13px] font-medium transition duration-150 ease-out",
+                  "focus-ring rounded-[10px] px-3 text-[13px] font-medium transition duration-150 ease-out",
                   paymentMethod === method
                     ? "bg-surface text-text-primary shadow-sm"
                     : "text-text-secondary"
@@ -292,12 +382,18 @@ export function StatementReview({
               </button>
             ))}
           </div>
-        </FieldShell>
+        </div>
 
         {blocked > 0 ? (
           <p className="text-[13px] text-danger">
-            {blocked} transaction{blocked === 1 ? " is" : "s are"} missing a category, amount, or
-            merchant. Open {blocked === 1 ? "it" : "them"} to finish before importing.
+            {blocked} transaction{blocked === 1 ? " is" : "s are"} missing something.{" "}
+            <button
+              className="focus-ring font-medium underline"
+              type="button"
+              onClick={() => setFilter("Needs a look")}
+            >
+              Show {blocked === 1 ? "it" : "them"}
+            </button>
           </p>
         ) : null}
 
@@ -333,6 +429,48 @@ export function StatementReview({
         </div>
       </section>
 
+      {/* One decision for the whole selection. Sits above the mobile tab bar. */}
+      {selectedIds.size > 0 ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-5">
+          {/* Two rows on a phone, one on a laptop. These three words are the
+              whole job, so they never collapse to bare icons. */}
+          <div className="pointer-events-auto w-full max-w-[560px] rounded-2xl bg-text-primary/95 p-1.5 shadow-[0_18px_48px_rgba(48,38,24,0.32)] backdrop-blur-xl sm:flex sm:items-center sm:gap-2 sm:pl-3">
+            <div className="flex items-center justify-between px-1.5 py-1 sm:p-0">
+              <span className="shrink-0 text-[13px] font-medium text-white">
+                {selectedIds.size} selected
+              </span>
+              <button
+                className="focus-ring grid h-7 w-7 place-items-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white sm:hidden"
+                type="button"
+                aria-label="Clear selection"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="mt-1 grid grid-cols-3 gap-1 sm:ml-auto sm:mt-0 sm:flex sm:items-center">
+              <BulkAction icon={Check} label="Keep" onClick={() => decideSelected("Include")} />
+              <BulkAction icon={Flag} label="Flag" onClick={() => decideSelected("Flag")} />
+              <BulkAction
+                icon={Ban}
+                label="Not business"
+                onClick={() => decideSelected("Exclude")}
+              />
+            </div>
+
+            <button
+              className="focus-ring hidden h-9 w-9 shrink-0 place-items-center rounded-xl text-white/60 transition hover:bg-white/10 hover:text-white sm:grid"
+              type="button"
+              aria-label="Clear selection"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X size={16} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {confirmingDiscard ? (
         <ConfirmDialog
           title="Discard this import?"
@@ -344,5 +482,26 @@ export function StatementReview({
         />
       ) : null}
     </div>
+  );
+}
+
+function BulkAction({
+  icon: Icon,
+  label,
+  onClick
+}: {
+  icon: typeof Check;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="focus-ring inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white/12 px-1.5 text-[12px] font-medium text-white transition hover:bg-white/22 sm:px-2.5 sm:text-[13px]"
+      type="button"
+      onClick={onClick}
+    >
+      <Icon size={15} strokeWidth={2.1} />
+      {label}
+    </button>
   );
 }
