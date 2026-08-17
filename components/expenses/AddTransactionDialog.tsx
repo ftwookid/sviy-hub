@@ -163,7 +163,7 @@ export function AddTransactionDialog({
 
             <label
               className={cn(
-                "focus-ring mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[18px] border border-dashed px-4 py-8 text-center transition",
+                "focus-ring-within mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[18px] border border-dashed px-4 py-8 text-center transition",
                 dragging ? "border-accent bg-accent-soft" : "border-border-emphasis bg-page"
               )}
               onDragOver={(event) => {

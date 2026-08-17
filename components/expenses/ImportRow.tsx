@@ -355,7 +355,7 @@ export function ImportRow({
             ) : (
               <label
                 className={cn(
-                  "focus-ring flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[13.5px] text-text-secondary transition hover:bg-border",
+                  "focus-ring-within flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[13.5px] text-text-secondary transition hover:bg-border",
                   uploading && "pointer-events-none opacity-60"
                 )}
               >

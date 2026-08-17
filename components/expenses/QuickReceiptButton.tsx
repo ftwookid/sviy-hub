@@ -85,12 +85,9 @@ export function QuickReceiptButton({
   return (
     <label
       className={cn(
-        // The focusable element is the visually hidden input, so the ring has to
-        // be drawn by the label. `.focus-ring` is a plain class rather than a
-        // Tailwind utility, so it cannot take a `focus-within:` variant — this
-        // restates the same ring the rest of the app uses.
-        "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-border-emphasis bg-surface text-text-secondary transition",
-        "focus-within:shadow-[0_0_0_3px_rgba(201,169,110,0.28)]",
+        // Not `.focus-ring`: the focusable element here is the hidden input, and
+        // the label it sits in never receives focus. See globals.css.
+        "focus-ring-within grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-border-emphasis bg-surface text-text-secondary transition",
         "hover:border-accent hover:text-text-primary",
         uploading && "pointer-events-none opacity-60"
       )}
