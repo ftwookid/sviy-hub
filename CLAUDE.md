@@ -292,6 +292,19 @@ Review behaviour:
   and the existing Drive archive — they are refiled and synced on import.
 - Credits (money in) are pre-set to Not business, since they are never
   deductible, but stay visible so refunds are easy to spot.
+- Rows the scan already answered — credits, and both halves of a refund pair —
+  are grouped into a **Set aside** section below the list rather than left in
+  amongst the rows that still need a decision. A statement that opens with a run
+  of credits otherwise buries the real work below the fold.
+  - Membership is by what a row *is*, not what it is currently set to, so a row
+    does not jump sections when the user overrides its decision.
+  - The section is collapsible and open by default: these rows were decided by a
+    rule, and a tax review is the wrong place to hide that behind a click.
+  - Each refund pair renders as one tinted block, charge above its credit, so
+    the two halves read as a single event instead of adjacent coincidences.
+  - The grouping is recomputed client-side from `refundPairIndexes()`. It is a
+    pure function of the rows, so it needs no column and cannot go stale against
+    edits made during the review.
 - Refunded charges are detected at scan time by `refundPairIndexes()` in
   `lib/statementImports.ts`. A charge and a same-amount credit from the same
   payee, within 120 days, are a wash — both sides are pre-set to Not business

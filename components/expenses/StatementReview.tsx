@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Ban, Check, Flag, Plus, Tag } from "lucide-react";
+import { ArrowLeft, Ban, Check, ChevronDown, Flag, Plus, Tag } from "lucide-react";
 import { BulkAction, BulkBar } from "@/components/expenses/BulkBar";
 import { CategoryPicker } from "@/components/expenses/CategoryPicker";
 import { ImportRow } from "@/components/expenses/ImportRow";
@@ -22,7 +22,13 @@ import {
   loadRows,
   saveRow
 } from "@/lib/statementImportClient";
-import { decisionCounts, rowBlockers, rowTotal, similarCandidates } from "@/lib/statementImports";
+import {
+  decisionCounts,
+  refundPairIndexes,
+  rowBlockers,
+  rowTotal,
+  similarCandidates
+} from "@/lib/statementImports";
 import { supabase } from "@/lib/supabase";
 import type { PaymentMethod, Receipt } from "@/types/expense";
 import type { RowDecision, StatementImportRow, StatementImport } from "@/types/statementImport";
@@ -73,6 +79,9 @@ export function StatementReview({
   const [importing, setImporting] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [pickingBulkCategory, setPickingBulkCategory] = useState(false);
+  // Open by default: these rows were decided by a rule, and a tax review is the
+  // wrong place to hide what was decided for you behind a click.
+  const [asideOpen, setAsideOpen] = useState(true);
   const [similarPrompt, setSimilarPrompt] = useState<{
     category: string;
     rows: StatementImportRow[];
@@ -245,6 +254,56 @@ export function StatementReview({
     return rows.filter((row) => row.decision === filter);
   }, [filter, rows]);
 
+  /**
+   * The rows the scan already answered: money coming in, and charges that were
+   * handed straight back.
+   *
+   * Neither is ever a deduction, so they arrive pre-set to Not business — which
+   * left them scattered through the list as dead weight between the rows that
+   * actually need a decision, and a statement that opens with a run of credits
+   * buries the real work below the fold. They get their own section instead.
+   *
+   * The pairs are recomputed here rather than read off a column: the rule is a
+   * pure function of the rows, so deriving it needs no migration and cannot go
+   * stale against edits made during the review.
+   */
+  const setAside = useMemo(() => {
+    const paired = new Set<string>();
+
+    const pairs = refundPairIndexes(rows).map(([chargeIndex, creditIndex]) => {
+      const charge = rows[chargeIndex];
+      const credit = rows[creditIndex];
+      paired.add(charge.id);
+      paired.add(credit.id);
+      // Charge first, then its refund — the point of the section is that the
+      // two halves are readable as one event.
+      return { key: `${charge.id}:${credit.id}`, rows: [charge, credit] };
+    });
+
+    const credits = rows.filter((row) => row.direction === "Credit" && !paired.has(row.id));
+    const ids = new Set<string>(credits.map((row) => row.id));
+    paired.forEach((id) => ids.add(id));
+
+    return { pairs, credits, ids };
+  }, [rows]);
+
+  // Membership is by what a row *is*, not what it is currently set to, so a row
+  // does not jump between sections when the user overrides its decision.
+  const mainRows = useMemo(
+    () => visibleRows.filter((row) => !setAside.ids.has(row.id)),
+    [setAside, visibleRows]
+  );
+
+  const visibleAside = useMemo(() => {
+    const visible = new Set(visibleRows.map((row) => row.id));
+    const pairs = setAside.pairs
+      .map((pair) => ({ ...pair, rows: pair.rows.filter((row) => visible.has(row.id)) }))
+      .filter((pair) => pair.rows.length > 0);
+    const credits = setAside.credits.filter((row) => visible.has(row.id));
+    const count = pairs.reduce((total, pair) => total + pair.rows.length, 0) + credits.length;
+    return { pairs, credits, count };
+  }, [setAside, visibleRows]);
+
   const allVisibleSelected =
     visibleRows.length > 0 && visibleRows.every((row) => selectedIds.has(row.id));
 
@@ -267,6 +326,30 @@ export function StatementReview({
       else next.delete(rowId);
       return next;
     });
+  }
+
+  function renderRow(row: StatementImportRow) {
+    return (
+      <ImportRow
+        key={row.id}
+        row={row}
+        receipt={row.receipt_id ? receipts[row.receipt_id] ?? null : null}
+        userId={userId}
+        expanded={expandedId === row.id}
+        selected={selectedIds.has(row.id)}
+        onToggle={() => setExpandedId((current) => (current === row.id ? null : row.id))}
+        onSelect={(selected) => toggleOne(row.id, selected)}
+        onChange={(patch) => updateRow(row.id, patch)}
+        onCategoryChange={(category) => updateCategory(row.id, category)}
+        onReceiptChange={(receipt) =>
+          setReceipts((current) => {
+            if (!receipt) return current;
+            return { ...current, [receipt.id]: receipt };
+          })
+        }
+        onDelete={() => handleDeleteRow(row.id)}
+      />
+    );
   }
 
   const filters: { key: Filter; label: string; count: number; tone?: "warning" }[] = [
@@ -380,40 +463,86 @@ export function StatementReview({
           </div>
         </div>
 
-        <div className="divide-y divide-border overflow-hidden rounded-b-[19px]">
-          {visibleRows.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <p className="mx-auto max-w-sm text-[13.5px] text-text-secondary">
-                {rows.length === 0
-                  ? "The scan found no transactions on this statement. Add them by hand, or try a different PDF."
-                  : filter === "Needs a look"
-                    ? "Nothing needs a second look. Every transaction is readable and has what it needs."
-                    : "No transactions in this view."}
-              </p>
-            </div>
-          ) : (
-            visibleRows.map((row) => (
-              <ImportRow
-                key={row.id}
-                row={row}
-                receipt={row.receipt_id ? receipts[row.receipt_id] ?? null : null}
-                userId={userId}
-                expanded={expandedId === row.id}
-                selected={selectedIds.has(row.id)}
-                onToggle={() => setExpandedId((current) => (current === row.id ? null : row.id))}
-                onSelect={(selected) => toggleOne(row.id, selected)}
-                onChange={(patch) => updateRow(row.id, patch)}
-                onCategoryChange={(category) => updateCategory(row.id, category)}
-                onReceiptChange={(receipt) =>
-                  setReceipts((current) => {
-                    if (!receipt) return current;
-                    return { ...current, [receipt.id]: receipt };
-                  })
-                }
-                onDelete={() => handleDeleteRow(row.id)}
-              />
-            ))
-          )}
+        <div className="overflow-hidden rounded-b-[19px]">
+          <div className="divide-y divide-border">
+            {visibleRows.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <p className="mx-auto max-w-sm text-[13.5px] text-text-secondary">
+                  {rows.length === 0
+                    ? "The scan found no transactions on this statement. Add them by hand, or try a different PDF."
+                    : filter === "Needs a look"
+                      ? "Nothing needs a second look. Every transaction is readable and has what it needs."
+                      : "No transactions in this view."}
+                </p>
+              </div>
+            ) : mainRows.length === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <p className="mx-auto max-w-sm text-[13.5px] text-text-secondary">
+                  Nothing to decide in this view — everything here was set aside below.
+                </p>
+              </div>
+            ) : (
+              mainRows.map(renderRow)
+            )}
+          </div>
+
+          {visibleAside.count > 0 ? (
+            <>
+              <button
+                className="focus-ring flex w-full items-center gap-2 border-t border-border bg-subtle px-3 py-2.5 text-left transition hover:bg-border/60"
+                type="button"
+                aria-expanded={asideOpen}
+                onClick={() => setAsideOpen((open) => !open)}
+              >
+                <ChevronDown
+                  size={15}
+                  strokeWidth={2}
+                  className={cn(
+                    "shrink-0 text-text-tertiary transition-transform",
+                    !asideOpen && "-rotate-90"
+                  )}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium text-text-primary">
+                    Set aside · {visibleAside.count}
+                  </span>
+                  <span className="block text-[11.5px] text-text-tertiary">
+                    {[
+                      visibleAside.pairs.length > 0
+                        ? `${visibleAside.pairs.length} refunded charge${
+                            visibleAside.pairs.length === 1 ? "" : "s"
+                          }`
+                        : null,
+                      visibleAside.credits.length > 0
+                        ? `${visibleAside.credits.length} money in`
+                        : null
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {" — not business by default"}
+                  </span>
+                </span>
+              </button>
+
+              {asideOpen ? (
+                <div className="divide-y divide-border">
+                  {/* Each pair is one visual block, so the charge and the credit
+                      that cancelled it read as a single event rather than two
+                      unrelated rows that happen to be adjacent. */}
+                  {visibleAside.pairs.map((pair) => (
+                    <div key={pair.key} className="relative bg-page/60">
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-0 left-0 w-[2px] bg-border-emphasis"
+                      />
+                      <div className="divide-y divide-border/60">{pair.rows.map(renderRow)}</div>
+                    </div>
+                  ))}
+                  {visibleAside.credits.map(renderRow)}
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </section>
 
