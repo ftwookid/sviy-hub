@@ -336,6 +336,15 @@ Review behaviour:
   category — the count of blocked rows is shown above the button.
 - Flagged rows are never written to the books. An import only reaches `Imported`
   once no rows are still flagged; otherwise it stays in `Review`.
+- Confirming a finished import closes the review screen and returns to the
+  transactions list, landing on the month most of the imported rows filed under
+  (`inferPeriodMonth` over their dates) rather than whatever month was selected
+  — otherwise the books read as empty and the import looks like it did nothing.
+- A partial import — flagged rows still undecided — deliberately stays open,
+  since there is work left. The rows that did land show an `In your books` badge
+  instead of decision buttons, their delete button is hidden, and bulk actions
+  skip them: their decision is settled, and editing them here would go nowhere
+  (or, for delete, orphan the expense).
 
 Merchant memory (`merchant_rules`):
 

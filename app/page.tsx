@@ -340,9 +340,18 @@ export default function TransactionsPage() {
             userId={user.id}
             ownerLabel={isAdmin ? reviewingOwnerLabel : undefined}
             onBack={() => setReviewingId(null)}
-            onImported={() => {
-              loadMonth();
+            onImported={(outcome) => {
               refreshImports();
+              // Land on the month the rows actually filed under, or the books
+              // read as empty and the import looks like it did nothing.
+              // Changing the month reloads on its own; only reload when it does not.
+              if (outcome.periodMonth && outcome.periodMonth !== periodMonth) {
+                setPeriodMonth(outcome.periodMonth);
+              } else {
+                loadMonth();
+              }
+              // Flagged rows are the only reason to keep this screen open.
+              if (outcome.complete) setReviewingId(null);
             }}
             onDiscarded={() => {
               setReviewingId(null);

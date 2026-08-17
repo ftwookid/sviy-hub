@@ -24,6 +24,7 @@ import {
 } from "@/lib/statementImportClient";
 import {
   decisionCounts,
+  inferPeriodMonth,
   refundPairIndexes,
   rowBlockers,
   rowTotal,
@@ -64,7 +65,8 @@ export function StatementReview({
   userId: string;
   ownerLabel?: string;
   onBack: () => void;
-  onImported: () => void;
+  /** `complete` means nothing is left to decide, so the page closes this screen. */
+  onImported: (outcome: { complete: boolean; periodMonth: string | null }) => void;
   onDiscarded: () => void;
   showToast: (message: string) => void;
 }) {
@@ -163,10 +165,14 @@ export function StatementReview({
 
   /** One change across a selection. The whole point of the page. */
   function patchSelected(patch: Partial<StatementImportRow>, describe: (n: number) => string) {
-    const ids = Array.from(selectedIds);
+    // Rows already written to the books are skipped rather than silently
+    // rewritten — their decision is settled, and the row-level controls are
+    // hidden for the same reason.
+    const ids = rows.filter((row) => selectedIds.has(row.id) && !row.expense_id).map((row) => row.id);
     if (ids.length === 0) return;
 
-    setRows((current) => current.map((row) => (selectedIds.has(row.id) ? { ...row, ...patch } : row)));
+    const target = new Set(ids);
+    setRows((current) => current.map((row) => (target.has(row.id) ? { ...row, ...patch } : row)));
     setSelectedIds(new Set());
 
     Promise.all(ids.map((id) => saveRow(id, patch)))
@@ -181,8 +187,10 @@ export function StatementReview({
 
   function categoriseSelected(category: string) {
     setPickingBulkCategory(false);
-    // Captured before patchSelected, which clears the selection.
-    const targets = rows.filter((row) => selectedIds.has(row.id));
+    // Captured before patchSelected, which clears the selection. Imported rows
+    // are left out for the same reason patchSelected skips them: they did not
+    // change, so they should not pull their payee into the offer.
+    const targets = rows.filter((row) => selectedIds.has(row.id) && !row.expense_id);
     patchSelected({ category }, (n) => `${n} transaction${n === 1 ? "" : "s"} set to ${category}`);
     offerSimilar(targets, category);
   }
@@ -211,6 +219,13 @@ export function StatementReview({
   async function handleImport() {
     setImporting(true);
     try {
+      // Captured before the write: these are the rows that are about to land,
+      // and the month most of them file under is where the user should arrive.
+      const landing = inferPeriodMonth(
+        null,
+        pendingRows.map((row) => row.date)
+      );
+
       const result = await confirmImport({ importId, userId, rows, paymentMethod });
 
       showToast(
@@ -219,8 +234,15 @@ export function StatementReview({
           : `${result.imported} added · ${result.flagged} still flagged for you to decide`
       );
 
-      await load();
-      onImported();
+      // Nothing left to decide means this screen is finished, so it closes and
+      // hands the user back to the books. Reloading it first would only render a
+      // list that is about to unmount. Flagged rows are the one reason to stay.
+      if (!result.complete) await load();
+
+      onImported({
+        complete: result.complete,
+        periodMonth: landing ?? statementImport?.period_month ?? null
+      });
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Could not import these transactions.");
     } finally {
