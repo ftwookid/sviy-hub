@@ -8,7 +8,6 @@ import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
 import { ReportTable } from "@/components/ReportTable";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { MONTHS } from "@/lib/months";
 import { formatCurrency } from "@/lib/formatters";
@@ -95,34 +94,38 @@ export default function ReportsPage() {
 
   return (
     <AppShell user={user}>
-      <div className="space-y-8">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h1 className="text-[34px] font-medium leading-[1.08] tracking-[-0.01em] text-text-primary">Expenses</h1>
-            <p className="mt-2 text-[16px] text-text-secondary">Schedule C-ready yearly summary.</p>
-          </div>
-          <Button className="hidden sm:inline-flex" variant="soft" onClick={exportCsv} disabled={expenses.length === 0}>
-            <Download size={16} strokeWidth={1.5} />
-            Export CSV
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-[22px] font-medium leading-tight tracking-[-0.01em] text-text-primary sm:text-[26px]">
+            Expenses
+          </h1>
           <ExpenseSectionTabs />
-          <Button className="sm:hidden" variant="soft" onClick={exportCsv} disabled={expenses.length === 0}>
-            <Download size={16} strokeWidth={1.5} />
-            Export CSV
-          </Button>
         </div>
 
-        <div className="w-full sm:w-44">
-          <Select label="Year" value={year} onChange={(event) => setYear(Number(event.target.value))}>
+        {/* Year and export are one control row — the same shape as the month
+            row on the transactions page. */}
+        <div className="flex items-center gap-2">
+          <select
+            className="focus-ring h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] font-medium text-text-primary shadow-sm sm:max-w-[160px]"
+            aria-label="Year"
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
+          >
             {availableYears.map((availableYear) => (
               <option key={availableYear} value={availableYear}>
                 {availableYear}
               </option>
             ))}
-          </Select>
+          </select>
+          <Button
+            className="shrink-0"
+            variant="soft"
+            onClick={exportCsv}
+            disabled={expenses.length === 0}
+          >
+            <Download size={16} strokeWidth={1.7} />
+            Export CSV
+          </Button>
         </div>
 
         {loading ? (
@@ -130,9 +133,11 @@ export default function ReportsPage() {
         ) : (
           <>
             <ReportTable expenses={expenses} />
-            <section className="rounded-xl border border-border bg-surface p-5 shadow-card">
-              <h2 className="text-[15px] font-medium leading-[1.3] text-text-primary">Monthly breakdown</h2>
-              <div className="mt-5 space-y-3">
+            <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
+              <h2 className="text-[15px] font-medium leading-tight text-text-primary">
+                Monthly breakdown
+              </h2>
+              <div className="mt-3 space-y-2">
                 {monthlyTotals.map((row) => (
                   <div key={row.month} className="grid grid-cols-[72px_1fr_92px] items-center gap-3">
                     <div className="text-[12px] text-text-secondary">{row.month.slice(0, 3)}</div>

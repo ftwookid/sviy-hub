@@ -47,68 +47,68 @@ export function ImportSummaryCard({
         ? "Every transaction on the statement is accounted for in this list."
         : "Go through the list yourself — there was nothing to cross-check the scan against.";
 
+  // When the arithmetic holds there is nothing to act on, so it collapses to a
+  // single line. The explanation is only worth its height when something is off.
+  const settled = balanced === true;
+
   return (
-    <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[19px] font-medium text-text-primary">
+    <section className="rounded-[20px] border border-border bg-surface px-3.5 py-3 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-[15px] font-medium text-text-primary">
             {statementImport.institution || "Statement"}
             {statementImport.account_label ? ` · ${statementImport.account_label}` : ""}
           </h2>
-          <p className="mt-1 text-[13px] text-text-secondary">
+          <p className="truncate text-[12.5px] text-text-secondary">
             {statementImport.period_month
               ? periodMonthLabel(statementImport.period_month)
               : statementImport.filename}
             {ownerLabel ? ` · ${ownerLabel}` : ""}
+            {reconciliation
+              ? ` · ${formatCurrency(reconciliation.extractedTotalDebits)} scanned out`
+              : ""}
           </p>
         </div>
-        {reconciliation ? (
-          <div className="text-right">
-            <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
-              Scanned out
-            </div>
-            <div className="text-[21px] font-medium leading-none text-text-primary">
-              {formatCurrency(reconciliation.extractedTotalDebits)}
-            </div>
-          </div>
+
+        {settled ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-[11.5px] font-medium text-success">
+            <Icon size={13} strokeWidth={2} />
+            Totals match
+          </span>
         ) : null}
       </div>
 
-      <div
-        className={cn(
-          "mt-4 flex items-start gap-2.5 rounded-2xl px-3 py-3",
-          tone === "success" && "bg-success-soft",
-          tone === "danger" && "bg-danger-soft",
-          tone === "neutral" && "bg-subtle"
-        )}
-      >
-        <Icon
-          size={17}
-          strokeWidth={1.8}
+      {!settled ? (
+        <div
           className={cn(
-            "mt-0.5 shrink-0",
-            tone === "success" && "text-success",
-            tone === "danger" && "text-danger",
-            tone === "neutral" && "text-text-tertiary"
+            "mt-2.5 flex items-start gap-2.5 rounded-xl px-3 py-2.5",
+            tone === "danger" ? "bg-danger-soft" : "bg-subtle"
           )}
-        />
-        <div className="min-w-0">
-          <p
+        >
+          <Icon
+            size={16}
+            strokeWidth={1.8}
             className={cn(
-              "text-[13px] font-medium",
-              tone === "success" && "text-success",
-              tone === "danger" && "text-danger",
-              tone === "neutral" && "text-text-secondary"
+              "mt-0.5 shrink-0",
+              tone === "danger" ? "text-danger" : "text-text-tertiary"
             )}
-          >
-            {headline}
-          </p>
-          <p className="mt-1 text-[13px] text-text-secondary">{detail}</p>
-          {reconciliation?.notes ? (
-            <p className="mt-1.5 text-[12px] text-text-tertiary">{reconciliation.notes}</p>
-          ) : null}
+          />
+          <div className="min-w-0">
+            <p
+              className={cn(
+                "text-[13px] font-medium",
+                tone === "danger" ? "text-danger" : "text-text-secondary"
+              )}
+            >
+              {headline}
+            </p>
+            <p className="mt-0.5 text-[12.5px] leading-snug text-text-secondary">{detail}</p>
+            {reconciliation?.notes ? (
+              <p className="mt-1 text-[12px] text-text-tertiary">{reconciliation.notes}</p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

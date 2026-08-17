@@ -65,6 +65,17 @@ button:disabled {
   border-radius: 999px;
 }
 
+/* A strip that scrolls sideways but should not show the page's chunky
+   scrollbar under it — the partially visible next item is the affordance. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .focus-ring {
   outline: none;
 }

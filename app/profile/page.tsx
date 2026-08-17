@@ -1,16 +1,40 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
+import { DriveArchiveCard } from "@/components/expenses/DriveArchiveCard";
 import { Button } from "@/components/ui/Button";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import versionData from "@/version.json";
 
 export default function ProfilePage() {
-  const { user, authLoading } = useAuthUser();
+  const { user, isAdmin, authLoading } = useAuthUser();
+  const [pendingDriveCount, setPendingDriveCount] = useState(0);
+
+  // The archive settings live here now, so the backlog count has to be read
+  // here too rather than handed down from the transactions page.
+  const loadPendingCount = useCallback(async () => {
+    if (!supabase || !user) return;
+
+    let query = supabase
+      .from("receipts")
+      .select("id", { count: "exact", head: true })
+      .is("drive_file_id", null)
+      .not("storage_path", "is", null);
+
+    if (!isAdmin) query = query.eq("user_id", user.id);
+
+    const { count } = await query;
+    setPendingDriveCount(count ?? 0);
+  }, [isAdmin, user]);
+
+  useEffect(() => {
+    loadPendingCount();
+  }, [loadPendingCount]);
 
   async function signOut() {
     await supabase?.auth.signOut();
@@ -22,33 +46,40 @@ export default function ProfilePage() {
 
   return (
     <AppShell user={user}>
-      <div className="space-y-7">
-        <header>
-          <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">Profile</h1>
-          <p className="mt-2 max-w-xl text-[16px] text-text-secondary">A quiet place for account details and future settings.</p>
-        </header>
+      <div className="space-y-4">
+        <h1 className="text-[22px] font-medium leading-tight tracking-[-0.01em] text-text-primary sm:text-[26px]">
+          Profile
+        </h1>
 
-        <section className="rounded-[24px] border border-border bg-surface p-5 shadow-card">
-          <div className="flex items-center gap-4">
-            <div className="grid h-14 w-14 place-items-center rounded-full bg-accent-soft text-[20px] font-medium text-text-primary">
+        <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-full bg-accent-soft text-[17px] font-medium text-text-primary">
               {user.email?.[0]?.toUpperCase() ?? "S"}
             </div>
             <div className="min-w-0">
-              <div className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Signed in as</div>
-              <div className="truncate text-[18px] font-medium text-text-primary">{user.email}</div>
+              <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+                Signed in as
+              </div>
+              <div className="truncate text-[15px] font-medium text-text-primary">{user.email}</div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-border bg-surface p-5 shadow-card">
-          <div className="flex items-center gap-4">
-            <Image src="/Logo v2.png" alt="Sviy Hub" width={72} height={72} className="h-[72px] w-[72px] object-contain" />
-            <div>
-              <div className="text-[13px] text-text-secondary">Version {versionData.version}</div>
-            </div>
-          </div>
-          <div className="mt-5 rounded-2xl bg-subtle p-4 text-[14px] text-text-secondary">
-            Future settings will live here: notification preferences, tax-year defaults, export options, and profile details.
+        {/* Archive setup belongs with the settings, not in the middle of the
+            month's transactions. The transactions page only nudges when the
+            archive actually needs a hand. */}
+        <DriveArchiveCard pendingCount={pendingDriveCount} />
+
+        <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/Logo v2.png"
+              alt="Sviy Hub"
+              width={44}
+              height={44}
+              className="h-11 w-11 object-contain"
+            />
+            <div className="text-[13px] text-text-secondary">Version {versionData.version}</div>
           </div>
         </section>
 

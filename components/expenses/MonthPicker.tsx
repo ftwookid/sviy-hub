@@ -70,51 +70,53 @@ export function MonthPicker({
 
   return (
     <div className="relative" ref={containerRef}>
-      <div className="flex items-center justify-between gap-2 rounded-[20px] border border-border bg-surface p-2 shadow-card">
-        <Button
-          className="h-11 w-11 shrink-0 px-0"
-          variant="soft"
+      {/* One 44px row. The old two-line card spent a third of its height telling
+          the user they could tap it, which the chevron already says. */}
+      <div className="flex h-11 items-center gap-0.5 rounded-xl border border-border bg-surface p-0.5 shadow-sm">
+        <button
+          className="focus-ring grid h-10 w-9 shrink-0 place-items-center rounded-[10px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+          type="button"
           aria-label="Previous month"
           onClick={() => onChange(shiftPeriodMonth(periodMonth, -1))}
         >
-          <ChevronLeft size={18} strokeWidth={1.7} />
-        </Button>
+          <ChevronLeft size={17} strokeWidth={1.9} />
+        </button>
 
         <button
-          className="focus-ring min-w-0 flex-1 rounded-xl px-2 py-1 transition hover:bg-subtle"
+          className="focus-ring flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2 transition hover:bg-subtle"
           type="button"
           aria-expanded={open}
           aria-haspopup="dialog"
           onClick={() => setOpen((current) => !current)}
         >
-          <div className="flex items-center justify-center gap-1.5">
-            <span className="truncate text-[16px] font-medium text-text-primary">
-              {periodMonthLabel(periodMonth)}
+          <span className="truncate text-[15px] font-medium text-text-primary">
+            {periodMonthLabel(periodMonth)}
+          </span>
+          {isCurrentMonth ? (
+            <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-medium text-accent">
+              Now
             </span>
-            <ChevronDown
-              size={16}
-              strokeWidth={1.8}
-              className={cn("shrink-0 text-text-tertiary transition", open && "rotate-180")}
-            />
-          </div>
-          <div className="text-[12px] text-text-tertiary">
-            {isCurrentMonth ? "Current month" : "Tap to pick a month"}
-          </div>
+          ) : null}
+          <ChevronDown
+            size={15}
+            strokeWidth={1.9}
+            className={cn("shrink-0 text-text-tertiary transition", open && "rotate-180")}
+          />
         </button>
 
-        <Button
-          className="h-11 w-11 shrink-0 px-0"
-          variant="soft"
+        <button
+          className="focus-ring grid h-10 w-9 shrink-0 place-items-center rounded-[10px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+          type="button"
           aria-label="Next month"
           onClick={() => onChange(shiftPeriodMonth(periodMonth, 1))}
         >
-          <ChevronRight size={18} strokeWidth={1.7} />
-        </Button>
+          <ChevronRight size={17} strokeWidth={1.9} />
+        </button>
       </div>
 
       {open ? (
         <div
-          className="absolute left-0 right-0 top-full z-40 mt-2 rounded-[20px] border border-border bg-surface p-3 shadow-card"
+          className="absolute left-0 top-full z-40 mt-2 w-full min-w-[268px] rounded-[20px] border border-border bg-surface p-3 shadow-card"
           role="dialog"
           aria-label="Choose a month"
         >

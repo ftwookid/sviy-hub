@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
-import { SCHEDULE_C_CATEGORIES } from "@/lib/categories";
+import { DEFAULT_CATEGORY, EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { proofState } from "@/lib/expenses";
 import { todayInputValue } from "@/lib/formatters";
@@ -32,7 +32,7 @@ function initialValues(expense?: Expense, defaultDate?: string): ExpenseFormValu
       merchant: "",
       description: "",
       amount: "",
-      category: SCHEDULE_C_CATEGORIES[0],
+      category: EXPENSE_CATEGORIES[0],
       payment_method: "Main card",
       notes: ""
     };
@@ -43,7 +43,9 @@ function initialValues(expense?: Expense, defaultDate?: string): ExpenseFormValu
     merchant: expense.merchant,
     description: expense.description ?? "",
     amount: String(expense.amount),
-    category: expense.category,
+    // An expense saved under an old Schedule C heading has no matching option
+    // in the select, which would silently save it as whatever sits at the top.
+    category: normalizeCategory(expense.category) ?? DEFAULT_CATEGORY,
     payment_method: expense.payment_method,
     notes: expense.notes ?? ""
   };
@@ -316,7 +318,7 @@ export function ExpenseSlideOver({
             error={errors.category}
             onChange={(event) => update("category", event.target.value)}
           >
-            {SCHEDULE_C_CATEGORIES.map((category) => (
+            {EXPENSE_CATEGORIES.map((category) => (
               <option key={category} value={category}>
                 {category}
               </option>

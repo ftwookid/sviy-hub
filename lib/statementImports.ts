@@ -1,4 +1,4 @@
-import { SCHEDULE_C_CATEGORIES } from "@/lib/categories";
+import { DEFAULT_CATEGORY, isKnownCategory as isCurrentCategory } from "@/lib/categories";
 import { parseLocalDate, toInputDate } from "@/lib/formatters";
 import type {
   MerchantRule,
@@ -8,15 +8,7 @@ import type {
 } from "@/types/statementImport";
 
 /** What a row falls back to when nothing has taught us better. */
-export const DEFAULT_IMPORT_CATEGORY = "Other Expense";
-
-export const ROW_DECISIONS: RowDecision[] = ["Include", "Flag", "Exclude"];
-
-export const DECISION_LABELS: Record<RowDecision, string> = {
-  Include: "Include",
-  Flag: "Flag",
-  Exclude: "Not business"
-};
+export const DEFAULT_IMPORT_CATEGORY = DEFAULT_CATEGORY;
 
 export const DECISION_HINTS: Record<RowDecision, string> = {
   Include: "Becomes a transaction in your books.",
@@ -88,7 +80,7 @@ export function merchantFromDescriptor(descriptor: string) {
 }
 
 export function isKnownCategory(category: string | null | undefined) {
-  return Boolean(category) && SCHEDULE_C_CATEGORIES.includes(category as never);
+  return isCurrentCategory(category);
 }
 
 export function rulesByKey(rules: MerchantRule[]) {
