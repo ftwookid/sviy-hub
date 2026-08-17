@@ -26,7 +26,9 @@ import {
   shiftPeriodMonth
 } from "@/lib/expenses";
 import { formatCurrency, formatShortDate } from "@/lib/formatters";
+import { SimilarCategoryDialog } from "@/components/expenses/SimilarCategoryDialog";
 import { loadImports, scanStatement } from "@/lib/statementImportClient";
+import { similarCandidates } from "@/lib/statementImports";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { Expense, Receipt } from "@/types/expense";
@@ -59,6 +61,10 @@ export default function TransactionsPage() {
   // apply to — one row from its chip, or everything ticked.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [categorising, setCategorising] = useState<string[] | null>(null);
+  const [similarPrompt, setSimilarPrompt] = useState<{
+    category: string;
+    rows: Expense[];
+  } | null>(null);
 
   // Statement import lives on this page now, as a mode rather than a route.
   const [imports, setImports] = useState<StatementImport[]>([]);
@@ -230,6 +236,10 @@ export default function TransactionsPage() {
     setCategorising(null);
     if (!supabase || ids.length === 0) return;
 
+    // Captured before the write, so the offer below compares against the
+    // categories these rows had rather than the one just applied.
+    const targets = expenses.filter((expense) => ids.includes(expense.id));
+
     setExpenses((current) =>
       current.map((expense) => (ids.includes(expense.id) ? { ...expense, category } : expense))
     );
@@ -242,6 +252,30 @@ export default function TransactionsPage() {
       return;
     }
     showToast(`${ids.length} transaction${ids.length === 1 ? "" : "s"} set to ${category}`);
+
+    // Same offer the import review makes: this month's other rows from the same
+    // payee are almost always the same category, and re-picking each one by hand
+    // is the tedious half of tidying up a month.
+    const candidates = similarCandidates(targets, expenses, category);
+    if (candidates.length > 0) setSimilarPrompt({ category, rows: candidates });
+  }
+
+  async function applySimilarCategory(ids: string[]) {
+    const category = similarPrompt?.category;
+    setSimilarPrompt(null);
+    if (!supabase || !category || ids.length === 0) return;
+
+    setExpenses((current) =>
+      current.map((expense) => (ids.includes(expense.id) ? { ...expense, category } : expense))
+    );
+
+    const { error } = await supabase.from("expenses").update({ category }).in("id", ids);
+    if (error) {
+      showToast("That change did not save.");
+      loadMonth();
+      return;
+    }
+    showToast(`${ids.length} more transaction${ids.length === 1 ? "" : "s"} set to ${category}`);
   }
 
   const unfinishedImports = useMemo(
@@ -480,6 +514,15 @@ export default function TransactionsPage() {
           }
           onPick={applyCategory}
           onClose={() => setCategorising(null)}
+        />
+      ) : null}
+
+      {similarPrompt ? (
+        <SimilarCategoryDialog
+          category={similarPrompt.category}
+          rows={similarPrompt.rows}
+          onApply={applySimilarCategory}
+          onDismiss={() => setSimilarPrompt(null)}
         />
       ) : null}
 

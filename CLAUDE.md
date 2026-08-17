@@ -299,11 +299,22 @@ Review behaviour:
   merchant fingerprint to agree; amount alone would pair a refund with whichever
   unrelated charge happened to be nearest. Each charge is claimed once, so one
   refund against three identical charges retires exactly one of them.
-- Changing one row's category offers to carry the pick across the other rows
-  from the same payee (`SimilarCategoryDialog`). Rows are listed with a checkbox
-  each, pre-ticked, and the prompt only appears when a similar row exists whose
-  category would actually change. `Just this one` dismisses it. Bulk category
-  edits from the selection bar never prompt — the user already chose the rows.
+- Changing a category offers to carry the pick across the other rows from the
+  same payee (`SimilarCategoryDialog`). Rows are listed with a checkbox each,
+  pre-ticked, and the prompt only appears when a similar row exists whose
+  category would actually change. `Just this one` dismisses it.
+- The offer follows **every** category edit — the row chip, the expanded row's
+  dropdown, and the selection bar's bulk edit. Selecting three of six Chewy rows
+  says nothing about the three the user never scrolled to, so the rest are still
+  worth asking about.
+- `similarCandidates()` in `lib/statementImports.ts` is the single rule both
+  surfaces use. It takes a list of targets (one row, or a whole selection),
+  excludes the targets themselves, excludes import rows already written to the
+  books, and compares categories **normalized** — so a row still carrying an old
+  Schedule C heading is never offered as differing from the category it maps to.
+- The same offer runs on the Expenses list in `app/page.tsx`, over that month's
+  rows. The `ExpenseSlideOver` edit form is deliberately excluded: it is a
+  full-record edit behind a Save button, not a quick recategorise.
 - Rows the model was unsure about are marked `low` confidence and flagged in the
   list with a warning icon.
 - `Add one` appends a `source = 'Manual'` row for cash or anything the statement

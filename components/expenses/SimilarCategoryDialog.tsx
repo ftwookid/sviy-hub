@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { CategoryTag } from "@/components/CategoryTag";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { normalizeCategory } from "@/lib/categories";
 import { formatCurrency, parseLocalDate } from "@/lib/formatters";
-import type { StatementImportRow } from "@/types/statementImport";
+import type { CategorisableRow } from "@/lib/statementImports";
 
 function shortDate(value: string) {
   if (!value) return "—";
@@ -31,7 +32,7 @@ export function SimilarCategoryDialog({
   onDismiss
 }: {
   category: string;
-  rows: StatementImportRow[];
+  rows: CategorisableRow[];
   onApply: (rowIds: string[]) => void;
   onDismiss: () => void;
 }) {
@@ -122,9 +123,11 @@ export function SimilarCategoryDialog({
                   <span className="block truncate text-[13.5px] font-medium text-text-primary">
                     {row.merchant || row.description || "Untitled transaction"}
                   </span>
-                  {row.category ? (
+                  {/* Normalized, so a row still holding an old Schedule C
+                      heading reads as the category the app actually shows. */}
+                  {normalizeCategory(row.category) ? (
                     <span className="mt-0.5 block text-[11.5px] text-text-tertiary">
-                      Now: {row.category}
+                      Now: {normalizeCategory(row.category)}
                     </span>
                   ) : null}
                 </span>

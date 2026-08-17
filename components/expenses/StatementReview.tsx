@@ -22,7 +22,7 @@ import {
   loadRows,
   saveRow
 } from "@/lib/statementImportClient";
-import { decisionCounts, rowBlockers, rowTotal, similarRows } from "@/lib/statementImports";
+import { decisionCounts, rowBlockers, rowTotal, similarCandidates } from "@/lib/statementImports";
 import { supabase } from "@/lib/supabase";
 import type { PaymentMethod, Receipt } from "@/types/expense";
 import type { RowDecision, StatementImportRow, StatementImport } from "@/types/statementImport";
@@ -114,22 +114,25 @@ export function StatementReview({
   }
 
   /**
-   * A single row's category edit, plus the offer to carry it across.
+   * Offers to carry a category edit across the rest of the same payee's rows.
    *
    * The same shop turns up five or six times on one statement, so re-picking the
-   * category row by row is most of the work of a review. Only rows that are not
-   * already in the chosen category are offered, so the prompt never appears with
-   * nothing to do — which is also why it is not shown for every edit.
+   * category row by row is most of the work of a review. This runs after every
+   * category edit, single or bulk — a selection of three Chewy rows says nothing
+   * about the three the user never scrolled to. Nothing to offer means no
+   * prompt, so it stays quiet on the rows that are genuinely one-offs.
    */
+  function offerSimilar(targets: StatementImportRow[], category: string) {
+    const candidates = similarCandidates(targets, rows, category);
+    if (candidates.length > 0) setSimilarPrompt({ category, rows: candidates });
+  }
+
   function updateCategory(rowId: string, category: string | null) {
     updateRow(rowId, { category });
     if (!category) return;
 
     const target = rows.find((row) => row.id === rowId);
-    if (!target) return;
-
-    const candidates = similarRows(target, rows).filter((row) => row.category !== category);
-    if (candidates.length > 0) setSimilarPrompt({ category, rows: candidates });
+    if (target) offerSimilar([target], category);
   }
 
   function applySimilar(rowIds: string[]) {
@@ -169,7 +172,10 @@ export function StatementReview({
 
   function categoriseSelected(category: string) {
     setPickingBulkCategory(false);
+    // Captured before patchSelected, which clears the selection.
+    const targets = rows.filter((row) => selectedIds.has(row.id));
     patchSelected({ category }, (n) => `${n} transaction${n === 1 ? "" : "s"} set to ${category}`);
+    offerSimilar(targets, category);
   }
 
   async function handleAddManual() {

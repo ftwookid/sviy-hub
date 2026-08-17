@@ -1,4 +1,8 @@
-import { DEFAULT_CATEGORY, isKnownCategory as isCurrentCategory } from "@/lib/categories";
+import {
+  DEFAULT_CATEGORY,
+  isKnownCategory as isCurrentCategory,
+  normalizeCategory
+} from "@/lib/categories";
 import { parseLocalDate, toInputDate } from "@/lib/formatters";
 import type {
   MerchantRule,
@@ -71,7 +75,7 @@ export function merchantMatchKey(descriptor: string) {
 }
 
 /** The text a row should be fingerprinted on — the raw descriptor when it has one. */
-function descriptorOf(row: Pick<StatementImportRow, "description" | "merchant">) {
+function descriptorOf(row: { description?: string | null; merchant?: string | null }) {
   return (row.description || row.merchant || "").trim();
 }
 
@@ -98,21 +102,53 @@ function keysRelated(a: string, b: string) {
   return small.every((token) => big.has(token));
 }
 
+/** The shape both the import review and the books list share for this purpose. */
+export type CategorisableRow = {
+  id: string;
+  date: string;
+  merchant?: string | null;
+  description?: string | null;
+  amount: number;
+  category: string | null;
+  /** Import rows already written to the books — see below. */
+  expense_id?: string | null;
+};
+
 /**
- * Other rows on the same statement that came from the same payee.
+ * Rows from the same payee as `targets` that would actually change.
  *
- * Used to offer "the other five Chewy charges too?" after a single category
- * edit. Rows already written to the books are left out — their category lives
- * on the expense now, and changing it here would not follow.
+ * Used to offer "the other five Chewy charges too?" after a category edit. It
+ * takes a list of targets rather than one row because the same offer has to
+ * follow a bulk edit: selecting three of the six Chewy rows says nothing about
+ * the three the user never scrolled to, so the rest are still worth asking
+ * about. Targets are excluded, and so is anything already in the chosen
+ * category — an empty prompt is worse than no prompt.
+ *
+ * Categories are compared normalized, so a row still carrying an old Schedule C
+ * heading is not offered as "different" from the current one it maps onto.
+ *
+ * Import rows already written to the books are left out: their category lives
+ * on the expense now, and rewriting it here would not follow.
  */
-export function similarRows<T extends Pick<StatementImportRow, "id" | "description" | "merchant" | "expense_id">>(
-  target: T,
-  rows: T[]
+export function similarCandidates<T extends CategorisableRow>(
+  targets: T[],
+  rows: T[],
+  category: string
 ): T[] {
-  const key = merchantMatchKey(descriptorOf(target));
-  if (!key) return [];
+  const keys = new Set(
+    targets.map((target) => merchantMatchKey(descriptorOf(target))).filter(Boolean)
+  );
+  if (keys.size === 0) return [];
+
+  const targetIds = new Set(targets.map((target) => target.id));
+  const picked = normalizeCategory(category);
+
   return rows.filter(
-    (row) => row.id !== target.id && !row.expense_id && merchantMatchKey(descriptorOf(row)) === key
+    (row) =>
+      !targetIds.has(row.id) &&
+      !row.expense_id &&
+      keys.has(merchantMatchKey(descriptorOf(row))) &&
+      normalizeCategory(row.category) !== picked
   );
 }
 
