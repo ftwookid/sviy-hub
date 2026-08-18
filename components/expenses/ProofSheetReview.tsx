@@ -148,10 +148,6 @@ export function ProofSheetReview({
           <p className="text-[14px] text-text-secondary">
             Nothing on this report lines up with a transaction that still needs proof.
           </p>
-          <p className="mx-auto mt-2 max-w-sm text-[13px] leading-snug text-text-tertiary">
-            The charges have to match to the cent, within a few days. If the transactions are not
-            in your books yet, import the statement first and try this again.
-          </p>
           <Button className="mt-4" variant="soft" type="button" onClick={onBack}>
             Back to transactions
           </Button>

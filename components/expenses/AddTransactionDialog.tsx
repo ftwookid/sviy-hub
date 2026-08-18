@@ -113,7 +113,7 @@ export function AddTransactionDialog({
             <h3 className="mt-4 text-[17px] font-medium text-text-primary">{scanSteps[scanStep]}</h3>
             <p className="mx-auto mt-2 max-w-xs text-[13px] leading-snug text-text-secondary">
               {step === "sheet"
-                ? "Leave the page open — the matches come back as a list you can look over before anything is attached."
+                ? "Leave the page open."
                 : "This takes a minute or two. Leave the page open — the transactions come back as a list you can go through."}
             </p>
             {pending ? (
@@ -239,10 +239,6 @@ export function AddTransactionDialog({
         ) : (
           <>
             <DialogHeader title="Prove many with one file" onClose={onClose} />
-            <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
-              One monthly report can stand as the receipt for every charge on it. Drop it here and
-              the charges are matched to your transactions — you confirm before anything is attached.
-            </p>
 
             <label
               className={cn(
