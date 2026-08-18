@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { documentBlock, runJsonPass } from "@/lib/anthropicJson";
 import type { AuditResult, ExtractionResult } from "@/types/statementImport";
 
 /**
@@ -18,13 +18,6 @@ import type { AuditResult, ExtractionResult } from "@/types/statementImport";
  * Both passes are pinned to a JSON schema, so the response is always parseable —
  * there is no regex-scraping or retry-on-bad-JSON path to get wrong.
  */
-
-/** Cheap by design. Override only to test a different model against a statement. */
-const DEFAULT_MODEL = "claude-haiku-4-5";
-
-export function parserModel() {
-  return process.env.TRANSACTION_PARSER_MODEL || DEFAULT_MODEL;
-}
 
 /**
  * Sentinels instead of nullable fields: structured outputs handle a fixed type
@@ -171,65 +164,14 @@ Return the full corrected transaction list — not just the differences. If the 
 First pass output:
 `;
 
-function client() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("Statement scanning is not configured. Set ANTHROPIC_API_KEY.");
-  return new Anthropic({ apiKey });
-}
-
-function documentBlock(base64Pdf: string) {
-  return {
-    type: "document" as const,
-    source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64Pdf }
-  };
-}
-
-function parseJsonResponse<T>(message: Anthropic.Message): T {
-  const text = message.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("");
-
-  if (!text.trim()) throw new Error("The statement scan came back empty.");
-  return JSON.parse(text) as T;
-}
-
-/**
- * Streamed because these responses run long on a multi-page statement, and a
- * non-streaming request that size risks tripping the SDK's HTTP timeout.
- */
-async function runPass<T>(
-  content: Anthropic.ContentBlockParam[],
-  schema: Record<string, unknown>
-): Promise<T> {
-  const stream = client().messages.stream({
-    model: parserModel(),
-    max_tokens: 32000,
-    // Haiku takes a fixed thinking budget rather than adaptive thinking. Enough
-    // room to work through a long table before it starts writing rows out.
-    thinking: { type: "enabled", budget_tokens: 6000 },
-    output_config: { format: { type: "json_schema", schema } },
-    messages: [{ role: "user", content }]
-  });
-
-  const message = await stream.finalMessage();
-
-  if (message.stop_reason === "max_tokens") {
-    throw new Error(
-      "This statement is longer than one scan can hold. Split the PDF and import it in parts."
-    );
-  }
-  if (message.stop_reason === "refusal") {
-    throw new Error("The scan could not process this document.");
-  }
-
-  return parseJsonResponse<T>(message);
-}
+const TOO_LONG =
+  "This statement is longer than one scan can hold. Split the PDF and import it in parts.";
 
 export async function extractStatement(base64Pdf: string): Promise<ExtractionResult> {
-  return runPass<ExtractionResult>(
+  return runJsonPass<ExtractionResult>(
     [documentBlock(base64Pdf), { type: "text", text: EXTRACT_PROMPT }],
-    EXTRACTION_SCHEMA as unknown as Record<string, unknown>
+    EXTRACTION_SCHEMA as unknown as Record<string, unknown>,
+    { tooLongMessage: TOO_LONG }
   );
 }
 
@@ -237,11 +179,12 @@ export async function auditStatement(
   base64Pdf: string,
   firstPass: ExtractionResult
 ): Promise<AuditResult> {
-  return runPass<AuditResult>(
+  return runJsonPass<AuditResult>(
     [
       documentBlock(base64Pdf),
       { type: "text", text: `${AUDIT_PROMPT}${JSON.stringify(firstPass, null, 2)}` }
     ],
-    AUDIT_SCHEMA as unknown as Record<string, unknown>
+    AUDIT_SCHEMA as unknown as Record<string, unknown>,
+    { tooLongMessage: TOO_LONG }
   );
 }

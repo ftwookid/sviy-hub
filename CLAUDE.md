@@ -88,6 +88,63 @@ http://localhost:3000/*
 - Added reports page with Schedule C table, monthly breakdown, and CSV export.
 - Moved Reports into the Expenses section as an Expenses/Reports segmented sub-tab.
 
+### Proof Sheets — one file as proof for many transactions
+
+Some costs arrive as fifty tiny charges plus one monthly report that accounts for
+all of them: parking, tolls, transit. Uploading the same spreadsheet against each
+$2.10 row by hand is the worst job on the page, so the Add dialog has a third
+option — **Prove many with one file** — that does it in one pass.
+
+Flow:
+
+1. Add → `Prove many with one file` → drop a `.xlsx`, `.csv`, or `.pdf`.
+2. `POST /api/receipts/proof-sheet` reads the file and returns proposed matches.
+   Nothing is written and the file is not uploaded yet.
+3. `ProofSheetReview` shows each match as a pair — the transaction on top, the
+   report line that proves it beneath — all pre-ticked.
+4. Confirming uploads the file once as a single receipt, points every ticked
+   transaction at it, and archives it to Drive like any other receipt. The
+   receipt files under the month its charges fall in, and the page lands on that
+   month afterwards.
+
+How a file is read:
+
+- Spreadsheets never pass their numbers through a model. `lib/spreadsheet.ts`
+  unzips the `.xlsx` and returns a plain `string[][]` — no dependency, since an
+  xlsx is a zip of XML — decoding dates via `styles.xml` so Excel serials come
+  back as real dates. The model is asked only to **name the columns**
+  (`mapSheetColumns`), and `linesFromGrid()` reads the values out of the grid.
+  Which column is the amount is a judgement call, and headings vary per vendor
+  ("Total Fee", "Amount Charged"); copying four hundred amounts is not a
+  judgement call, and one misread digit would file proof against a transaction
+  it does not prove.
+- The amount column is the **grand total** for a line, since that is what the
+  card was charged. These reports usually print the fee and the tax separately
+  as well, and again inside the total.
+- A PDF report has no grid to read, so there the model transcribes
+  (`transcribeProofPdf`). Same line shape, same review screen.
+- `lib/anthropicJson.ts` holds the one schema-pinned model call both this and the
+  statement scan use.
+
+How lines are matched (`matchProofLines` in `lib/proofSheets.ts`):
+
+- Amounts must agree to the cent, and the dates must fall in a window running
+  from 2 days before to 6 days after the report's date — cards settle late, and
+  a Saturday charge posts on the Monday.
+- Only transactions with **no receipt yet** are candidates. A row that already
+  has one has better proof than a summary, and replacing it silently would
+  retire a file someone chose.
+- Candidate pairs are ranked by how close the dates are and claimed one-to-one,
+  so three identical $2.10 charges never all match the single nearest row.
+- Matching is scoped to the caller's own transactions even for an admin.
+- Nothing about the match is decided by a model. A wrong match is a receipt
+  attached to a transaction it does not prove — the exact thing an audit looks
+  for — so the review screen exists and every match can be unticked.
+
+Because one receipt can now cover fifty transactions, `POST /api/receipts/discard`
+refuses to retire a receipt while any expense still points at it. Deleting one
+parking charge must not trash the file proving the other forty-nine.
+
 ### Navigation Redesign
 
 - Removed the old top navigation header.
@@ -434,6 +491,14 @@ Cancel and delete:
 - `lib/statementImportClient.ts`: Browser-side import queries, confirm, merchant memory.
 - `components/expenses/StatementDropzone.tsx`: PDF drop target and scan progress.
 - `components/expenses/ImportRowCard.tsx`: One reviewable transaction.
+- `app/api/receipts/proof-sheet/route.ts`: Reads a vendor report and proposes the
+  transactions it proves. Writes nothing.
+- `lib/spreadsheet.ts`: Dependency-free `.xlsx`/`.csv` reader; grid preview for the model.
+- `lib/proofSheets.ts`: Reads charges out of the grid, and the matching rules.
+- `lib/proofSheetExtraction.ts`: Column mapping (spreadsheets) and transcription (PDFs).
+- `lib/proofSheetClient.ts`: Browser-side scan, then upload-and-attach on confirm.
+- `components/expenses/ProofSheetReview.tsx`: Confirming what a report proves.
+- `lib/anthropicJson.ts`: The shared schema-pinned model call.
 - `components/expenses/CategoryPicker.tsx`: Category sheet — close button, and
   the row's current category shown above the list.
 - `components/expenses/SimilarCategoryDialog.tsx`: "Apply this to the other

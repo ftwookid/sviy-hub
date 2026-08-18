@@ -8,6 +8,12 @@ import { resolveArchiveTarget } from "@/lib/receiptArchive";
  *
  * The Drive copy is trashed rather than deleted, so it stays recoverable for 30
  * days — removing a transaction should tidy the archive, never destroy proof.
+ *
+ * A receipt can cover many transactions: one parking report stands as proof for
+ * a whole month of charges. So retiring is refused while anything still points
+ * at it — deleting one $2.10 charge must not trash the file proving the other
+ * forty-nine. Callers treat that as success, because from their side it is: the
+ * transaction is gone and the archive is still correct.
  */
 export async function POST(request: Request) {
   const auth = await authenticateRequest(request);
@@ -29,6 +35,17 @@ export async function POST(request: Request) {
 
   if (readError) return NextResponse.json({ error: "Could not read that receipt." }, { status: 500 });
   if (!receipt) return NextResponse.json({ trashed: false, reason: "not-found" });
+
+  // Counted after the caller has already saved its own change, so a receipt
+  // still in use here is genuinely still in use.
+  const { count: stillAttached } = await admin
+    .from("expenses")
+    .select("id", { count: "exact", head: true })
+    .eq("receipt_id", receipt.id);
+
+  if ((stillAttached ?? 0) > 0) {
+    return NextResponse.json({ trashed: false, reason: "in-use", stillAttached });
+  }
 
   let trashed = false;
   if (receipt.drive_file_id) {

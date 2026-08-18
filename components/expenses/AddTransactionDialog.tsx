@@ -1,7 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronRight, FileText, Loader2, PenLine, UploadCloud } from "lucide-react";
+import {
+  ChevronRight,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  PenLine,
+  UploadCloud
+} from "lucide-react";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -25,12 +32,19 @@ const SCAN_STEPS = [
   "Almost there — matching what you have categorised before..."
 ];
 
+/** The report path is a single pass over a table, so it is over much sooner. */
+const SHEET_SCAN_STEPS = [
+  "Reading the report...",
+  "Matching its charges against your transactions..."
+];
+
 export function AddTransactionDialog({
   unfinished,
   scanning,
   scanError,
   onManual,
   onFile,
+  onProofSheet,
   onResume,
   onClose
 }: {
@@ -39,36 +53,42 @@ export function AddTransactionDialog({
   scanError: string;
   onManual: () => void;
   onFile: (file: File) => void;
+  onProofSheet: (file: File) => void;
   onResume: (importId: string) => void;
   onClose: () => void;
 }) {
-  const [step, setStep] = useState<"choose" | "upload">("choose");
+  const [step, setStep] = useState<"choose" | "upload" | "sheet">("choose");
   const [dragging, setDragging] = useState(false);
   const [scanStep, setScanStep] = useState(0);
   const [pending, setPending] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sheetInputRef = useRef<HTMLInputElement>(null);
 
   // Nothing to close to mid-scan: the passes keep running either way, and the
   // dialog is the only place their outcome can land.
   useEscapeKey(onClose, !scanning);
 
+  const scanSteps = step === "sheet" ? SHEET_SCAN_STEPS : SCAN_STEPS;
+
   function start(file: File | undefined) {
     if (!file) return;
     setPending(file);
     setScanStep(0);
-    onFile(file);
+    if (step === "sheet") onProofSheet(file);
+    else onFile(file);
 
     // The scan reports no progress of its own, so advance the copy on a timer.
     // A message that keeps changing is the honest way to say "still working".
+    const steps = step === "sheet" ? SHEET_SCAN_STEPS : SCAN_STEPS;
     let index = 0;
     const timer = window.setInterval(() => {
       index += 1;
-      if (index >= SCAN_STEPS.length) {
+      if (index >= steps.length) {
         window.clearInterval(timer);
         return;
       }
       setScanStep(index);
-    }, 12_000);
+    }, step === "sheet" ? 8_000 : 12_000);
   }
 
   return (
@@ -90,10 +110,11 @@ export function AddTransactionDialog({
             <span className="mx-auto grid h-14 w-14 place-items-center rounded-[20px] bg-accent-soft text-accent">
               <Loader2 size={24} strokeWidth={1.6} className="animate-spin" />
             </span>
-            <h3 className="mt-4 text-[17px] font-medium text-text-primary">{SCAN_STEPS[scanStep]}</h3>
+            <h3 className="mt-4 text-[17px] font-medium text-text-primary">{scanSteps[scanStep]}</h3>
             <p className="mx-auto mt-2 max-w-xs text-[13px] leading-snug text-text-secondary">
-              This takes a minute or two. Leave the page open — the transactions come back as a
-              list you can go through.
+              {step === "sheet"
+                ? "Leave the page open."
+                : "This takes a minute or two. Leave the page open — the transactions come back as a list you can go through."}
             </p>
             {pending ? (
               <p className="mt-3 text-[12px] text-text-tertiary">
@@ -117,6 +138,12 @@ export function AddTransactionDialog({
                 title="Upload a statement"
                 caption="Every transaction on a bank or card PDF, at once."
                 onClick={() => setStep("upload")}
+              />
+              <ChoiceRow
+                icon={FileSpreadsheet}
+                title="Prove many with one file"
+                caption="A vendor report — parking, tolls — that covers a month of charges."
+                onClick={() => setStep("sheet")}
               />
             </div>
 
@@ -149,7 +176,7 @@ export function AddTransactionDialog({
               </div>
             ) : null}
           </>
-        ) : (
+        ) : step === "upload" ? (
           <>
             <DialogHeader title="Upload a statement" onClose={onClose} />
             <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
@@ -191,6 +218,65 @@ export function AddTransactionDialog({
                 onChange={(event) => {
                   start(event.target.files?.[0]);
                   if (inputRef.current) inputRef.current.value = "";
+                }}
+              />
+            </label>
+
+            {scanError ? (
+              <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">
+                {scanError}
+              </p>
+            ) : null}
+
+            <button
+              className="focus-ring mt-3 text-[13px] text-text-secondary transition hover:text-text-primary"
+              type="button"
+              onClick={() => setStep("choose")}
+            >
+              Back
+            </button>
+          </>
+        ) : (
+          <>
+            <DialogHeader title="Prove many with one file" onClose={onClose} />
+
+            <label
+              className={cn(
+                "focus-ring-within mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[18px] border border-dashed px-4 py-8 text-center transition",
+                dragging ? "border-accent bg-accent-soft" : "border-border-emphasis bg-page"
+              )}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                start(event.dataTransfer.files?.[0]);
+              }}
+            >
+              <span className="grid h-12 w-12 place-items-center rounded-[16px] bg-subtle text-text-tertiary">
+                <FileSpreadsheet size={22} strokeWidth={1.5} />
+              </span>
+              <span className="mt-3 text-[15px] font-medium text-text-primary">
+                Drop the report here
+              </span>
+              <span className="mt-1 text-[12.5px] text-text-tertiary">
+                Spreadsheet or PDF — .xlsx, .csv, .pdf
+              </span>
+              <span className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-text-primary px-3.5 text-[14px] font-medium text-white">
+                <FileText size={16} strokeWidth={1.7} />
+                Choose a file
+              </span>
+              <input
+                ref={sheetInputRef}
+                className="sr-only"
+                type="file"
+                accept=".xlsx,.csv,.tsv,.pdf,application/pdf"
+                onChange={(event) => {
+                  start(event.target.files?.[0]);
+                  if (sheetInputRef.current) sheetInputRef.current.value = "";
                 }}
               />
             </label>

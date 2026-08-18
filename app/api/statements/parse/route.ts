@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auditStatement, extractStatement, parserModel } from "@/lib/statementExtraction";
+import { parserModel } from "@/lib/anthropicJson";
+import { auditStatement, extractStatement } from "@/lib/statementExtraction";
 import { sanitizeFilename } from "@/lib/formatters";
 import { authenticateRequest } from "@/lib/serverAuth";
 import {
