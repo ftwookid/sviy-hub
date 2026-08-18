@@ -7,7 +7,6 @@ import { DateField } from "@/components/ui/DateField";
 import { cn } from "@/lib/cn";
 import { formatCurrency, todayInputValue } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
-import { loadUsers, type UserOption } from "@/lib/userLabels";
 import { normalizeCostKind } from "@/lib/vehicle";
 import { VEHICLE_COST_KINDS } from "@/types/vehicle";
 import type { VehicleCost, VehicleCostKind, VehicleProfile } from "@/types/vehicle";
@@ -21,8 +20,6 @@ import type { VehicleCost, VehicleCostKind, VehicleProfile } from "@/types/vehic
  * only an admin gets this card.
  */
 export function VehicleSettingsCard({ userId }: { userId: string }) {
-  const [ownerId, setOwnerId] = useState(userId);
-  const [owners, setOwners] = useState<UserOption[]>([]);
   const [profile, setProfile] = useState<VehicleProfile | null>(null);
   const [costs, setCosts] = useState<VehicleCost[]>([]);
   const [error, setError] = useState("");
@@ -37,24 +34,15 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
   const [costNote, setCostNote] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    loadUsers().then((list) => {
-      if (active) setOwners(list);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const load = useCallback(async () => {
-    if (!supabase || !ownerId) return;
+    if (!supabase) return;
     setLoading(true);
     setError("");
 
+    // One car, one ledger, shared like the rest of the books.
     const [{ data: profileData, error: profileError }, { data: costData, error: costError }] = await Promise.all([
-      supabase.from("vehicle_profiles").select("*").eq("user_id", ownerId).maybeSingle(),
-      supabase.from("vehicle_costs").select("*").eq("user_id", ownerId).order("incurred_on", { ascending: false })
+      supabase.from("vehicle_profiles").select("*").order("updated_at", { ascending: false }).limit(1),
+      supabase.from("vehicle_costs").select("*").order("incurred_on", { ascending: false })
     ]);
 
     if (profileError || costError) {
@@ -63,13 +51,13 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
       return;
     }
 
-    const nextProfile = (profileData ?? null) as VehicleProfile | null;
+    const nextProfile = (((profileData ?? []) as VehicleProfile[])[0] ?? null) as VehicleProfile | null;
     setProfile(nextProfile);
     setMpgInput(nextProfile?.mpg != null ? String(nextProfile.mpg) : "");
     setFuelPriceInput(nextProfile?.fuel_price != null ? String(nextProfile.fuel_price) : "");
     setCosts(((costData ?? []) as VehicleCost[]).map((cost) => ({ ...cost, kind: normalizeCostKind(cost.kind) })));
     setLoading(false);
-  }, [ownerId]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -81,15 +69,18 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
 
   async function saveProfile(next: { mpg?: string; fuel_price?: string }) {
     if (!supabase) return;
+    // Update the existing row wherever it sits, so a second admin editing does
+    // not open a rival car alongside the first.
     const { error: saveError } = await supabase.from("vehicle_profiles").upsert(
       {
-        user_id: ownerId,
+        ...(profile ? { id: profile.id } : {}),
+        user_id: profile?.user_id ?? userId,
         mpg: next.mpg !== undefined ? (next.mpg === "" ? null : Number(next.mpg)) : mpg,
         fuel_price:
           next.fuel_price !== undefined ? (next.fuel_price === "" ? null : Number(next.fuel_price)) : fuelPrice,
         updated_at: new Date().toISOString()
       },
-      { onConflict: "user_id" }
+      { onConflict: profile ? "id" : "user_id" }
     );
     if (saveError) {
       setError(saveError.message);
@@ -105,7 +96,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
 
     setSaving(true);
     const { error: insertError } = await supabase.from("vehicle_costs").insert({
-      user_id: ownerId,
+      user_id: userId,
       incurred_on: costDate,
       kind: costKind,
       amount,
@@ -147,20 +138,6 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
     <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-medium leading-tight text-text-primary">Car</h2>
-        {owners.length > 1 ? (
-          <select
-            aria-label="Whose car"
-            className="focus-ring h-9 rounded-xl border border-border bg-subtle px-2.5 text-[13px] font-medium text-text-primary"
-            value={ownerId}
-            onChange={(event) => setOwnerId(event.target.value)}
-          >
-            {owners.map((owner) => (
-              <option key={owner.id} value={owner.id}>
-                {owner.label}
-              </option>
-            ))}
-          </select>
-        ) : null}
       </div>
 
       {error ? (

@@ -132,10 +132,6 @@ export default function MileagePage() {
   const importOwnerId = selectedOwnerId !== "all" ? selectedOwnerId : user?.id ?? "";
   const importOwnerLabel = ownerLabels[importOwnerId] ?? "your account";
 
-  // A car belongs to one person, so "Everyone" cannot ask what it costs. The
-  // signed-in user's own car is the sensible thing to show, named so it is
-  // never mistaken for a household total.
-  const carOwnerId = selectedOwnerId !== "all" ? selectedOwnerId : user?.id ?? "";
 
   useEffect(() => {
     let active = true;
@@ -188,12 +184,12 @@ export default function MileagePage() {
   }, [loadDriving]);
 
   const loadCar = useCallback(async () => {
-    if (!supabase || !carOwnerId) return;
+    if (!supabase) return;
     setCarError("");
 
     const [{ data: profileData, error: profileError }, { data: costData, error: costError }] = await Promise.all([
-      supabase.from("vehicle_profiles").select("*").eq("user_id", carOwnerId).maybeSingle(),
-      supabase.from("vehicle_costs").select("*").eq("user_id", carOwnerId).order("incurred_on", { ascending: false })
+      supabase.from("vehicle_profiles").select("*").order("updated_at", { ascending: false }).limit(1),
+      supabase.from("vehicle_costs").select("*").order("incurred_on", { ascending: false })
     ]);
 
     if (profileError || costError) {
@@ -201,9 +197,9 @@ export default function MileagePage() {
       return;
     }
 
-    setProfile((profileData ?? null) as VehicleProfile | null);
+    setProfile((((profileData ?? []) as VehicleProfile[])[0] ?? null) as VehicleProfile | null);
     setCosts(((costData ?? []) as VehicleCost[]).map((cost) => ({ ...cost, kind: normalizeCostKind(cost.kind) })));
-  }, [carOwnerId]);
+  }, []);
 
   useEffect(() => {
     loadCar();
@@ -301,12 +297,15 @@ export default function MileagePage() {
 
   const maxChartMiles = Math.max(...chartData.map((item) => item.miles), 1);
 
-  // The car is one person's, so it is measured against that person's miles even
-  // when the page is showing everyone's.
-  const carTripPool = useMemo(
-    () => (selectedOwnerId === "all" ? trips.filter((trip) => trip.user_id === carOwnerId) : trips),
-    [carOwnerId, selectedOwnerId, trips]
-  );
+  /**
+   * Every trip, whoever drove it, and regardless of the driver filter above.
+   *
+   * The car's costs are one shared ledger that cannot be split per driver, so
+   * dividing them by one person's miles produced nonsense — "the car takes
+   * 1039% of the deduction" when it was really taking a fraction of the
+   * household's. Shared costs have to meet shared miles.
+   */
+  const carTripPool = trips;
 
   const mpg = profile?.mpg != null ? Number(profile.mpg) : null;
   const fuelPrice = profile?.fuel_price != null ? Number(profile.fuel_price) : null;
@@ -446,7 +445,6 @@ export default function MileagePage() {
     "focus-ring h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] text-text-primary placeholder:text-text-tertiary";
   const compactInput =
     "focus-ring mt-0.5 h-8 w-full rounded-lg border border-border bg-subtle px-2 text-[14px] text-text-primary placeholder:text-text-tertiary";
-  const carOwnerName = ownerLabels[carOwnerId] ?? "your";
 
   return (
     <AppShell user={user}>
@@ -646,7 +644,7 @@ export default function MileagePage() {
             <section className="rounded-[16px] border border-border bg-surface">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-3 pt-3">
                 <h2 className="text-[14px] font-medium leading-tight text-text-primary">
-                  {selectedOwnerId === "all" ? `${carOwnerName}’s car` : "The car"} · since Jan 1 {epochYear}
+                  The car · since Jan 1 {epochYear}
                 </h2>
                 {!configured ? (
                   <span className="text-[12px] text-text-tertiary">

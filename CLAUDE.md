@@ -273,15 +273,19 @@ bracket, so that number overstated the car by roughly the inverse of the bracket
 
 Entering the car's numbers happens in **Profile**, not here
 (`components/VehicleSettingsCard.tsx`, admin only): fuel economy, pump price, and
-the cost ledger, with a driver picker for whose car. It is setup, done a few
+the cost ledger. It is setup, done a few
 times a year; Mileage is opened to read totals. Notes on already-logged costs are
 editable in place — the note most likely to need fixing is one written months
 ago. Dates use `DateField`, never a bare `<input type="date">`, which renders the
 browser's own picker instead of the app's.
 
-A car belongs to one person, so with the driver filter on **Everyone** the car
-half falls back to the signed-in user's own car, measured against *their* miles,
-and the heading names whose car it is.
+The car is the household's, like every other table. Its costs are one ledger
+that cannot be split per driver, so the block reads **every** trip regardless of
+the driver filter above. Dividing shared costs by one person's miles produced
+"the car takes 1039% of the deduction" when the true figure was 112% — shared
+costs have to meet shared miles. `vehicle_profiles` is read as a singleton (most
+recently updated row) and the settings card updates that row in place, so a
+second admin editing cannot open a rival car alongside the first.
 
 ### Clients Section
 
@@ -685,6 +689,29 @@ Cancel and delete:
 - `types/client.ts`: Client and pet TypeScript types.
 - `supabase/clients-schema.sql`: SQL for client/pet tables.
 - `supabase/schema.sql`: Expenses schema plus profiles table, helper functions, and triggers.
+
+## Verifying UI Changes
+
+The dev server is behind Supabase auth, so an unauthenticated request only proves
+a route returns 200. Anything that renders must be checked signed in, against
+real data — twice, "compiles and serves clean" has hidden a bug that was obvious
+on screen.
+
+No password is needed, and none should ever be typed. From a throwaway script in
+the project root (module resolution fails outside it), read `.env.local`, then:
+
+1. Service-role client → `auth.admin.generateLink({ type: "magiclink", email })`.
+2. Anon client → `auth.verifyOtp({ token_hash: link.properties.hashed_token,
+   type: "magiclink" })`, which returns a real session.
+3. Write `{ key: "sb-<project-ref>-auth-token", session }` to
+   `public/devsession.local.json`; in the browser pane
+   `fetch("/devsession.local.json")` then `localStorage.setItem(k, v)`. Serving it
+   same-origin keeps the token out of the transcript. The browser pane refuses
+   external hosts, which is why the token is exchanged server-side rather than by
+   opening Supabase's verify URL.
+4. Navigate to the page and read it back.
+5. **Delete the script and `public/devsession.local.json` immediately** — they
+   hold a live refresh token and must never be committed.
 
 ## Verification Completed
 
