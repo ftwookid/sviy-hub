@@ -882,11 +882,17 @@ Then test the statement import end to end:
 
 Then run `supabase/house-sitting-schema.sql` in Supabase. It is re-runnable and adds the `house_sittings.status` column that cancel/restore needs. Until it runs, the calendar still loads and delete still works, but cancelling shows a message asking for this migration.
 
-Then create the private Supabase Storage bucket if it does not exist yet:
+Then create the private Supabase Storage buckets if they do not exist yet:
 
 ```text
+receipts
 pet-photos
 ```
+
+The project had no `receipts` bucket, so every receipt upload — the slide-over,
+the quick attach, and `Use as proof for N transactions` — failed with
+`Bucket not found`. It was created (private) on 17 August 2026; the shared
+storage policies in `supabase/shared-access-schema.sql` already covered it.
 
 Then test the full client workflow in the browser:
 
