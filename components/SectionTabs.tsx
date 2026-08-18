@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
  */
 const TABS = [
   { label: "Transactions", href: "/", match: ["/", "/import"] },
-  { label: "Driving", href: "/mileage", match: ["/mileage", "/car"] },
+  { label: "Mileage", href: "/mileage", match: ["/mileage", "/car"] },
   { label: "Reports", href: "/reports", match: ["/reports"] }
 ];
 

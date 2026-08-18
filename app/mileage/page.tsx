@@ -47,6 +47,11 @@ function compactMoney(value: number) {
   return `$${Math.round(value)}`;
 }
 
+/**
+ * A cell in a strip, not a card. Seven of these each carrying their own border,
+ * shadow and padding is seven times the chrome for the same seven numbers — and
+ * a reserved-but-empty detail line under each one is pure wasted viewport.
+ */
 function Stat({
   label,
   value,
@@ -59,22 +64,30 @@ function Stat({
   tone?: "good" | "bad";
 }) {
   return (
-    <div className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-      <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
+    <div className="min-w-0 px-3 py-2.5 first:pl-0 last:pr-0">
+      <div className="truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
       <div
         className={cn(
-          "mt-2.5 text-[24px] font-medium leading-none tracking-[-0.01em]",
+          "mt-1.5 text-[21px] font-medium leading-none tracking-[-0.01em]",
           tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
         )}
       >
         {value}
       </div>
-      <div className="mt-1.5 h-4 text-[12px] text-text-tertiary">{detail ?? ""}</div>
+      {detail ? <div className="mt-1 truncate text-[12px] text-text-tertiary">{detail}</div> : null}
     </div>
   );
 }
 
-export default function DrivingPage() {
+function StatStrip({ children, columns }: { children: React.ReactNode; columns: string }) {
+  return (
+    <section className={cn("grid divide-x divide-border rounded-[16px] border border-border bg-surface px-3", columns)}>
+      {children}
+    </section>
+  );
+}
+
+export default function MileagePage() {
   const now = useMemo(() => new Date(), []);
   const { user, authLoading } = useAuthUser();
   const [uploads, setUploads] = useState<MileageUpload[]>([]);
@@ -250,6 +263,7 @@ export default function DrivingPage() {
     return { rows, busiestIndex: busiest?.miles ? busiest.index : -1 };
   }, [periodTrips]);
   const maxWeekdayMiles = Math.max(...weekdayData.rows.map((row) => row.miles), 1);
+  const maxWeekdayMoney = Math.max(...weekdayData.rows.map((row) => row.money), 0.01);
 
   const chartData = useMemo(() => {
     const milesByKey = new Map<string, number>();
@@ -480,7 +494,7 @@ export default function DrivingPage() {
 
   return (
     <AppShell user={user}>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <SectionTabs />
 
         <div className="flex flex-wrap items-center gap-2">
@@ -564,7 +578,7 @@ export default function DrivingPage() {
           <SkeletonRows />
         ) : (
           <>
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <StatStrip columns="grid-cols-3">
               <Stat
                 label="Miles"
                 value={totals.miles.toFixed(1)}
@@ -573,23 +587,29 @@ export default function DrivingPage() {
               <Stat
                 label="Deduction"
                 value={formatCurrency(totals.deduction)}
-                detail={totals.ratePerMile ? `${(totals.ratePerMile * 100).toFixed(1)}¢ per mile` : undefined}
+                detail={totals.ratePerMile ? `${(totals.ratePerMile * 100).toFixed(1)}¢/mi` : undefined}
               />
-              <Stat label="Average drive" value={`${averageTrip.toFixed(1)} mi`} />
-            </section>
+              <Stat
+                label="Average drive"
+                value={`${averageTrip.toFixed(1)} mi`}
+                detail={weekdayData.busiestIndex >= 0 ? `busiest ${WEEKDAYS[weekdayData.busiestIndex].slice(0, 3)}` : undefined}
+              />
+            </StatStrip>
 
-            <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-[15px] font-medium leading-tight text-text-primary">
+            {/* One container: the run over time, and the same period folded onto a
+                week. Two questions about the same bars do not need two cards. */}
+            <section className="rounded-[16px] border border-border bg-surface">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-3">
+                <h2 className="text-[14px] font-medium leading-tight text-text-primary">
                   {period === "month" ? "Daily" : "Monthly"} · {periodName}
                 </h2>
-                <div className="inline-grid h-8 grid-cols-2 rounded-lg border border-border bg-subtle p-0.5">
+                <div className="inline-grid h-7 grid-cols-2 rounded-lg border border-border bg-subtle p-0.5">
                   {(["miles", "money"] as ChartUnit[]).map((unit) => (
                     <button
                       key={unit}
                       type="button"
                       className={cn(
-                        "focus-ring min-w-[58px] rounded-[7px] px-2 text-[12px] font-medium transition duration-150 ease-out",
+                        "focus-ring min-w-[54px] rounded-[6px] px-2 text-[12px] font-medium transition duration-150 ease-out",
                         chartUnit === unit ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
                       )}
                       onClick={() => setChartUnit(unit)}
@@ -599,9 +619,10 @@ export default function DrivingPage() {
                   ))}
                 </div>
               </div>
-              <div className="mt-5 overflow-x-auto pb-5">
+
+              <div className="mt-3 overflow-x-auto px-3 pb-5">
                 <div
-                  className="grid h-44 items-end gap-1.5 border-b border-border"
+                  className="grid h-36 items-end gap-1.5 border-b border-border"
                   style={{
                     gridTemplateColumns: `repeat(${Math.max(chartData.length, 1)}, minmax(0, 1fr))`,
                     minWidth:
@@ -618,10 +639,10 @@ export default function DrivingPage() {
                           {chartUnit === "miles" ? value.toFixed(0) : compactMoney(value)}
                         </span>
                         <div
-                          className={cn("w-full rounded-t-[5px]", value ? "bg-accent" : "bg-subtle")}
-                          style={{ height: value ? `max(6px, ${(value / maxChartValue) * 88}%)` : "2px" }}
+                          className={cn("w-full rounded-t-[4px]", value ? "bg-accent" : "bg-subtle")}
+                          style={{ height: value ? `max(5px, ${(value / maxChartValue) * 88}%)` : "2px" }}
                         />
-                        <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-text-tertiary">
+                        <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-text-tertiary">
                           {item.axisLabel}
                         </span>
                       </div>
@@ -629,38 +650,33 @@ export default function DrivingPage() {
                   })}
                 </div>
               </div>
-            </section>
 
-            <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-              <h2 className="text-[15px] font-medium leading-tight text-text-primary">By weekday</h2>
-              <div className="mt-3 space-y-2.5">
+              {/* Seven columns rather than seven stacked rows — same information,
+                  a third of the height, and the shape of the week reads at once. */}
+              <div className="grid grid-cols-7 gap-1.5 border-t border-border px-3 py-3">
                 {weekdayData.rows.map((day) => {
                   const busiest = day.index === weekdayData.busiestIndex;
+                  const value = chartUnit === "miles" ? day.miles : day.money;
+                  const peak = chartUnit === "miles" ? maxWeekdayMiles : maxWeekdayMoney;
                   return (
-                    <div key={day.label} className="grid grid-cols-[38px_1fr_60px_66px] items-center gap-3">
+                    <div key={day.label} className="flex min-w-0 flex-col items-center gap-1">
+                      <span className={cn("text-[10px]", busiest ? "font-medium text-text-primary" : "text-text-tertiary")}>
+                        {chartUnit === "miles" ? day.miles.toFixed(0) : compactMoney(day.money)}
+                      </span>
+                      <div className="flex h-10 w-full items-end">
+                        <div
+                          className={cn("w-full rounded-t-[4px]", busiest ? "bg-text-primary" : value ? "bg-accent/70" : "bg-subtle")}
+                          style={{ height: value ? `max(4px, ${(value / peak) * 100}%)` : "2px" }}
+                        />
+                      </div>
                       <span
                         className={cn(
-                          "text-[12px]",
+                          "text-[11px]",
                           busiest ? "font-medium text-text-primary" : "text-text-secondary"
                         )}
                       >
                         {day.label.slice(0, 3)}
                       </span>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-subtle">
-                        <div
-                          className={cn("h-full rounded-full", busiest ? "bg-text-primary" : "bg-accent")}
-                          style={{ width: `${day.miles ? Math.max(3, (day.miles / maxWeekdayMiles) * 100) : 0}%` }}
-                        />
-                      </div>
-                      <span
-                        className={cn(
-                          "text-right text-[12px]",
-                          busiest ? "font-medium text-text-primary" : "text-text-secondary"
-                        )}
-                      >
-                        {day.miles.toFixed(1)} mi
-                      </span>
-                      <span className="text-right text-[12px] text-text-tertiary">{formatCurrency(day.money)}</span>
                     </div>
                   );
                 })}
