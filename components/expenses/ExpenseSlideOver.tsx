@@ -10,6 +10,7 @@ import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
 import { DEFAULT_CATEGORY, EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { deleteExpenses } from "@/lib/expenseDelete";
 import { proofState } from "@/lib/expenses";
 import { todayInputValue } from "@/lib/formatters";
 import { PAYMENT_METHODS } from "@/lib/paymentMethods";
@@ -83,6 +84,7 @@ export function ExpenseSlideOver({
   const [waived, setWaived] = useState(expense?.proof_waived ?? false);
   const [proofNote, setProofNote] = useState(expense?.proof_note ?? "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -223,27 +225,15 @@ export function ExpenseSlideOver({
   async function handleDelete() {
     if (!supabase || !expense) return;
     setDeleting(true);
+    setDeleteError("");
     try {
-      const { error } = await supabase.from("expenses").delete().eq("id", expense.id);
-      if (error) throw error;
-
-      if (attachedReceipt) {
-        try {
-          await authedFetch("/api/receipts/discard", {
-            method: "POST",
-            body: JSON.stringify({ receiptId: attachedReceipt.id })
-          });
-        } catch {
-          // The expense is already gone; a stranded Drive file is the lesser
-          // problem and stays recoverable from the folder itself.
-        }
-      }
-
+      await deleteExpenses([expense.id], attachedReceipt ? [attachedReceipt.id] : []);
       setConfirmingDelete(false);
       onDeleted();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Could not delete this expense.");
-      setConfirmingDelete(false);
+      // Kept on the dialog rather than behind it, so the reason is where the
+      // user just clicked.
+      setDeleteError(error instanceof Error ? error.message : "Could not delete this expense.");
     } finally {
       setDeleting(false);
     }
@@ -482,8 +472,12 @@ export function ExpenseSlideOver({
           confirmLabel="Delete"
           cancelLabel="Keep it"
           busy={deleting}
+          error={deleteError}
           onConfirm={handleDelete}
-          onCancel={() => setConfirmingDelete(false)}
+          onCancel={() => {
+            setDeleteError("");
+            setConfirmingDelete(false);
+          }}
         />
       ) : null}
     </div>
