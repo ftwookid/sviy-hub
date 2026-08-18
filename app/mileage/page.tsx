@@ -26,7 +26,7 @@ import {
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import { labelFor, loadUsers, type UserOption } from "@/lib/userLabels";
-import { carEconomics, normalizeCostKind, savingsAtMpg } from "@/lib/vehicle";
+import { carEconomics, compareReplacement, normalizeCostKind } from "@/lib/vehicle";
 import type { MileageTrip, MileageUpload } from "@/types/mileage";
 import { VEHICLE_COST_KINDS } from "@/types/vehicle";
 import type { VehicleCost, VehicleCostKind, VehicleProfile } from "@/types/vehicle";
@@ -111,7 +111,10 @@ export default function MileagePage() {
   const [costs, setCosts] = useState<VehicleCost[]>([]);
   const [mpgInput, setMpgInput] = useState("");
   const [fuelPriceInput, setFuelPriceInput] = useState("");
-  const [targetMpg, setTargetMpg] = useState("");
+  const [candidateMpg, setCandidateMpg] = useState("");
+  const [candidatePayment, setCandidatePayment] = useState("");
+  const [candidateUpkeep, setCandidateUpkeep] = useState("500");
+  const [showLedger, setShowLedger] = useState(false);
   const [costDate, setCostDate] = useState(todayInputValue());
   const [costKind, setCostKind] = useState<VehicleCostKind>("Repair");
   const [costAmount, setCostAmount] = useState("");
@@ -301,43 +304,144 @@ export default function MileagePage() {
 
   // The car is one person's, so it is measured against that person's miles even
   // when the page is showing everyone's.
-  const carTrips = useMemo(
-    () => (selectedOwnerId === "all" ? periodTrips.filter((trip) => trip.user_id === carOwnerId) : periodTrips),
-    [carOwnerId, periodTrips, selectedOwnerId]
+  const carTripPool = useMemo(
+    () => (selectedOwnerId === "all" ? trips.filter((trip) => trip.user_id === carOwnerId) : trips),
+    [carOwnerId, selectedOwnerId, trips]
   );
-  const carTotals = totalsFor(carTrips);
-  const periodCosts = useMemo(() => costs.filter((cost) => inPeriod(cost.incurred_on)), [costs, inPeriod]);
 
   const mpg = profile?.mpg != null ? Number(profile.mpg) : null;
   const fuelPrice = profile?.fuel_price != null ? Number(profile.fuel_price) : null;
-  const economics = useMemo(
-    () =>
-      carEconomics({
-        miles: carTotals.miles,
-        deduction: carTotals.deduction,
+  const configured = Boolean(mpg && fuelPrice);
+
+  /** One window of driving priced up: the same sum for this period and the last. */
+  const statsForWindow = useCallback(
+    (matches: (isoDate: string) => boolean) => {
+      const windowTrips = carTripPool.filter((trip) => matches(trip.start_at));
+      const windowCosts = costs.filter((cost) => matches(cost.incurred_on));
+      const totals = totalsFor(windowTrips);
+      return carEconomics({
+        miles: totals.miles,
+        benchmarkPerMile: totals.ratePerMile,
         mpg,
         fuelPrice,
-        costs: periodCosts
-      }),
-    [carTotals.deduction, carTotals.miles, fuelPrice, mpg, periodCosts]
-  );
-  const configured = Boolean(mpg && fuelPrice);
-  const whatIf = useMemo(
-    () => savingsAtMpg({ miles: carTotals.miles, fuelPrice, currentMpg: mpg, targetMpg: Number(targetMpg) }),
-    [carTotals.miles, fuelPrice, mpg, targetMpg]
+        costs: windowCosts
+      });
+    },
+    [carTripPool, costs, fuelPrice, mpg]
   );
 
-  const byKind = useMemo(() => {
-    const rows = VEHICLE_COST_KINDS.filter((kind) => kind !== "Fuel")
-      .map((kind) => ({
-        kind: kind as VehicleCostKind,
-        amount: periodCosts.filter((cost) => cost.kind === kind).reduce((sum, cost) => sum + Number(cost.amount), 0)
-      }))
-      .filter((row) => row.amount > 0);
-    if (economics.fuelCost > 0) rows.unshift({ kind: "Fuel" as VehicleCostKind, amount: economics.fuelCost });
-    return rows;
-  }, [economics.fuelCost, periodCosts]);
-  const maxKind = Math.max(...byKind.map((row) => row.amount), 1);
+  const car = useMemo(() => statsForWindow(inPeriod), [inPeriod, statsForWindow]);
+
+  // The same length of time immediately before, so "up from" means something.
+  const previousCar = useMemo(() => {
+    if (period === "all") return null;
+    if (period === "year") {
+      const previousYear = selectedYear - 1;
+      return statsForWindow((iso) => Number(iso.slice(0, 4)) === previousYear);
+    }
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const previous = new Date(year, month - 2, 1);
+    const key = dateKey(previous).slice(0, 7);
+    return statsForWindow((iso) => iso.slice(0, 7) === key);
+  }, [period, selectedMonth, selectedYear, statsForWindow]);
+
+  const previousLabel = period === "year" ? "last year" : period === "month" ? "the month before" : "";
+  const comparable = Boolean(previousCar && previousCar.miles > 0 && car.miles > 0);
+  const perMileChange = comparable ? car.costPerMile - previousCar!.costPerMile : 0;
+
+  /**
+   * Cost per mile, month by month, always over the twelve months ending with
+   * the selected period. A trend needs history: scoped to the period, a Month
+   * view would draw one bar, which cannot show a car getting worse — the one
+   * thing this chart exists to show.
+   */
+  const costTrend = useMemo(() => {
+    if (!configured) return [];
+    const last = periodBounds.end;
+    const first = new Date(last.getFullYear(), last.getMonth() - 11, 1);
+    return monthsBetween(first, last).map((date) => {
+      const key = dateKey(date).slice(0, 7);
+      const stats = statsForWindow((iso) => iso.slice(0, 7) === key);
+      return {
+        key,
+        axisLabel: period === "all" ? `${shortMonth(date)} ’${String(date.getFullYear()).slice(2)}` : shortMonth(date),
+        costPerMile: stats.costPerMile,
+        miles: stats.miles
+      };
+    });
+  }, [configured, period, periodBounds.end, statsForWindow]);
+
+  const trendCeiling = Math.max(...costTrend.map((point) => point.costPerMile), car.benchmarkPerMile * 1.35, 0.01);
+
+  const daysObserved = Math.max(1, daysBetween(periodBounds.start, periodBounds.end).length);
+  const replacement = useMemo(
+    () =>
+      compareReplacement({
+        miles: car.miles,
+        daysObserved,
+        currentTotalCost: car.totalCost,
+        fuelPrice,
+        candidateMpg: Number(candidateMpg),
+        monthlyPayment: Number(candidatePayment) || 0,
+        yearlyUpkeep: Number(candidateUpkeep) || 0
+      }),
+    [candidateMpg, candidatePayment, candidateUpkeep, car.miles, car.totalCost, daysObserved, fuelPrice]
+  );
+
+  const periodCosts = useMemo(() => costs.filter((cost) => inPeriod(cost.incurred_on)), [costs, inPeriod]);
+
+  /**
+   * The sentence the page exists for. Ordered so the loudest true thing wins:
+   * a car that is dear *and* getting dearer is a different decision from one
+   * that is merely dear, and repairs driving the rise is the strongest single
+   * argument for replacing it.
+   */
+  const verdict = useMemo(() => {
+    if (!configured) {
+      return { tone: "neutral" as const, headline: "—", line: "Add fuel economy and pump price below to price a mile." };
+    }
+    if (!car.miles) {
+      return { tone: "neutral" as const, headline: "—", line: `No miles in ${periodName} to measure the car against.` };
+    }
+
+    const perMile = `${(car.costPerMile * 100).toFixed(0)}¢`;
+    const benchmark = `${(car.benchmarkPerMile * 100).toFixed(0)}¢`;
+    const dearer = car.vsBenchmark > 0;
+    const rising = comparable && perMileChange > 0.02;
+    const repairsLead = car.upkeepShare >= 0.35;
+    const direction = comparable
+      ? `${perMileChange >= 0 ? "Up" : "Down"} from ${(previousCar!.costPerMile * 100).toFixed(0)}¢ ${previousLabel}.`
+      : "";
+
+    if (dearer && repairsLead) {
+      return {
+        tone: "bad" as const,
+        headline: perMile,
+        line: `${direction} Repairs are ${formatCurrency(car.upkeepCost)} of that — ${Math.round(
+          car.upkeepShare * 100
+        )}% of what the car costs to run. An ordinary car runs at about ${benchmark} a mile. Replacing this one would likely pay for itself.`
+      };
+    }
+    if (dearer) {
+      return {
+        tone: "bad" as const,
+        headline: perMile,
+        line: `${direction} That is more than the ${benchmark} an ordinary car costs to run. Worth pricing a replacement below.`
+      };
+    }
+    if (rising) {
+      return {
+        tone: "watch" as const,
+        headline: perMile,
+        line: `${direction} Still under the ${benchmark} an ordinary car costs, but the gap is closing.`
+      };
+    }
+    return {
+      tone: "good" as const,
+      headline: perMile,
+      line: `${direction} An ordinary car runs at about ${benchmark} a mile, so this one is cheap to keep. Drive it into the ground.`
+    };
+  }, [car, comparable, configured, perMileChange, periodName, previousCar, previousLabel]);
 
   function flash(message: string, focusMonth?: string) {
     if (focusMonth) {
@@ -476,21 +580,9 @@ export default function MileagePage() {
     "focus-ring h-11 rounded-xl border border-border bg-surface px-3 text-[15px] font-medium text-text-primary shadow-sm";
   const inputClass =
     "focus-ring h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] text-text-primary placeholder:text-text-tertiary";
+  const compactInput =
+    "focus-ring mt-0.5 h-8 w-full rounded-lg border border-border bg-subtle px-2 text-[14px] text-text-primary placeholder:text-text-tertiary";
   const carOwnerName = ownerLabels[carOwnerId] ?? "your";
-
-  const verdict = !configured
-    ? "Add fuel economy and pump price to see what a business mile actually costs."
-    : !carTotals.miles
-      ? `No miles for ${periodName}, so there is nothing to measure the car against.`
-      : economics.netPerMile >= 0
-        ? `Every business mile returns ${centsPerMile(economics.ratePerMile)} and costs ${centsPerMile(
-            economics.costPerMile
-          )}. The car covers itself by ${formatCurrency(economics.netTotal)} across ${carTotals.miles.toFixed(0)} miles.`
-        : `Every business mile returns ${centsPerMile(economics.ratePerMile)} but costs ${centsPerMile(
-            economics.costPerMile
-          )}. Over ${carTotals.miles.toFixed(0)} miles that is ${formatCurrency(
-            Math.abs(economics.netTotal)
-          )} out of pocket.`;
 
   return (
     <AppShell user={user}>
@@ -683,65 +775,100 @@ export default function MileagePage() {
               </div>
             </section>
 
-            <div className="pt-2">
-              <h2 className="text-[15px] font-medium leading-tight text-text-primary">
-                {selectedOwnerId === "all" ? `${carOwnerName}’s car` : "The car"} · {periodName}
-              </h2>
-            </div>
-
             {carError ? (
-              <section className="rounded-[20px] border border-warning/20 bg-warning-soft p-4">
+              <section className="rounded-[16px] border border-warning/20 bg-warning-soft p-3">
                 <p className="text-[13px] text-text-secondary">
                   Run <code className="rounded bg-white/70 px-1.5 py-0.5">supabase/vehicle-schema.sql</code> in
                   Supabase, then refresh.
                 </p>
-                <p className="mt-2 text-[11px] text-warning">{carError}</p>
+                <p className="mt-1.5 text-[11px] text-warning">{carError}</p>
               </section>
             ) : null}
 
+            {/* The whole point of the car half: one number, and what to do
+                about it. Everything below is the working behind this. */}
             <section
               className={cn(
-                "rounded-[20px] border p-4 shadow-card",
-                configured && carTotals.miles && economics.netPerMile < 0
-                  ? "border-danger/20 bg-danger-soft"
-                  : "border-border bg-[#F5EFE3]"
+                "rounded-[16px] border p-4",
+                verdict.tone === "bad"
+                  ? "border-danger/25 bg-danger-soft"
+                  : verdict.tone === "watch"
+                    ? "border-warning/25 bg-warning-soft"
+                    : verdict.tone === "good"
+                      ? "border-success/25 bg-success-soft"
+                      : "border-border bg-surface"
               )}
             >
-              <p className="text-[15px] leading-relaxed text-text-primary">{verdict}</p>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="text-[32px] font-medium leading-none tracking-[-0.02em] text-text-primary">
+                  {verdict.headline}
+                </span>
+                <span className="text-[13px] text-text-secondary">
+                  a mile to run {selectedOwnerId === "all" ? `${carOwnerName}’s car` : ""} · {periodName}
+                </span>
+              </div>
+              <p className="mt-2 text-[14px] leading-relaxed text-text-primary">{verdict.line}</p>
             </section>
 
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Stat
-                label="Cost per mile"
-                value={configured && carTotals.miles ? centsPerMile(economics.costPerMile) : "—"}
-                detail={configured && carTotals.miles ? formatCurrency(economics.totalCost) : undefined}
-              />
-              <Stat
-                label="Returned per mile"
-                value={carTotals.miles ? centsPerMile(economics.ratePerMile) : "—"}
-                detail={carTotals.miles ? formatCurrency(carTotals.deduction) : undefined}
-              />
-              <Stat
-                label="Kept per mile"
-                value={configured && carTotals.miles ? centsPerMile(economics.netPerMile) : "—"}
-                tone={configured && carTotals.miles ? (economics.netPerMile >= 0 ? "good" : "bad") : undefined}
-                detail={configured && carTotals.miles ? formatCurrency(economics.netTotal) : undefined}
-              />
-              <Stat
-                label="Upkeep / 1,000 mi"
-                value={carTotals.miles ? formatCurrency(economics.upkeepPerThousandMiles) : "—"}
-                detail={economics.totalCost ? `${Math.round(economics.upkeepShare * 100)}% of running cost` : undefined}
-              />
-            </section>
+            <section className="rounded-[16px] border border-border bg-surface">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-3">
+                <h2 className="text-[14px] font-medium leading-tight text-text-primary">Cost per mile · 12 months</h2>
+                <span className="text-[11px] text-text-tertiary">
+                  dashed line — {(car.benchmarkPerMile * 100).toFixed(0)}¢, what an ordinary car runs at
+                </span>
+              </div>
 
-            <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-              <div className="grid gap-3 sm:grid-cols-2">
+              {configured && costTrend.length ? (
+                <div className="mt-3 overflow-x-auto px-3 pb-5">
+                  <div
+                    className="relative grid h-32 items-end gap-1.5 border-b border-border"
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.max(costTrend.length, 1)}, minmax(0, 1fr))`,
+                      minWidth: "100%"
+                    }}
+                  >
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-x-0 border-t border-dashed border-text-tertiary/60"
+                      style={{ bottom: `${(car.benchmarkPerMile / trendCeiling) * 100}%` }}
+                    />
+                    {costTrend.map((point) => {
+                      const over = point.costPerMile > car.benchmarkPerMile;
+                      return (
+                        <div key={point.key} className="relative flex h-full min-w-0 flex-col justify-end">
+                          <span
+                            className={cn(
+                              "mb-1 text-center text-[10px]",
+                              point.miles ? "text-text-tertiary" : "text-transparent"
+                            )}
+                          >
+                            {point.miles ? `${(point.costPerMile * 100).toFixed(0)}¢` : "0"}
+                          </span>
+                          <div
+                            className={cn("w-full rounded-t-[4px]", !point.miles ? "bg-subtle" : over ? "bg-danger" : "bg-accent")}
+                            style={{
+                              height: point.miles ? `max(5px, ${(point.costPerMile / trendCeiling) * 92}%)` : "2px"
+                            }}
+                          />
+                          <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-text-tertiary">
+                            {point.axisLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="px-3 py-6 text-center text-[13px] text-text-tertiary">
+                  Fuel economy and pump price price a mile.
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 border-t border-border px-3 py-2.5 sm:grid-cols-4">
                 <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
-                    Miles per gallon
-                  </span>
+                  <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">mpg</span>
                   <input
-                    className={inputClass}
+                    className={compactInput}
                     type="number"
                     step="0.1"
                     min="0"
@@ -755,11 +882,11 @@ export default function MileagePage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
-                    Fuel price per gallon
+                  <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                    $/gallon
                   </span>
                   <input
-                    className={inputClass}
+                    className={compactInput}
                     type="number"
                     step="0.01"
                     min="0"
@@ -774,153 +901,231 @@ export default function MileagePage() {
                     }}
                   />
                 </label>
+                <div className="block">
+                  <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">Fuel</span>
+                  <span className="mt-0.5 block text-[14px] text-text-primary">{formatCurrency(car.fuelCost)}</span>
+                </div>
+                <div className="block">
+                  <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                    Everything else
+                  </span>
+                  <span className="mt-0.5 block text-[14px] text-text-primary">{formatCurrency(car.loggedCost)}</span>
+                </div>
               </div>
-              {configured && carTotals.miles ? (
-                <p className="mt-3 text-[13px] text-text-secondary">
-                  {(carTotals.miles / mpg!).toFixed(0)} gallons · {formatCurrency(economics.fuelCost)} of fuel.
-                </p>
-              ) : null}
             </section>
 
-            {configured && carTotals.miles ? (
-              <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-                <h3 className="text-[15px] font-medium leading-tight text-text-primary">Would a different car help</h3>
-                <p className="mt-2 text-[13px] text-text-secondary">
-                  {economics.breakEvenMpg
-                    ? economics.breakEvenMpg <= mpg!
-                      ? `Breaks even at ${economics.breakEvenMpg.toFixed(0)} mpg and does ${mpg} — fuel economy is not what is costing you.`
-                      : `A mile only breaks even at ${economics.breakEvenMpg.toFixed(0)} mpg. This car does ${mpg}.`
-                    : "Repairs, insurance and payments alone already outrun the deduction. No amount of fuel economy fixes that."}
-                </p>
-                <div className="mt-3 flex flex-wrap items-end gap-3">
-                  <label className="block w-40">
-                    <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
-                      Compare against mpg
+            <div className="grid gap-2.5 lg:grid-cols-2">
+              {/* Reliability. A car that is going shows up here before anywhere. */}
+              <section className="rounded-[16px] border border-border bg-surface p-3">
+                <h3 className="text-[14px] font-medium leading-tight text-text-primary">Repairs and upkeep</h3>
+                <div className="mt-2.5 flex items-baseline gap-2">
+                  <span className="text-[24px] font-medium leading-none tracking-[-0.01em] text-text-primary">
+                    {formatCurrency(car.upkeepCost)}
+                  </span>
+                  <span className="text-[12px] text-text-tertiary">
+                    {car.upkeepCount} {car.upkeepCount === 1 ? "time" : "times"} · {periodName}
+                  </span>
+                </div>
+                {previousCar ? (
+                  <p className="mt-2 text-[13px] text-text-secondary">
+                    {formatCurrency(previousCar.upkeepCost)} over {previousCar.upkeepCount}{" "}
+                    {previousCar.upkeepCount === 1 ? "time" : "times"} {previousLabel}.
+                    {car.upkeepCost > previousCar.upkeepCost * 1.5 && previousCar.upkeepCost > 0
+                      ? " Getting worse."
+                      : ""}
+                  </p>
+                ) : null}
+                {car.totalCost ? (
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-subtle">
+                    <div
+                      className="h-full rounded-full bg-danger"
+                      style={{ width: `${Math.min(100, car.upkeepShare * 100)}%` }}
+                    />
+                  </div>
+                ) : null}
+                {car.totalCost ? (
+                  <p className="mt-1.5 text-[12px] text-text-tertiary">
+                    {Math.round(car.upkeepShare * 100)}% of what the car costs to run
+                  </p>
+                ) : null}
+              </section>
+
+              {/* And the other half of the question: would swapping it help? */}
+              <section className="rounded-[16px] border border-border bg-surface p-3">
+                <h3 className="text-[14px] font-medium leading-tight text-text-primary">Price a replacement</h3>
+                <div className="mt-2.5 grid grid-cols-3 gap-2">
+                  <label className="block">
+                    <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                      mpg
                     </span>
                     <input
-                      className={inputClass}
+                      className={compactInput}
                       type="number"
-                      step="1"
                       min="0"
                       inputMode="decimal"
-                      placeholder={String(Math.round(mpg! + 10))}
-                      value={targetMpg}
-                      onChange={(event) => setTargetMpg(event.target.value)}
+                      placeholder="35"
+                      value={candidateMpg}
+                      onChange={(event) => setCandidateMpg(event.target.value)}
                     />
                   </label>
-                  {whatIf ? (
-                    <p className="pb-3 text-[13px] text-text-secondary">
-                      {whatIf.saved >= 0
-                        ? `Saves ${formatCurrency(whatIf.saved)} of fuel over the same miles.`
-                        : `Costs ${formatCurrency(Math.abs(whatIf.saved))} more fuel over the same miles.`}
-                    </p>
-                  ) : null}
+                  <label className="block">
+                    <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                      $/month
+                    </span>
+                    <input
+                      className={compactInput}
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      placeholder="340"
+                      value={candidatePayment}
+                      onChange={(event) => setCandidatePayment(event.target.value)}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                      Upkeep/yr
+                    </span>
+                    <input
+                      className={compactInput}
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      value={candidateUpkeep}
+                      onChange={(event) => setCandidateUpkeep(event.target.value)}
+                    />
+                  </label>
                 </div>
-              </section>
-            ) : null}
-
-            {byKind.length ? (
-              <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-                <h3 className="text-[15px] font-medium leading-tight text-text-primary">Where the money goes</h3>
-                <div className="mt-3 space-y-2.5">
-                  {byKind.map((row) => (
-                    <div key={row.kind} className="grid grid-cols-[96px_1fr_76px] items-center gap-3">
-                      <span className="text-[13px] text-text-secondary">{row.kind}</span>
-                      <div className="h-2 overflow-hidden rounded-full bg-subtle">
-                        <div
-                          className="h-full rounded-full bg-accent"
-                          style={{ width: `${Math.max(3, (row.amount / maxKind) * 100)}%` }}
-                        />
+                {replacement ? (
+                  <>
+                    <div className="mt-3 grid grid-cols-2 divide-x divide-border">
+                      <div className="pr-3">
+                        <div className="text-[11px] text-text-tertiary">This car</div>
+                        <div className="mt-1 text-[19px] font-medium leading-none text-text-primary">
+                          {formatCurrency(replacement.currentYearly)}
+                        </div>
                       </div>
-                      <span className="text-right text-[13px] text-text-primary">{formatCurrency(row.amount)}</span>
+                      <div className="pl-3">
+                        <div className="text-[11px] text-text-tertiary">That one</div>
+                        <div className="mt-1 text-[19px] font-medium leading-none text-text-primary">
+                          {formatCurrency(replacement.candidateYearly)}
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
-              <h3 className="text-[15px] font-medium leading-tight text-text-primary">Car costs</h3>
-              <div className="mt-3 grid gap-2 sm:grid-cols-[130px_130px_110px_1fr_auto]">
-                <input
-                  aria-label="Date"
-                  className={inputClass}
-                  type="date"
-                  value={costDate}
-                  onChange={(event) => setCostDate(event.target.value)}
-                />
-                <select
-                  aria-label="Kind"
-                  className={cn(inputClass, "font-medium")}
-                  value={costKind}
-                  onChange={(event) => setCostKind(event.target.value as VehicleCostKind)}
-                >
-                  {VEHICLE_COST_KINDS.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {kind}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  aria-label="Amount"
-                  className={inputClass}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={costAmount}
-                  onChange={(event) => setCostAmount(event.target.value)}
-                />
-                <input
-                  aria-label="Note"
-                  className={inputClass}
-                  placeholder="Note"
-                  value={costNote}
-                  onChange={(event) => setCostNote(event.target.value)}
-                />
-                <Button variant="accent" onClick={addCost} disabled={savingCost || !costAmount}>
-                  Add
-                </Button>
-              </div>
-
-              {periodCosts.length ? (
-                <div className="mt-3 divide-y divide-border">
-                  {periodCosts.map((cost) => (
-                    <div
-                      key={cost.id}
-                      className="grid grid-cols-[58px_92px_minmax(0,1fr)_76px_32px] items-center gap-2 py-2.5 text-[13px]"
+                    <p
+                      className={cn(
+                        "mt-2.5 text-[13px]",
+                        replacement.saved > 0 ? "text-success" : "text-text-secondary"
+                      )}
                     >
-                      <span className="text-text-tertiary">
-                        {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
-                          new Date(`${cost.incurred_on}T12:00:00`)
-                        )}
-                      </span>
-                      <span className="text-text-secondary">{cost.kind}</span>
-                      <span className="truncate text-text-primary">{cost.note ?? ""}</span>
-                      <span className="text-right text-text-primary">{formatCurrency(cost.amount)}</span>
-                      <button
-                        type="button"
-                        aria-label="Delete cost"
-                        className="focus-ring justify-self-end rounded-lg p-1.5 text-text-tertiary hover:bg-subtle hover:text-danger"
-                        onClick={() => removeCost(cost.id)}
-                      >
-                        <Trash2 size={15} strokeWidth={1.7} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="py-8 text-center text-[13px] text-text-tertiary">
-                  Nothing logged in {periodName}. Fuel is worked out from the miles above.
-                </p>
-              )}
-            </section>
+                      {replacement.saved > 0
+                        ? `Switching saves ${formatCurrency(replacement.saved)} a year at ${replacement.annualMiles.toFixed(0)} miles.`
+                        : `Switching costs ${formatCurrency(Math.abs(replacement.saved))} a year more at ${replacement.annualMiles.toFixed(0)} miles.`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-3 text-[13px] text-text-tertiary">
+                    Enter a car&rsquo;s economy and payment to compare a year of each.
+                  </p>
+                )}
+              </section>
+            </div>
 
             <div>
               <button
                 type="button"
-                className="focus-ring w-full rounded-[20px] border border-border bg-surface px-4 py-3 text-left text-[13px] font-medium text-text-secondary shadow-card hover:text-text-primary"
+                className="focus-ring flex w-full items-center justify-between rounded-[16px] border border-border bg-surface px-3 py-2.5 text-left text-[13px] font-medium text-text-secondary hover:text-text-primary"
+                onClick={() => setShowLedger(!showLedger)}
+              >
+                <span>Car costs · {periodName}</span>
+                <span className="text-text-tertiary">
+                  {periodCosts.length} logged · {formatCurrency(car.loggedCost)}
+                </span>
+              </button>
+              {showLedger ? (
+                <section className="mt-2 rounded-[16px] border border-border bg-surface p-3">
+                  <div className="grid gap-2 sm:grid-cols-[130px_130px_110px_1fr_auto]">
+                    <input
+                      aria-label="Date"
+                      className={inputClass}
+                      type="date"
+                      value={costDate}
+                      onChange={(event) => setCostDate(event.target.value)}
+                    />
+                    <select
+                      aria-label="Kind"
+                      className={cn(inputClass, "font-medium")}
+                      value={costKind}
+                      onChange={(event) => setCostKind(event.target.value as VehicleCostKind)}
+                    >
+                      {VEHICLE_COST_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {kind}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      aria-label="Amount"
+                      className={inputClass}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={costAmount}
+                      onChange={(event) => setCostAmount(event.target.value)}
+                    />
+                    <input
+                      aria-label="Note"
+                      className={inputClass}
+                      placeholder="Note"
+                      value={costNote}
+                      onChange={(event) => setCostNote(event.target.value)}
+                    />
+                    <Button variant="accent" onClick={addCost} disabled={savingCost || !costAmount}>
+                      Add
+                    </Button>
+                  </div>
+
+                  {periodCosts.length ? (
+                    <div className="mt-2 divide-y divide-border">
+                      {periodCosts.map((cost) => (
+                        <div
+                          key={cost.id}
+                          className="grid grid-cols-[58px_92px_minmax(0,1fr)_76px_32px] items-center gap-2 py-2 text-[13px]"
+                        >
+                          <span className="text-text-tertiary">
+                            {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
+                              new Date(`${cost.incurred_on}T12:00:00`)
+                            )}
+                          </span>
+                          <span className="text-text-secondary">{cost.kind}</span>
+                          <span className="truncate text-text-primary">{cost.note ?? ""}</span>
+                          <span className="text-right text-text-primary">{formatCurrency(cost.amount)}</span>
+                          <button
+                            type="button"
+                            aria-label="Delete cost"
+                            className="focus-ring justify-self-end rounded-lg p-1.5 text-text-tertiary hover:bg-subtle hover:text-danger"
+                            onClick={() => removeCost(cost.id)}
+                          >
+                            <Trash2 size={15} strokeWidth={1.7} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="py-6 text-center text-[13px] text-text-tertiary">
+                      Nothing logged. Fuel comes from the miles above.
+                    </p>
+                  )}
+                </section>
+              ) : null}
+            </div>
+
+            <div>
+              <button
+                type="button"
+                className="focus-ring w-full rounded-[16px] border border-border bg-surface px-3 py-2.5 text-left text-[13px] font-medium text-text-secondary hover:text-text-primary"
                 onClick={() => setShowHistory(!showHistory)}
               >
                 {showHistory ? "Hide imported months" : "Imported months"}

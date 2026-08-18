@@ -210,7 +210,7 @@ tabs across the top (`components/SectionTabs.tsx`):
 | Tab | Route | Question it answers |
 | --- | --- | --- |
 | Transactions | `/`, `/import` | What did we spend? |
-| Driving | `/mileage` | What did we drive, and what does the car cost? |
+| Mileage | `/mileage` | What did we drive, and is the car worth keeping? |
 | Reports | `/reports` | What does the year come to? |
 
 `/car` redirects to `/mileage`.
@@ -231,45 +231,57 @@ Reports now adds the mileage deduction to the year:
 - Mileage is read straight off the active uploads, so restoring a different
   month's import moves the report total with it.
 
-### Driving
+### Mileage
 
-One tab, one period selector, two halves of the same question: what the driving
-is worth, then what it costs. They were separate tabs and should not have been —
-cost per mile is only meaningful against the miles right above it.
+One tab, one period selector: what the driving is worth, then whether the car
+doing it is worth keeping.
 
-The mileage half:
+Density is a requirement here, not a preference. The page was thirteen stacked
+blocks — nine bordered, shadowed, padded cards and seven stat tiles — carrying
+about a screen's worth of actual content. It is six now, two of them side by
+side, and every stat lives in a divided strip rather than a card of its own.
+Reserved-but-empty rows (a fixed-height detail line under each stat, kept so the
+cards lined up) are gone.
 
-- Three stats: miles, deduction, average drive.
-- One bar chart, daily within a month and monthly otherwise, with a **Miles /
-  Dollars** toggle. The two are not the same shape over "All time" — the IRS rate
-  changes between years — which is the whole reason the toggle earns its place
-  rather than being a relabelled axis.
-- **By weekday**, all seven days with the busiest one picked out in dark. A
-  single "busiest day" stat said which day won but not whether it won by a mile
-  or a mile and a half.
-- No table of individual drives. Four hundred rows of `Mar 3 · Northwest
-  Portland · 4.2 mi` answered no question anyone was asking.
-- Imported months stay behind a disclosure at the bottom.
+Mileage half:
 
-The car half:
+- A three-cell strip: miles, deduction, average drive.
+- One container holding the run over time — daily within a month, monthly
+  otherwise, with a **Miles / Dollars** toggle — and beneath a divider, the same
+  period folded onto a week as seven columns with the busiest picked out. Seven
+  columns rather than seven stacked rows: a third of the height, and the shape
+  of the week reads at once.
+- No table of individual drives. It answered nothing.
 
-- The verdict line, then cost per mile, returned per mile, kept per mile, and
-  upkeep per 1,000 miles — the reliability number, since a car that is cheap on
-  fuel and ruinous on repairs shows up there and nowhere else.
-- Fuel economy and pump price save on blur. Everything else is logged in the
-  costs ledger below.
-- **Break-even mpg** and a what-if comparison against another car's economy.
-  Break-even is null when the fixed costs alone already outrun the deduction,
-  which is the real answer in that case.
-- Costs follow the page's period, so a month view prices that month.
+Car half — built around one decision, keep it or replace it:
+
+- **The verdict**, and it is the headline: cost per mile, which way it is
+  moving, and a sentence naming what to do. Tinted by conclusion. The rules are
+  ordered so the loudest true thing wins — dear *and* repair-driven is a
+  different decision from merely dear.
+- **Cost per mile over twelve months**, always twelve regardless of the selected
+  period, because a trend needs history and a Month view would otherwise draw a
+  single bar. Bars above the benchmark turn red.
+- **Repairs and upkeep** against the same span a year earlier. A car on its way
+  out shows here before anywhere else.
+- **Price a replacement**: economy, monthly payment, expected yearly upkeep in,
+  a year of each car out. Annualised, so a February and a full year give the
+  same answer — a car is a multi-year decision.
+- The costs ledger sits behind a disclosure, summarised on the button.
+
+The benchmark is the IRS standard rate read off the trips, and it is used as a
+**yardstick, never as income**. An earlier version showed "kept per mile" by
+subtracting running cost from that rate, which overstated the car by roughly the
+inverse of a tax bracket — the rate is a deduction, worth rate × bracket in tax
+actually saved, not rate in cash. `CarEconomics` no longer exposes a net figure
+at all; the concept was removed at the source rather than relabelled.
 
 A car belongs to one person, so with the driver filter on **Everyone** the car
 half falls back to the signed-in user's own car — measured against *their* miles,
-not the household's — and the heading names whose car it is. Mixing one person's
-car with two people's miles would produce a cost per mile that is quietly wrong.
+not the household's — and the heading names whose car it is.
 
-`lib/mileage.ts` holds the shared trip loading and date helpers; `lib/vehicle.ts`
-holds the economics. The page holds neither.
+`lib/mileage.ts` holds trip loading and date helpers; `lib/vehicle.ts` holds the
+economics and the replacement comparison. The page holds neither.
 
 ### Clients Section
 
@@ -627,10 +639,10 @@ Cancel and delete:
 
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
-- `app/mileage/page.tsx`: Driving — miles, month-over-month, and what the car costs.
+- `app/mileage/page.tsx`: Mileage — miles, month-over-month, and keep-or-replace.
 - `components/SectionTabs.tsx`: The three Deductions tabs.
 - `lib/mileage.ts`: Trip loading and the helpers Mileage/Car/Reports share.
-- `lib/vehicle.ts`: Cost per mile, break-even mpg, what-if comparison.
+- `lib/vehicle.ts`: Cost per mile, the benchmark, replacement comparison.
 - `supabase/vehicle-schema.sql`: `vehicle_profiles` and `vehicle_costs`.
 - `app/import/page.tsx`: Statement import — dropzone, review list, confirm.
 - `app/api/statements/parse/route.ts`: Reads an uploaded statement PDF into rows.
