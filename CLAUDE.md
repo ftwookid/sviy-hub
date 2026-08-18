@@ -52,6 +52,26 @@ http://127.0.0.1:3000/*
 http://localhost:3000/*
 ```
 
+## Handing Over SQL Migrations
+
+Ivan runs migrations by pasting them into the Supabase SQL Editor, in a UI where
+he cannot open a file by path. A response that says "run `supabase/foo.sql`" is
+unusable to him — he sees nothing.
+
+So whenever a task needs a migration run:
+
+1. Write the `.sql` file into `supabase/` as usual, so it stays version controlled.
+2. **Also paste its entire contents into the chat response**, in a fenced `sql`
+   block, before saying anything about running it.
+
+Never truncate, never summarize with "…rest unchanged", never substitute a `cat`
+command for the content. This applies to anything else he has to run outside the
+repo too — shell commands, dashboard config, environment values.
+
+The migration checklist in `## Next Step` below names files on purpose: it is a
+record of what still has to be applied. It is **not** a template for how to hand
+one over. Reading a file name there is the cue to paste that file's contents.
+
 ## Completed So Far
 
 ### Base App
