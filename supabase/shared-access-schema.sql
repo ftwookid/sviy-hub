@@ -72,14 +72,22 @@ end $$;
 -- duplicates that the old per-user key allowed are collapsed first: the most
 -- recently updated rule for each fingerprint wins, since it is the most recent
 -- decision anyone made about that merchant.
-delete from merchant_rules a
-using merchant_rules b
-where a.match_key = b.match_key
-  and (a.updated_at, a.id) < (b.updated_at, b.id);
+do $$
+begin
+  if to_regclass('public.merchant_rules') is null then
+    raise notice 'skipping merchant_rules re-key, table does not exist yet';
+    return;
+  end if;
 
-alter table merchant_rules drop constraint if exists merchant_rules_user_id_match_key_key;
-drop index if exists merchant_rules_match_key_idx;
-create unique index merchant_rules_match_key_idx on merchant_rules (match_key);
+  delete from merchant_rules a
+  using merchant_rules b
+  where a.match_key = b.match_key
+    and (a.updated_at, a.id) < (b.updated_at, b.id);
+
+  alter table merchant_rules drop constraint if exists merchant_rules_user_id_match_key_key;
+  drop index if exists merchant_rules_match_key_idx;
+  create unique index merchant_rules_match_key_idx on merchant_rules (match_key);
+end $$;
 
 -- Profiles: readable by everyone, because that is where the nicknames on owner
 -- labels come from. Role is the one field that stays privileged.
