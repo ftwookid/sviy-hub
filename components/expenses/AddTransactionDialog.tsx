@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChevronRight, FileText, Loader2, PenLine, UploadCloud, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight, FileText, Loader2, PenLine, UploadCloud } from "lucide-react";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { cn } from "@/lib/cn";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { periodMonthLabel } from "@/lib/expenses";
 import { formatBytes } from "@/lib/receiptImage";
 import type { StatementImport } from "@/types/statementImport";
@@ -46,13 +48,9 @@ export function AddTransactionDialog({
   const [pending, setPending] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !scanning) onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, scanning]);
+  // Nothing to close to mid-scan: the passes keep running either way, and the
+  // dialog is the only place their outcome can land.
+  useEscapeKey(onClose, !scanning);
 
   function start(file: File | undefined) {
     if (!file) return;
@@ -230,14 +228,7 @@ function DialogHeader({ title, onClose }: { title: string; onClose: () => void }
       <h3 className="min-w-0 flex-1 text-[19px] font-medium leading-tight text-text-primary">
         {title}
       </h3>
-      <button
-        className="focus-ring -mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition hover:bg-subtle hover:text-text-primary"
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-      >
-        <X size={18} strokeWidth={1.8} />
-      </button>
+      <CloseButton onClick={onClose} />
     </div>
   );
 }

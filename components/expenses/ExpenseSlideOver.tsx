@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { authedFetch } from "@/lib/apiClient";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
@@ -11,6 +12,7 @@ import { ProofBadge } from "@/components/expenses/ProofBadge";
 import { DEFAULT_CATEGORY, EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { deleteExpenses } from "@/lib/expenseDelete";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { proofState } from "@/lib/expenses";
 import { todayInputValue } from "@/lib/formatters";
 import { PAYMENT_METHODS } from "@/lib/paymentMethods";
@@ -88,13 +90,9 @@ export function ExpenseSlideOver({
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !confirmingDelete) onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [confirmingDelete, onClose]);
+  // The delete confirmation stacks on top of this panel; the hook's stack sends
+  // the keypress there first, so one press backs out of one thing.
+  useEscapeKey(onClose);
 
   function update<K extends keyof ExpenseFormValues>(key: K, value: ExpenseFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -261,9 +259,7 @@ export function ExpenseSlideOver({
                 : "Log it now — you can attach the receipt later."}
             </p>
           </div>
-          <Button className="h-11 w-11 shrink-0 px-0" variant="ghost" onClick={onClose} aria-label="Close">
-            <X size={20} strokeWidth={1.6} />
-          </Button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>

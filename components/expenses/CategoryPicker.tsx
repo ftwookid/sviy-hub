@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { CategoryTag } from "@/components/CategoryTag";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { EXPENSE_CATEGORIES, categoryTagColors, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 
 /**
  * Pick a category, for one transaction or for a whole selection.
@@ -25,13 +26,7 @@ export function CategoryPicker({
   onPick: (category: string) => void;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   // A row still carrying an old Schedule C heading matches none of the options
   // below, which would show the sheet as if nothing were set at all.
@@ -66,14 +61,7 @@ export function CategoryPicker({
               </div>
             )}
           </div>
-          <button
-            className="focus-ring -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-secondary transition hover:bg-subtle hover:text-text-primary"
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <X size={17} strokeWidth={1.9} />
-          </button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <div className="space-y-0.5">

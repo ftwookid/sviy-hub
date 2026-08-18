@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
 import { hashMileageCsv, parseMileageCsv } from "@/lib/mileageCsv";
 import { supabase } from "@/lib/supabase";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { MileageUpload, ParsedMileageCsv } from "@/types/mileage";
 
 type Preview = {
@@ -189,6 +191,10 @@ export function MileageUploader({
 
   const warning = preview ? warningCopy(preview) : null;
 
+  // The preview stacks over the uploader, so it takes the keypress first.
+  useEscapeKey(onClose, open);
+  useEscapeKey(() => setPreview(null), Boolean(preview) && !saving);
+
   if (!open && !preview) return null;
 
   return (
@@ -211,9 +217,7 @@ export function MileageUploader({
                   Add the export for {ownerLabel ?? "this user"} and Sviy Hub will identify the month, validate it, and calculate everything automatically.
                 </p>
               </div>
-              <Button className="min-h-10 px-3" variant="ghost" onClick={onClose} aria-label="Close">
-                <X size={18} strokeWidth={1.6} />
-              </Button>
+              <CloseButton onClick={onClose} />
             </div>
 
             <div className="grid sm:grid-cols-2">
@@ -293,8 +297,18 @@ export function MileageUploader({
       ) : null}
 
       {preview ? (
-        <div className="fixed inset-0 z-[70] grid place-items-end bg-[#1A1916]/30 p-0 backdrop-blur-sm sm:place-items-center sm:p-5">
-          <section className="w-full max-w-lg rounded-t-[28px] bg-page p-5 shadow-[0_24px_80px_rgba(40,31,20,.2)] sm:rounded-[28px] sm:p-6">
+        <div
+          className="fixed inset-0 z-[70] grid place-items-end bg-[#1A1916]/30 p-0 backdrop-blur-sm sm:place-items-center sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            if (!saving) setPreview(null);
+          }}
+        >
+          <section
+            className="w-full max-w-lg rounded-t-[28px] bg-page p-5 shadow-[0_24px_80px_rgba(40,31,20,.2)] sm:rounded-[28px] sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex gap-3">
                 <div
@@ -320,9 +334,7 @@ export function MileageUploader({
                   </p>
                 </div>
               </div>
-              <Button className="min-h-10 px-3" variant="ghost" onClick={() => setPreview(null)} aria-label="Close">
-                <X size={18} strokeWidth={1.6} />
-              </Button>
+              <CloseButton onClick={() => setPreview(null)} />
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">

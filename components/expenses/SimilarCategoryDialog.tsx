@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { CategoryTag } from "@/components/CategoryTag";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { cn } from "@/lib/cn";
 import { normalizeCategory } from "@/lib/categories";
 import { formatCurrency, parseLocalDate } from "@/lib/formatters";
@@ -41,13 +42,7 @@ export function SimilarCategoryDialog({
   // want the same category, so the fast path should be one tap.
   const [checked, setChecked] = useState<Set<string>>(() => new Set(rows.map((row) => row.id)));
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onDismiss();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onDismiss]);
+  useEscapeKey(onDismiss);
 
   const allChecked = useMemo(
     () => rows.length > 0 && rows.every((row) => checked.has(row.id)),
@@ -86,14 +81,7 @@ export function SimilarCategoryDialog({
             </h3>
             {/* Same outcome as "Just this one" — the edit that opened this is
                 already saved, so backing out only declines the offer. */}
-            <button
-              className="focus-ring -mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition hover:bg-subtle hover:text-text-primary"
-              type="button"
-              aria-label="Close"
-              onClick={onDismiss}
-            >
-              <X size={18} strokeWidth={1.8} />
-            </button>
+            <CloseButton onClick={onDismiss} />
           </div>
           <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13.5px] leading-snug text-text-secondary">
             Set {rows.length === 1 ? "it" : "them"} to

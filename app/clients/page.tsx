@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, HeartHandshake, Home, PauseCircle, Plus, UsersRound, X } from "lucide-react";
+import { BarChart3, HeartHandshake, Home, PauseCircle, Plus, UsersRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
@@ -10,8 +10,10 @@ import { ClientForm } from "@/components/ClientForm";
 import { HouseSittingDashboard } from "@/components/HouseSittingDashboard";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { estimateClientMonthlyNet } from "@/lib/clients";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -155,6 +157,8 @@ function ClientsPageContent() {
     const query = nextParams.toString();
     router.replace(query ? `/clients?${query}` : "/clients", { scroll: false });
   }
+
+  useEscapeKey(closeEditor, editorOpen);
 
   function openNewClient() {
     setEditingClient(null);
@@ -331,9 +335,7 @@ function ClientsPageContent() {
                 </h2>
                 <p className="mt-1 text-[15px] text-text-secondary">Keep the details light, useful, and easy to scan.</p>
               </div>
-              <Button variant="ghost" onClick={closeEditor} aria-label="Close">
-                <X size={20} strokeWidth={1.6} />
-              </Button>
+              <CloseButton onClick={closeEditor} />
             </div>
             <ClientForm
               key={editingClient?.id ?? "new"}
