@@ -120,6 +120,7 @@ export default function MileagePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [restoringId, setRestoringId] = useState("");
   const [changingOwnerId, setChangingOwnerId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
 
   const [profile, setProfile] = useState<VehicleProfile | null>(null);
   const [costs, setCosts] = useState<VehicleCost[]>([]);
@@ -336,6 +337,23 @@ export default function MileagePage() {
   const sinceEpoch = useMemo(() => statsForWindow((iso) => iso.slice(0, 10) >= CAR_EPOCH), [statsForWindow]);
   const epochYear = CAR_EPOCH.slice(0, 4);
   const spendShare = sinceEpoch.deduction ? sinceEpoch.totalCost / sinceEpoch.deduction : 0;
+  /** Deduction minus what the car took. Negative is money out of pocket. */
+  const carBalance = sinceEpoch.deduction - sinceEpoch.totalCost;
+
+  /** What the total is made of, so it never has to be added up in the head. */
+  const carBreakdown = useMemo(() => {
+    const byKind = new Map<string, number>();
+    costs
+      .filter((cost) => cost.incurred_on >= CAR_EPOCH && cost.kind !== "Fuel")
+      .forEach((cost) => byKind.set(cost.kind, (byKind.get(cost.kind) ?? 0) + Number(cost.amount)));
+
+    return [
+      ...(sinceEpoch.fuelCost > 0 ? [{ label: "Fuel", amount: sinceEpoch.fuelCost }] : []),
+      ...Array.from(byKind.entries())
+        .map(([label, amount]) => ({ label, amount }))
+        .sort((a, b) => b.amount - a.amount)
+    ];
+  }, [costs, sinceEpoch.fuelCost]);
 
   /** Cost per mile month by month, over the twelve months ending this period. */
   const costTrend = useMemo(() => {
@@ -402,6 +420,44 @@ export default function MileagePage() {
 
     setRestoringId("");
     flash(`${label} restored`);
+  }
+
+  /**
+   * Removes one imported version. Trips cascade with it.
+   *
+   * If the version being removed is the live one and others survive, the newest
+   * survivor is promoted — a month must never be left with rows in the table
+   * and nothing marked active, which would silently drop it from every total.
+   */
+  async function deleteUpload(upload: MileageUpload, siblings: MileageUpload[]) {
+    if (!supabase) return;
+    const label = monthLabel(upload.period_month.slice(0, 7));
+    const others = siblings.filter((item) => item.id !== upload.id);
+    const message = others.length
+      ? `Delete this ${label} import? Its ${upload.business_trip_count} trips go with it.`
+      : `Delete ${label} entirely? Its ${upload.business_trip_count} trips go with it and the month leaves every total.`;
+    if (!window.confirm(message)) return;
+
+    setDeletingId(upload.id);
+    const { error } = await supabase.from("mileage_uploads").delete().eq("id", upload.id);
+    if (error) {
+      window.alert(error.message);
+      setDeletingId("");
+      return;
+    }
+
+    if (upload.is_active && others.length) {
+      const successor = others
+        .slice()
+        .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at))[0];
+      await supabase
+        .from("mileage_uploads")
+        .update({ is_active: true, activated_at: new Date().toISOString() })
+        .eq("id", successor.id);
+    }
+
+    setDeletingId("");
+    flash(`${label} import deleted`);
   }
 
   async function changeUploadOwner(upload: MileageUpload, nextOwnerId: string) {
@@ -653,28 +709,41 @@ export default function MileagePage() {
                 ) : null}
               </div>
 
-              <StatStrip columns="grid-cols-2 sm:grid-cols-4" bare>
-                <Stat label="Deducted" value={formatCurrency(sinceEpoch.deduction)} detail={`${sinceEpoch.miles.toFixed(0)} mi`} />
-                <Stat label="Fuel" value={formatCurrency(sinceEpoch.fuelCost)} detail={configured ? `${(sinceEpoch.miles / mpg!).toFixed(0)} gal` : "—"} />
-                <Stat label="Everything else" value={formatCurrency(sinceEpoch.loggedCost)} />
+              <StatStrip columns="grid-cols-3" bare>
                 <Stat
-                  label="Car takes"
-                  value={sinceEpoch.deduction ? `${Math.round(spendShare * 100)}%` : "—"}
-                  detail={sinceEpoch.deduction ? `${formatCurrency(sinceEpoch.totalCost)} of it` : undefined}
+                  label="Deducted"
+                  value={formatCurrency(sinceEpoch.deduction)}
+                  detail={`${sinceEpoch.miles.toFixed(0)} mi`}
+                />
+                <Stat
+                  label="Spent on the car"
+                  value={formatCurrency(sinceEpoch.totalCost)}
+                  detail={sinceEpoch.deduction ? `${Math.round(spendShare * 100)}% of it` : undefined}
+                />
+                <Stat
+                  label={carBalance < 0 ? "Out of pocket" : "Left over"}
+                  value={`${carBalance < 0 ? "−" : "+"}${formatCurrency(Math.abs(carBalance))}`}
+                  tone={carBalance < 0 ? "bad" : "good"}
                 />
               </StatStrip>
+
+              {carBreakdown.length ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 pb-2 text-[12px] text-text-tertiary">
+                  {carBreakdown.map((row) => (
+                    <span key={row.label}>
+                      {row.label} <span className="text-text-secondary">{formatCurrency(row.amount)}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               {sinceEpoch.deduction ? (
                 <div className="px-3 pb-3">
                   <div className="flex h-2.5 overflow-hidden rounded-full bg-subtle">
                     <div
-                      className="h-full bg-accent"
+                      className={cn("h-full", carBalance < 0 ? "bg-danger" : "bg-accent")}
                       style={{ width: `${Math.min(100, spendShare * 100)}%` }}
                     />
-                  </div>
-                  <div className="mt-1.5 flex justify-between text-[11px] text-text-tertiary">
-                    <span>{formatCurrency(sinceEpoch.totalCost)} spent on the car</span>
-                    <span>{formatCurrency(sinceEpoch.deduction)} deducted</span>
                   </div>
                 </div>
               ) : null}
@@ -734,8 +803,10 @@ export default function MileagePage() {
                     ownerLabels={ownerLabels}
                     ownerOptions={ownerOptions}
                     canChangeOwner
+                    deletingId={deletingId}
                     onRestore={restore}
                     onChangeOwner={changeUploadOwner}
+                    onDelete={deleteUpload}
                   />
                 </div>
               ) : null}

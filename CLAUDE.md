@@ -250,14 +250,27 @@ The car, always measured **since 1 January 2026** (`CAR_EPOCH`) rather than the
 selected period, because what the driving deducts against what the car swallows
 is a cumulative question that a single month would swing on one repair bill:
 
-- Deducted · Fuel · Everything else · **Car takes N%**, then one bar putting
-  total car spend inside total deduction.
+- Deducted · **Spent on the car** · the balance between them, which is coloured:
+  red and labelled "Out of pocket" when the car costs more than the miles
+  deduct, green and "Left over" when it does not. The total is the headline and
+  a breakdown line under it names what the total is made of (Fuel, Repair,
+  Maintenance…), so no figure has to be added up in the head or hunted for
+  elsewhere.
+- A bar putting total car spend inside total deduction, red once it overruns.
 - Cost per mile over twelve months.
 
 Fuel is computed from miles ÷ mpg × pump price, which is why those two numbers
 are worth entering. Hand-logged `Fuel` rows stay in the ledger as a record of
 actual spend but are excluded from the total, or the same gallons would count
 twice.
+
+Imported months, behind the disclosure at the bottom, are one 70px row each —
+month, owner, trips, miles, deduction, YTD. They were 120px-minimum cards with
+reserved sub-rows. "Vs previous" was dropped from them: a month-on-month delta
+on an import record answers nothing the chart above does not. Expanding a month
+lists its versions, each with CSV, Owner and **Delete**; deleting cascades to its
+trips, and if the deleted version was the live one the newest survivor is
+promoted, so a month is never left with rows in the table and nothing active.
 
 **No prose verdicts.** An earlier version led with a tinted sentence telling the
 reader what to conclude — "replacing this one would likely pay for itself",
