@@ -178,9 +178,81 @@ parking charge must not trash the file proving the other forty-nine.
 - Added `AppShell` with:
   - Desktop left sidebar.
   - Mobile fixed bottom tab bar.
-  - Tabs for Expenses, Clients, and Profile.
+  - Three sections: Deductions, Clients, Profile.
 - Added safe mobile bottom padding so content does not sit under the tab bar.
 - Strengthened the visual system with warmer backgrounds, larger form controls, softer shadows, and more rounded cards.
+
+### Deductions Section
+
+Everything that lowers the tax bill is one nav item — **Deductions** — with four
+tabs across the top (`components/SectionTabs.tsx`):
+
+| Tab | Route | Question it answers |
+| --- | --- | --- |
+| Transactions | `/`, `/import` | What did we spend? |
+| Mileage | `/mileage` | What did we drive? |
+| Car | `/car` | Is the car worth driving? |
+| Reports | `/reports` | What does the year come to? |
+
+Spending and driving are the same deduction asked twice, so splitting them
+across top-level tabs meant nobody could see the year's real number in one
+place. `DEDUCTION_ROUTES` in `AppShell` keeps all five routes lighting the same
+nav item.
+
+The old `Expenses` h1 is gone from `/` and `/reports`. The sidebar already names
+the section and the tab row already names the page; a third label said nothing.
+
+Reports now adds the mileage deduction to the year:
+
+- A headline card gives one number — spent plus driven — because that is the
+  number the section exists to produce.
+- The monthly breakdown bars are stacked, spent in gold and driven in sand.
+- Mileage is read straight off the active uploads, so restoring a different
+  month's import moves the report total with it.
+
+### Mileage
+
+Rebuilt around five questions and nothing else: miles logged, month-over-month
+breakdown, what that is worth, the busiest day, and the average drive.
+
+Removed, because none of it changed a decision: the "what stands out" insight
+banner, the top-areas ranking, the weekday bar chart (the busiest day is a stat
+now), short/long drive filters, the five advanced filters, drive pagination, the
+active-days stat, the longest-drive stat, per-owner stacked chart colors, and
+the stat-card icons. Imported months moved behind a disclosure at the bottom.
+
+Typography is two sizes on this page: `11px` uppercase for a label, `24px` for a
+number. Every stat card is the same card.
+
+`lib/mileage.ts` holds what the Mileage, Car, and Reports pages all need —
+trip paging (Supabase caps a select at 1000 rows and a year of driving runs past
+that), month/day helpers, `destinationArea()`, and `totalsFor()`.
+
+### Car
+
+`/car` answers whether the car Yana drives is worth driving. Nothing here is a
+deduction; it sits next to Mileage because it is the same miles seen as a cost.
+
+You enter fuel economy and pump price once (`vehicle_profiles`, one row per
+person), then log the costs that are not fuel — repairs, insurance, the payment
+(`vehicle_costs`). From that and the year's business miles:
+
+- **Cost per mile** — fuel burned over those miles, plus everything logged.
+- **Returned per mile** — the IRS rate already on the trips.
+- **Kept per mile** — the difference, and the verdict line at the top of the page.
+- **Upkeep per 1,000 miles** — maintenance and repairs only. This is the
+  reliability number: a car that is fine on fuel and ruinous on repairs shows up
+  here and nowhere else.
+- **Break-even mpg** — the fuel economy at which a mile would pay for itself.
+  Null when the fixed costs alone already outrun the deduction, which is the
+  real answer in that case: no amount of fuel economy fixes it.
+- **Compare against mpg** — what a thriftier car would save over the same miles.
+
+Fuel is derived from miles and pump price, so hand-logged `Fuel` rows are kept
+in the ledger as a record of actual spend but excluded from cost per mile —
+otherwise the same gallons would be counted twice.
+
+`lib/vehicle.ts` holds the arithmetic; the page holds none of it.
 
 ### Clients Section
 
@@ -510,7 +582,13 @@ Cancel and delete:
 ## Important Files
 
 - `app/page.tsx`: Expenses page.
-- `app/reports/page.tsx`: Reports sub-section.
+- `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
+- `app/mileage/page.tsx`: Mileage — miles, month-over-month, deduction value.
+- `app/car/page.tsx`: Car — what a business mile costs against what it returns.
+- `components/SectionTabs.tsx`: The four Deductions tabs.
+- `lib/mileage.ts`: Trip loading and the helpers Mileage/Car/Reports share.
+- `lib/vehicle.ts`: Cost per mile, break-even mpg, what-if comparison.
+- `supabase/vehicle-schema.sql`: `vehicle_profiles` and `vehicle_costs`.
 - `app/import/page.tsx`: Statement import — dropzone, review list, confirm.
 - `app/api/statements/parse/route.ts`: Reads an uploaded statement PDF into rows.
 - `lib/statementExtraction.ts`: The two model passes and their JSON schemas.
@@ -667,7 +745,11 @@ This replaced the full 22-item Schedule C list. Rules:
 
 ## Next Step
 
-Run `supabase/payment-cards-schema.sql` in Supabase. It is re-runnable, creates
+Run `supabase/vehicle-schema.sql` in Supabase. It is re-runnable and creates
+`vehicle_profiles` and `vehicle_costs` with admin-aware RLS. Until it runs, the
+Car tab loads but shows a setup notice instead of saving anything.
+
+Then run `supabase/payment-cards-schema.sql` in Supabase. It is re-runnable, creates
 `payment_cards`, and seeds it from the payment methods already on each person's
 transactions. Until it runs, the payment picker falls back to Main card / Other
 card / Cash and saving a new card reports that the table is missing.

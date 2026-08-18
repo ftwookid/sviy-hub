@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleAlert, Plus, Receipt as ReceiptIcon, Tag, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CategoryTag } from "@/components/CategoryTag";
-import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
+import { SectionTabs } from "@/components/SectionTabs";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { AddTransactionDialog } from "@/components/expenses/AddTransactionDialog";
 import { BulkAction, BulkBar } from "@/components/expenses/BulkBar";
@@ -423,13 +423,7 @@ export default function TransactionsPage() {
   return (
     <AppShell user={user}>
       <div className="space-y-3">
-        {/* Title and section tabs share one row — neither needs a line of its own. */}
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-[22px] font-medium leading-tight tracking-[-0.01em] text-text-primary sm:text-[26px]">
-            Expenses
-          </h1>
-          <ExpenseSectionTabs />
-        </div>
+        <SectionTabs />
 
         {proofSheet ? (
           <ProofSheetReview
