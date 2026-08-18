@@ -20,11 +20,9 @@ export default function ProfilePage() {
   const loadPendingCount = useCallback(async () => {
     if (!supabase || !user) return;
 
-    // The caller's own backlog: Sync writes to their Drive and no other.
     const { count } = await supabase
       .from("receipts")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
       .is("drive_file_id", null)
       .not("storage_path", "is", null);
     setPendingDriveCount(count ?? 0);
@@ -73,7 +71,7 @@ export default function ProfilePage() {
         {/* Archive setup belongs with the settings, not in the middle of the
             month's transactions. The transactions page only nudges when the
             archive actually needs a hand. */}
-        <DriveArchiveCard pendingCount={pendingDriveCount} />
+        <DriveArchiveCard pendingCount={pendingDriveCount} isAdmin={isAdmin} />
 
         <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
           <div className="flex items-center gap-3">

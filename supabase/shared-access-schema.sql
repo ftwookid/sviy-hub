@@ -30,6 +30,7 @@ declare
     'mileage_trips',
     'statement_imports',
     'statement_import_rows',
+    'merchant_rules',
     'payment_cards',
     'vehicle_profiles',
     'vehicle_costs'
@@ -63,17 +64,22 @@ begin
   end loop;
 end $$;
 
--- Merchant memory stays personal, and is the one table that does not move.
--- It is not a record of anything — it is a replay of one person's judgement
--- calls onto next month's statement. Sharing the books does not make Ivan's
--- sense of what counts as business the right default for Yana's review screen.
--- (It never was admin-wide either, so this is unchanged, stated on purpose.)
-drop policy if exists "Users can manage their merchant rules" on merchant_rules;
-create policy "Users can manage their merchant rules"
-  on merchant_rules for all
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+-- Merchant memory is shared too. One household, one business, one answer to
+-- "is Chewy a business expense" — teaching it once should hold for whoever
+-- reviews next month's statement.
+--
+-- That makes the key the merchant, not the merchant-and-person, so the
+-- duplicates that the old per-user key allowed are collapsed first: the most
+-- recently updated rule for each fingerprint wins, since it is the most recent
+-- decision anyone made about that merchant.
+delete from merchant_rules a
+using merchant_rules b
+where a.match_key = b.match_key
+  and (a.updated_at, a.id) < (b.updated_at, b.id);
+
+alter table merchant_rules drop constraint if exists merchant_rules_user_id_match_key_key;
+drop index if exists merchant_rules_match_key_idx;
+create unique index merchant_rules_match_key_idx on merchant_rules (match_key);
 
 -- Profiles: readable by everyone, because that is where the nicknames on owner
 -- labels come from. Role is the one field that stays privileged.

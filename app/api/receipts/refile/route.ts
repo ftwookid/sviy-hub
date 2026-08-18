@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   const { data: receipt, error: readError } = await admin
     .from("receipts")
-    .select("id, user_id, period_month, drive_file_id")
+    .select("id, period_month, drive_file_id")
     .eq("id", body.receiptId)
     .maybeSingle();
 
@@ -51,8 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ moved: false, periodMonth, reason: "not-archived" });
   }
 
-  // Moved inside the Drive of whoever uploaded it — see the note in discard.
-  const setup = await resolveArchiveTarget(admin, receipt.user_id);
+  const setup = await resolveArchiveTarget(admin);
   if (!setup.ok) return NextResponse.json({ moved: false, periodMonth, reason: setup.reason });
 
   try {

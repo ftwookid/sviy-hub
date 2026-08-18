@@ -129,11 +129,9 @@ export async function POST(request: Request) {
       notes: [statement?.notes, audited.audit?.notes].filter(Boolean).join(" ")
     });
 
-    // Everything the user has already taught us, applied before they see the list.
-    const { data: ruleRows } = await admin
-      .from("merchant_rules")
-      .select("*")
-      .eq("user_id", userId);
+    // Everything either of them has already taught us, applied before the list
+    // is seen. One household, one answer per merchant.
+    const { data: ruleRows } = await admin.from("merchant_rules").select("*");
     const rules = rulesByKey((ruleRows ?? []) as MerchantRule[]);
 
     const periodStart = isoDateOrNull(statement?.periodStart);

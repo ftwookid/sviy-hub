@@ -376,10 +376,11 @@ its only job.
   statement. Admins pass through the separate permissive admin policy.
 - `google_drive_accounts` still has **no policy at all**. It holds OAuth tokens
   and is service-role only.
-- `merchant_rules` deliberately stays per-user. It is not a record of anything —
-  it replays one person's judgement calls onto next month's statement, and
-  sharing the books does not make Ivan's sense of what counts as business the
-  right default for Yana's review screen.
+- `merchant_rules` is shared, and keyed on `match_key` alone rather than
+  `(user_id, match_key)`. One household, one business, one answer to "is Chewy a
+  business expense" — teaching it once holds for whoever reviews next month.
+  `user_id` still records who decided last. The migration collapses the
+  duplicates the old per-user key allowed, keeping the most recent decision.
 - `payment_cards` is shared and deduplicated by nickname on read. A shared
   statement can contain a charge on the other person's card; offering only your
   own would force it to be filed as Cash. The unique index is still per user, so
@@ -397,17 +398,26 @@ read, no admin-only delete, and no admin-only owner reassignment any more.
 - `lib/userLabels.ts` is the only client-side caller: `loadUsers()` for owner
   pickers, `loadUserLabels()` for id→name maps, `labelFor()` for a single row.
 
-Receipts are the one place where sharing has a hard edge. The books are shared
-but Google accounts are not, so **a receipt always archives into the Drive of
-whoever uploaded it**:
+### One Drive for the whole app
 
-- `discard` and `refile` look the receipt up without an owner filter, then
-  resolve the Drive token from `receipt.user_id` rather than the caller.
-- `sync` with a `receiptId` does the same. A backlog drain with no `receiptId`
-  stays scoped to the caller, because the caller's Drive is the only queue their
-  Google account can write to.
-- The "waiting to archive" counts on Transactions and Profile are scoped to the
-  caller for the same reason: they count what Sync can actually push.
+There is exactly one Google account — the admin's — and every receipt archives
+into it, whoever uploaded the file. Per-person Drives would scatter a year's
+proof across two accounts and leave neither complete, which is the wrong shape
+for the one moment it matters.
+
+- `archiveAccountUserId()` in `lib/receiptArchive.ts` resolves it: the admin who
+  has actually connected, falling back to the first admin so "not connected"
+  still reads correctly. `resolveArchiveTarget(admin)` takes no user id at all
+  any more.
+- `sync`, `refile` and `discard` all archive into that account. A backlog drain
+  covers **everyone's** pending receipts, so the "waiting to archive" counts on
+  Transactions and Profile are unscoped — one Sync clears the lot.
+- Connecting, choosing the folder and disconnecting go through
+  `authenticateAdmin()` in `lib/serverAuth.ts` — they change the account itself.
+  `status` stays open to everyone: seeing "filing into <folder> · <admin email>"
+  is how the other person knows their receipts land somewhere real.
+- `DriveArchiveCard` takes `isAdmin`. Everyone gets Sync now; only an admin gets
+  Connect, Change folder and Disconnect.
 
 Still true, and unchanged:
 
@@ -555,9 +565,9 @@ Merchant memory (`merchant_rules`):
 - The next import pre-fills category and Include/Exclude from those rules and
   marks the row `auto_applied` (a sparkle icon in the list).
 - Flagged rows deliberately write no rule — "not sure" is not worth replaying.
-- Rules are per-user, so one person's sense of what counts as business never
-  pre-selects rows on someone else's statement. Everyone still sees every import
-  and every row — only the memory behind the pre-fill is personal.
+- Rules are shared, keyed on the fingerprint alone. A merchant categorised once
+  comes back pre-filled on the other person's statement too — the books are one
+  set, so the memory behind them is one set as well.
 
 ### House Sitting Section
 
@@ -784,10 +794,11 @@ This replaced the full 22-item Schedule C list. Rules:
 
 ## Next Step
 
-Run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable and
-rewrites RLS on every table so both accounts see and edit the same books. Until
-it runs, the app asks for everyone's rows and the database returns only your own,
-so the pages look right but the totals stay half-sized.
+Run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
+rewrites RLS on every table so both accounts see and edit the same books, and
+re-keys `merchant_rules` on the merchant alone. Until it runs, the app asks for
+everyone's rows and the database returns only your own, so the pages look right
+but the totals stay half-sized.
 
 Then run `supabase/vehicle-schema.sql` in Supabase. It is re-runnable and creates
 `vehicle_profiles` and `vehicle_costs`. Until it runs, the
@@ -850,6 +861,8 @@ Also test permissions with both users:
 3. Confirm every client card, import, and stay is labelled with whose it is, for both accounts.
 4. As Yana, edit one of Ivan's transactions and confirm it saves.
 5. Confirm Profile shows the `Admin` chip for Ivan and not for Yana.
+6. As Yana, confirm Profile shows the Drive archive folder and a Sync button, but no Connect/Change folder/Disconnect.
+7. As Yana, attach a receipt and confirm it lands in Ivan's Drive folder for that month.
 
 Also test client-card/edit behavior:
 

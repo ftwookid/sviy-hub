@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/serverAuth";
+import { authenticateAdmin } from "@/lib/serverAuth";
+import { archiveAccountUserId } from "@/lib/receiptArchive";
 import { getAccessToken } from "@/lib/googleDrive";
 
 /**
@@ -22,11 +23,12 @@ function pickerAppId() {
 }
 
 export async function GET(request: Request) {
-  const auth = await authenticateRequest(request);
+  const auth = await authenticateAdmin(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   try {
-    const { accessToken } = await getAccessToken(auth.caller.admin, auth.caller.userId);
+    const ownerId = (await archiveAccountUserId(auth.caller.admin)) ?? auth.caller.userId;
+    const { accessToken } = await getAccessToken(auth.caller.admin, ownerId);
 
     return NextResponse.json({
       accessToken,

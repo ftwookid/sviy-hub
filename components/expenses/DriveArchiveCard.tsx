@@ -17,7 +17,15 @@ function relativeTime(value: string | null) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-export function DriveArchiveCard({ pendingCount }: { pendingCount: number }) {
+/**
+ * One archive for the whole app, living in the admin's Google account.
+ *
+ * Everyone sees its state — knowing your receipts land somewhere real is the
+ * point of the card — and everyone can run a sync, because the queue it drains
+ * is shared. Connecting, repointing and disconnecting stay with the admin,
+ * since they change the account itself.
+ */
+export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: number; isAdmin: boolean }) {
   const { connection, configured, loading, busy, error, connect, chooseFolder, syncNow, disconnect } =
     useDriveConnection();
   const [syncNote, setSyncNote] = useState("");
@@ -78,7 +86,7 @@ export function DriveArchiveCard({ pendingCount }: { pendingCount: number }) {
               </p>
             ) : (
               <p className="mt-0.5 text-[13px] text-text-secondary">
-                Connect so every receipt is archived by year and month.
+                {isAdmin ? "Connect so every receipt is archived by year and month." : "Not connected yet."}
               </p>
             )}
           </div>
@@ -108,37 +116,43 @@ export function DriveArchiveCard({ pendingCount }: { pendingCount: number }) {
 
       {syncNote ? <p className="mt-3 text-[13px] text-text-secondary">{syncNote}</p> : null}
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        {!connection.connected ? (
-          <Button className="w-full sm:w-auto" variant="accent" disabled={busy} onClick={connect}>
-            Connect Google Drive
-          </Button>
-        ) : (
-          <>
-            <Button className="w-full sm:w-auto" variant="soft" disabled={busy} onClick={chooseFolder}>
-              <FolderOpen size={16} strokeWidth={1.7} />
-              {connection.rootFolderId ? "Change folder" : "Choose folder"}
+      {!connection.connected && !isAdmin ? null : (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          {!connection.connected ? (
+            <Button className="w-full sm:w-auto" variant="accent" disabled={busy} onClick={connect}>
+              Connect Google Drive
             </Button>
-            <Button
-              className="w-full sm:w-auto"
-              variant={pendingCount > 0 ? "accent" : "soft"}
-              disabled={busy || !readyToSync}
-              onClick={handleSync}
-            >
-              <RefreshCw size={16} strokeWidth={1.7} className={cn(busy && "animate-spin")} />
-              {busy ? "Syncing..." : "Sync now"}
-            </Button>
-            <Button
-              className="w-full sm:ml-auto sm:w-auto"
-              variant="ghost"
-              disabled={busy}
-              onClick={disconnect}
-            >
-              Disconnect
-            </Button>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              {isAdmin ? (
+                <Button className="w-full sm:w-auto" variant="soft" disabled={busy} onClick={chooseFolder}>
+                  <FolderOpen size={16} strokeWidth={1.7} />
+                  {connection.rootFolderId ? "Change folder" : "Choose folder"}
+                </Button>
+              ) : null}
+              <Button
+                className="w-full sm:w-auto"
+                variant={pendingCount > 0 ? "accent" : "soft"}
+                disabled={busy || !readyToSync}
+                onClick={handleSync}
+              >
+                <RefreshCw size={16} strokeWidth={1.7} className={cn(busy && "animate-spin")} />
+                {busy ? "Syncing..." : "Sync now"}
+              </Button>
+              {isAdmin ? (
+                <Button
+                  className="w-full sm:ml-auto sm:w-auto"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={disconnect}
+                >
+                  Disconnect
+                </Button>
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

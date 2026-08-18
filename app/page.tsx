@@ -108,12 +108,9 @@ export default function TransactionsPage() {
       .lte("date", end)
       .order("date", { ascending: false });
 
-    // Scoped to the caller even though the books are shared: this counts what
-    // Sync can actually push, and Sync can only reach the caller's own Drive.
     const pendingQuery = supabase
       .from("receipts")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
       .is("drive_file_id", null)
       .not("storage_path", "is", null);
 

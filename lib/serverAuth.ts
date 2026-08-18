@@ -55,3 +55,27 @@ export async function authenticateRequest(request: Request): Promise<AuthResult>
 
   return { ok: true, caller: { admin, userId: user.id, email: user.email ?? null } };
 }
+
+/**
+ * Same as `authenticateRequest`, but refuses anyone who is not an admin.
+ *
+ * The books are shared; the settings behind them are not. Connecting Google
+ * Drive, choosing the archive folder and disconnecting all act on the one
+ * account the whole app archives into, so they stay with whoever owns it.
+ */
+export async function authenticateAdmin(request: Request): Promise<AuthResult> {
+  const auth = await authenticateRequest(request);
+  if (!auth.ok) return auth;
+
+  const { data: profile } = await auth.caller.admin
+    .from("profiles")
+    .select("role")
+    .eq("id", auth.caller.userId)
+    .maybeSingle();
+
+  if (profile?.role !== "admin") {
+    return { ok: false, status: 403, error: "Only an admin can change the archive settings." };
+  }
+
+  return auth;
+}

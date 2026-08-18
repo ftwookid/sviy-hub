@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/serverAuth";
 import { googleOAuthConfigured, loadDriveAccount } from "@/lib/googleDrive";
+import { archiveAccountUserId } from "@/lib/receiptArchive";
 import type { DriveConnection } from "@/types/expense";
 
 const DISCONNECTED: DriveConnection = {
@@ -20,7 +21,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ configured: false, connection: DISCONNECTED });
   }
 
-  const account = await loadDriveAccount(auth.caller.admin, auth.caller.userId);
+  // Everyone reads the state of the one shared archive; only an admin can
+  // change it. Seeing "archiving to Ivan's Drive" is the point — it tells the
+  // other person their receipts are going somewhere real.
+  const ownerId = await archiveAccountUserId(auth.caller.admin);
+  const account = ownerId ? await loadDriveAccount(auth.caller.admin, ownerId) : null;
   if (!account) {
     return NextResponse.json({ configured: true, connection: DISCONNECTED });
   }

@@ -80,11 +80,10 @@ export async function loadRows(importId: string) {
   return (data ?? []) as StatementImportRow[];
 }
 
-export async function loadMerchantRules(userId: string) {
+export async function loadMerchantRules() {
   const { data, error } = await requireClient()
     .from("merchant_rules")
-    .select("*")
-    .eq("user_id", userId);
+    .select("*");
 
   if (error) return [] as MerchantRule[];
   return (data ?? []) as MerchantRule[];
@@ -149,9 +148,14 @@ export async function discardImport(importId: string) {
  * One rule per decided row, keyed on the descriptor fingerprint. Flagged rows are
  * deliberately skipped: "I am not sure about this" is not a decision worth
  * replaying onto next month's statement.
+ *
+ * The memory is shared: one household, one answer per merchant. `user_id` still
+ * records who last decided, which is why the upsert keys on the fingerprint
+ * alone — a second person confirming the same merchant updates the rule rather
+ * than starting a rival one.
  */
 async function rememberDecisions(rows: StatementImportRow[], userId: string) {
-  const existing = await loadMerchantRules(userId);
+  const existing = await loadMerchantRules();
   const counts = new Map(existing.map((rule) => [rule.match_key, rule.times_applied]));
   const now = new Date().toISOString();
 
@@ -178,7 +182,7 @@ async function rememberDecisions(rows: StatementImportRow[], userId: string) {
 
   await requireClient()
     .from("merchant_rules")
-    .upsert(Array.from(rules.values()), { onConflict: "user_id,match_key" });
+    .upsert(Array.from(rules.values()), { onConflict: "match_key" });
 }
 
 export type ConfirmResult = {
