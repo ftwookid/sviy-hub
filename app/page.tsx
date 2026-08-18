@@ -13,6 +13,7 @@ import { DriveArchiveAlert } from "@/components/expenses/DriveArchiveAlert";
 import { ExpenseSlideOver } from "@/components/expenses/ExpenseSlideOver";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
+import { ProofSheetReview } from "@/components/expenses/ProofSheetReview";
 import { QuickReceiptButton } from "@/components/expenses/QuickReceiptButton";
 import { StatementReview } from "@/components/expenses/StatementReview";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -24,17 +25,20 @@ import { deleteExpenses } from "@/lib/expenseDelete";
 import {
   expenseTotal,
   periodMonthBounds,
+  periodMonthOf,
   previousPeriodMonth,
   proofState,
   shiftPeriodMonth
 } from "@/lib/expenses";
 import { formatCurrency, formatShortDate } from "@/lib/formatters";
 import { SimilarCategoryDialog } from "@/components/expenses/SimilarCategoryDialog";
+import { scanProofSheet } from "@/lib/proofSheetClient";
 import { loadImports, scanStatement } from "@/lib/statementImportClient";
 import { similarCandidates } from "@/lib/statementImports";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { Expense, Receipt } from "@/types/expense";
+import type { ProofSheetScan } from "@/types/proofSheet";
 import type { StatementImport } from "@/types/statementImport";
 
 /**
@@ -81,6 +85,10 @@ export default function TransactionsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
+  // A vendor report waiting to be confirmed. Held in memory, not in the
+  // database: nothing about it is worth keeping unless the user goes through
+  // with attaching it.
+  const [proofSheet, setProofSheet] = useState<{ file: File; scan: ProofSheetScan } | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -373,6 +381,26 @@ export default function TransactionsPage() {
     }
   }
 
+  /**
+   * Scans a vendor report and opens its matches for review.
+   *
+   * The file itself is kept in state rather than uploaded now — a report the
+   * user backs out of should leave nothing behind in Storage or Drive.
+   */
+  async function handleProofSheet(file: File) {
+    setScanning(true);
+    setScanError("");
+    try {
+      const scan = await scanProofSheet(file);
+      setAddOpen(false);
+      setProofSheet({ file, scan });
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : "That report could not be scanned.");
+    } finally {
+      setScanning(false);
+    }
+  }
+
   function openManual() {
     setAddOpen(false);
     setEditing(null);
@@ -403,7 +431,26 @@ export default function TransactionsPage() {
           <ExpenseSectionTabs />
         </div>
 
-        {reviewingId ? (
+        {proofSheet ? (
+          <ProofSheetReview
+            file={proofSheet.file}
+            scan={proofSheet.scan}
+            userId={user.id}
+            onBack={() => setProofSheet(null)}
+            onAttached={({ count, periodDate }) => {
+              setProofSheet(null);
+              showToast(
+                `Report attached to ${count} transaction${count === 1 ? "" : "s"}`
+              );
+              // Land on the month those transactions are in, or the proof looks
+              // like it went nowhere. Changing the month reloads on its own.
+              const landing = periodMonthOf(periodDate);
+              if (landing !== periodMonth) setPeriodMonth(landing);
+              else loadMonth();
+            }}
+            showToast={showToast}
+          />
+        ) : reviewingId ? (
           <StatementReview
             importId={reviewingId}
             userId={user.id}
@@ -623,6 +670,7 @@ export default function TransactionsPage() {
           scanError={scanError}
           onManual={openManual}
           onFile={handleScan}
+          onProofSheet={handleProofSheet}
           onResume={(importId) => {
             setAddOpen(false);
             setReviewingId(importId);
