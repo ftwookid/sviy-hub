@@ -1,4 +1,18 @@
-export type PaymentMethod = "Main card" | "Other card" | "Cash";
+/**
+ * How a transaction was paid: "Cash", or the nickname of a saved card.
+ *
+ * Free text rather than a fixed union, because the list of cards belongs to the
+ * user. Kept as text on the expense rather than a foreign key so deleting a card
+ * can never rewrite what an old transaction says it was paid with.
+ */
+export type PaymentMethod = string;
+
+export type PaymentCard = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  nickname: string;
+};
 
 export type ExpenseType = "Standard" | "Parking";
 

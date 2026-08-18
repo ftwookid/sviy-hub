@@ -6,13 +6,14 @@ import { BulkAction, BulkBar } from "@/components/expenses/BulkBar";
 import { CategoryPicker } from "@/components/expenses/CategoryPicker";
 import { ImportRow } from "@/components/expenses/ImportRow";
 import { ImportSummaryCard } from "@/components/expenses/ImportSummaryCard";
+import { PaymentMethodPicker } from "@/components/expenses/PaymentMethodPicker";
 import { SimilarCategoryDialog } from "@/components/expenses/SimilarCategoryDialog";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { formatCurrency, todayInputValue } from "@/lib/formatters";
-import { PAYMENT_METHODS } from "@/lib/paymentMethods";
+import { DEFAULT_PAYMENT_METHOD } from "@/lib/paymentMethods";
 import {
   addManualRow,
   confirmImport,
@@ -77,7 +78,7 @@ export function StatementReview({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("All");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Main card");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
   const [importing, setImporting] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [pickingBulkCategory, setPickingBulkCategory] = useState(false);
@@ -573,23 +574,11 @@ export function StatementReview({
           <span className="text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
             Paid with
           </span>
-          <div className="flex min-h-9 gap-0.5 rounded-xl border border-border bg-subtle p-0.5">
-            {PAYMENT_METHODS.map((method) => (
-              <button
-                key={method}
-                className={cn(
-                  "focus-ring rounded-[10px] px-3 text-[13px] font-medium transition duration-150 ease-out",
-                  paymentMethod === method
-                    ? "bg-surface text-text-primary shadow-sm"
-                    : "text-text-secondary"
-                )}
-                type="button"
-                onClick={() => setPaymentMethod(method as PaymentMethod)}
-              >
-                {method}
-              </button>
-            ))}
-          </div>
+          <PaymentMethodPicker
+            value={paymentMethod}
+            userId={userId}
+            onChange={setPaymentMethod}
+          />
         </div>
 
         {blocked > 0 ? (
