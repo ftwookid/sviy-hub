@@ -34,7 +34,14 @@ export async function uploadReceipt(
     .from("receipts")
     .upload(storagePath, prepared.file, { upsert: false });
 
-  if (uploadError) throw uploadError;
+  // Supabase answers a missing bucket with a bare "Bucket not found", which
+  // reads as a broken upload rather than an unfinished setup step.
+  if (uploadError) {
+    if (/bucket not found/i.test(uploadError.message)) {
+      throw new Error('Create the private "receipts" bucket in Supabase Storage first.');
+    }
+    throw uploadError;
+  }
 
   const { data, error } = await supabase
     .from("receipts")
