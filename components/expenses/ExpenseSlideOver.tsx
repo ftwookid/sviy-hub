@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { authedFetch } from "@/lib/apiClient";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
 import { DEFAULT_CATEGORY, EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
+import { deleteExpenses } from "@/lib/expenseDelete";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { proofState } from "@/lib/expenses";
 import { todayInputValue } from "@/lib/formatters";
 import { PAYMENT_METHODS } from "@/lib/paymentMethods";
@@ -83,16 +86,13 @@ export function ExpenseSlideOver({
   const [waived, setWaived] = useState(expense?.proof_waived ?? false);
   const [proofNote, setProofNote] = useState(expense?.proof_note ?? "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !confirmingDelete) onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [confirmingDelete, onClose]);
+  // The delete confirmation stacks on top of this panel; the hook's stack sends
+  // the keypress there first, so one press backs out of one thing.
+  useEscapeKey(onClose);
 
   function update<K extends keyof ExpenseFormValues>(key: K, value: ExpenseFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -223,27 +223,15 @@ export function ExpenseSlideOver({
   async function handleDelete() {
     if (!supabase || !expense) return;
     setDeleting(true);
+    setDeleteError("");
     try {
-      const { error } = await supabase.from("expenses").delete().eq("id", expense.id);
-      if (error) throw error;
-
-      if (attachedReceipt) {
-        try {
-          await authedFetch("/api/receipts/discard", {
-            method: "POST",
-            body: JSON.stringify({ receiptId: attachedReceipt.id })
-          });
-        } catch {
-          // The expense is already gone; a stranded Drive file is the lesser
-          // problem and stays recoverable from the folder itself.
-        }
-      }
-
+      await deleteExpenses([expense.id], attachedReceipt ? [attachedReceipt.id] : []);
       setConfirmingDelete(false);
       onDeleted();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Could not delete this expense.");
-      setConfirmingDelete(false);
+      // Kept on the dialog rather than behind it, so the reason is where the
+      // user just clicked.
+      setDeleteError(error instanceof Error ? error.message : "Could not delete this expense.");
     } finally {
       setDeleting(false);
     }
@@ -271,9 +259,7 @@ export function ExpenseSlideOver({
                 : "Log it now — you can attach the receipt later."}
             </p>
           </div>
-          <Button className="h-11 w-11 shrink-0 px-0" variant="ghost" onClick={onClose} aria-label="Close">
-            <X size={20} strokeWidth={1.6} />
-          </Button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -482,8 +468,12 @@ export function ExpenseSlideOver({
           confirmLabel="Delete"
           cancelLabel="Keep it"
           busy={deleting}
+          error={deleteError}
           onConfirm={handleDelete}
-          onCancel={() => setConfirmingDelete(false)}
+          onCancel={() => {
+            setDeleteError("");
+            setConfirmingDelete(false);
+          }}
         />
       ) : null}
     </div>

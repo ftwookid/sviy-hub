@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleAlert, Plus, Receipt as ReceiptIcon, Tag } from "lucide-react";
+import { CircleAlert, Plus, Receipt as ReceiptIcon, Tag, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CategoryTag } from "@/components/CategoryTag";
 import { ExpenseSectionTabs } from "@/components/ExpenseSectionTabs";
@@ -15,10 +15,12 @@ import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
 import { QuickReceiptButton } from "@/components/expenses/QuickReceiptButton";
 import { StatementReview } from "@/components/expenses/StatementReview";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { authedFetch } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
+import { deleteExpenses } from "@/lib/expenseDelete";
 import {
   expenseTotal,
   periodMonthBounds,
@@ -66,6 +68,11 @@ export default function TransactionsPage() {
     category: string;
     rows: Expense[];
   } | null>(null);
+  // Deleting is the one bulk action that cannot be undone, so it goes through a
+  // confirmation that says exactly how many rows and how much money is leaving.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Statement import lives on this page now, as a mode rather than a route.
   const [imports, setImports] = useState<StatementImport[]>([]);
@@ -301,6 +308,45 @@ export default function TransactionsPage() {
     showToast(`${ids.length} more transaction${ids.length === 1 ? "" : "s"} set to ${category}`);
   }
 
+  /** Remove the ticked rows, and retire any receipts they were holding. */
+  async function deleteSelected() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const receiptIds = expenses
+        .filter((expense) => selectedIds.has(expense.id))
+        .map((expense) => expense.receipt_id)
+        .filter(Boolean) as string[];
+
+      await deleteExpenses(ids, receiptIds);
+      setSelectedIds(new Set());
+      setConfirmingDelete(false);
+      await loadMonth();
+      showToast(`${ids.length} transaction${ids.length === 1 ? "" : "s"} deleted`);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Those transactions could not be deleted."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const selectedTotal = useMemo(
+    () => expenseTotal(expenses.filter((expense) => selectedIds.has(expense.id))),
+    [expenses, selectedIds]
+  );
+
+  const selectedWithProof = useMemo(
+    () =>
+      expenses.filter((expense) => selectedIds.has(expense.id) && expense.receipt_id !== null)
+        .length,
+    [expenses, selectedIds]
+  );
+
   const unfinishedImports = useMemo(
     () => imports.filter((item) => item.status === "Review" || item.status === "Parsing"),
     [imports]
@@ -532,6 +578,15 @@ export default function TransactionsPage() {
             label="Set category"
             onClick={() => setCategorising(Array.from(selectedIds))}
           />
+          <BulkAction
+            icon={Trash2}
+            label="Delete"
+            tone="danger"
+            onClick={() => {
+              setDeleteError("");
+              setConfirmingDelete(true);
+            }}
+          />
         </BulkBar>
       ) : null}
 
@@ -592,6 +647,28 @@ export default function TransactionsPage() {
             closeForm();
             loadMonth();
             showToast("Transaction deleted");
+          }}
+        />
+      ) : null}
+
+      {confirmingDelete ? (
+        <ConfirmDialog
+          title={`Delete ${selectedIds.size} transaction${selectedIds.size === 1 ? "" : "s"}?`}
+          description={`${formatCurrency(selectedTotal)} will be permanently removed from your records${
+            selectedWithProof > 0
+              ? `, and ${selectedWithProof} attached receipt${
+                  selectedWithProof === 1 ? "" : "s"
+                } will move to your Drive trash, where they stay recoverable for 30 days`
+              : ""
+          }. This cannot be undone.`}
+          confirmLabel={`Delete ${selectedIds.size}`}
+          cancelLabel="Keep them"
+          busy={deleting}
+          error={deleteError}
+          onConfirm={deleteSelected}
+          onCancel={() => {
+            setDeleteError("");
+            setConfirmingDelete(false);
           }}
         />
       ) : null}

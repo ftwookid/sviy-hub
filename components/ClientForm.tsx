@@ -5,6 +5,7 @@ import { Camera, ChevronDown, Minus, Plus, Sparkles, X } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/clients";
 import { formatCurrency, formatShortDate, sanitizeFilename, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import type {
   ClientFormPet,
   ClientFormValues,
@@ -108,6 +110,10 @@ export function ClientForm({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmingChanges, setConfirmingChanges] = useState(false);
   const [changeSummary, setChangeSummary] = useState<ChangeSummary[]>([]);
+
+  // Stacked over the client slide-over. The hook's stack means Escape backs out
+  // of this review first and leaves the edits underneath intact.
+  useEscapeKey(() => setConfirmingChanges(false), confirmingChanges && !saving);
 
   const selectedDaysCount = values.selected_days.length;
   const ownerSelectOptions = useMemo(() => {
@@ -840,13 +846,27 @@ export function ClientForm({
       </div>
 
       {confirmingChanges ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-[#1A1916]/30 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-[520px] rounded-[20px] border border-border bg-surface p-5 shadow-[0_22px_70px_rgba(48,38,24,0.2)]">
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-[#1A1916]/30 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            if (!saving) setConfirmingChanges(false);
+          }}
+        >
+          <div
+            className="w-full max-w-[520px] rounded-[20px] border border-border bg-surface p-5 shadow-[0_22px_70px_rgba(48,38,24,0.2)]"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-[22px] font-medium leading-tight text-text-primary">Confirm client changes</h3>
                 <p className="mt-2 text-[14px] text-text-secondary">Review what changed before updating this client.</p>
               </div>
+              <CloseButton
+                onClick={() => setConfirmingChanges(false)}
+                label="Back to editing"
+              />
             </div>
 
             <div className="mt-5 max-h-[48vh] space-y-2 overflow-y-auto">

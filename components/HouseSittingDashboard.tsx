@@ -21,12 +21,14 @@ import {
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select } from "@/components/ui/Field";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { CLIENT_PAYMENT_METHODS, PET_TYPES, ROVER_COMMISSION_RATE } from "@/lib/clients";
 import {
   addDays,
@@ -1184,14 +1186,7 @@ function DaySheet({
   onAddStay: () => void;
   onRequestAction: (action: PendingAction) => void;
 }) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <div
@@ -1211,9 +1206,7 @@ function DaySheet({
               {bookings.length === 0 ? "No stays booked" : `${bookings.length} ${bookings.length === 1 ? "stay" : "stays"}`}
             </p>
           </div>
-          <Button className="h-10 w-10 shrink-0 px-0" variant="ghost" onClick={onClose} aria-label="Close">
-            <X size={20} strokeWidth={1.6} />
-          </Button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
@@ -1639,6 +1632,10 @@ function HouseSittingForm({
     }
   }
 
+  // Cancel/delete confirmations stack on top of this panel; the shared stack
+  // sends the keypress to whichever is actually in front.
+  useEscapeKey(onClose);
+
   return (
     <div className="fixed inset-0 z-[60] bg-[#1A1916]/20 backdrop-blur-sm" onClick={onClose}>
       <aside
@@ -1656,9 +1653,7 @@ function HouseSittingForm({
                 : "Log the booked stay without adding anyone to regular customers."}
             </p>
           </div>
-          <Button className="h-11 w-11 shrink-0 px-0" variant="ghost" onClick={onClose} aria-label="Close">
-            <X size={20} strokeWidth={1.6} />
-          </Button>
+          <CloseButton onClick={onClose} />
         </div>
 
         {cancelled ? (

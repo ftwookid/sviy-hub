@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 /**
  * The bar that appears once rows are selected.
@@ -47,15 +48,23 @@ export function BulkBar({ count, onClear, children }: { count: number; onClear: 
 export function BulkAction({
   icon: Icon,
   label,
+  tone = "neutral",
   onClick
 }: {
   icon: LucideIcon;
   label: string;
+  /** Destructive actions read red against the dark bar so they are never a slip. */
+  tone?: "neutral" | "danger";
   onClick: () => void;
 }) {
   return (
     <button
-      className="focus-ring inline-flex h-9 min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white/12 px-1.5 text-[12px] font-medium text-white transition hover:bg-white/22 sm:flex-none sm:px-2.5 sm:text-[13px]"
+      className={cn(
+        "focus-ring inline-flex h-9 min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-1.5 text-[12px] font-medium transition sm:flex-none sm:px-2.5 sm:text-[13px]",
+        tone === "danger"
+          ? "bg-[#C05050] text-white hover:bg-[#B14444]"
+          : "bg-white/12 text-white hover:bg-white/22"
+      )}
       type="button"
       onClick={onClick}
     >

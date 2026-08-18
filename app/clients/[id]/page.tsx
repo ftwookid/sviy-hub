@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Edit3, MapPin, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit3, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -9,8 +9,10 @@ import { ClientForm } from "@/components/ClientForm";
 import { ClientPaymentBadge } from "@/components/ClientPaymentBadge";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { estimateClientEarnings, selectedDaysFromRecord, WEEKS_PER_MONTH } from "@/lib/clients";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -540,6 +542,12 @@ export default function ClientDetailPage() {
     setPriceModalOpen(true);
   }
 
+  // Escape backs out of whichever of these is on top; the shared stack sorts
+  // out the ordering when one is opened over another.
+  useEscapeKey(closePriceModal, priceModalOpen);
+  useEscapeKey(() => setStatusModalOpen(false), statusModalOpen);
+  useEscapeKey(() => setEditorOpen(false), editorOpen);
+
   function togglePriceHistory() {
     setPriceHistoryOpen((open) => !open);
   }
@@ -881,9 +889,7 @@ export default function ClientDetailPage() {
                 <h2 className="text-[22px] font-medium text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
                 <p className="mt-1 text-[14px] text-text-secondary">Set the price and when it took effect.</p>
               </div>
-              <Button className="min-h-10 px-3" variant="ghost" onClick={closePriceModal} aria-label="Close">
-                <X size={18} strokeWidth={1.6} />
-              </Button>
+              <CloseButton onClick={closePriceModal} />
             </div>
             <div className="mt-5 grid gap-4">
               <label>
@@ -945,16 +951,7 @@ export default function ClientDetailPage() {
                   Confirm changing {client.name} to {nextStatus}.
                 </p>
               </div>
-              <Button
-                className="min-h-10 px-3"
-                variant="ghost"
-                onClick={() => {
-                  setStatusModalOpen(false);
-                }}
-                aria-label="Close"
-              >
-                <X size={18} strokeWidth={1.6} />
-              </Button>
+              <CloseButton onClick={() => setStatusModalOpen(false)} />
             </div>
             <div className="mt-5">
               <span className="text-[13px] font-medium text-text-secondary">From what date?</span>
@@ -1100,9 +1097,7 @@ export default function ClientDetailPage() {
                 <h2 className="text-[28px] font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">Edit client</h2>
                 <p className="mt-1 text-[15px] text-text-secondary">Keep the details light, useful, and easy to scan.</p>
               </div>
-              <Button variant="ghost" onClick={() => setEditorOpen(false)} aria-label="Close">
-                <X size={20} strokeWidth={1.6} />
-              </Button>
+              <CloseButton onClick={() => setEditorOpen(false)} />
             </div>
             <ClientForm
               key={client.id}

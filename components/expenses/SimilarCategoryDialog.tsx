@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CategoryTag } from "@/components/CategoryTag";
 import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { cn } from "@/lib/cn";
 import { normalizeCategory } from "@/lib/categories";
 import { formatCurrency, parseLocalDate } from "@/lib/formatters";
@@ -40,13 +42,7 @@ export function SimilarCategoryDialog({
   // want the same category, so the fast path should be one tap.
   const [checked, setChecked] = useState<Set<string>>(() => new Set(rows.map((row) => row.id)));
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onDismiss();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onDismiss]);
+  useEscapeKey(onDismiss);
 
   const allChecked = useMemo(
     () => rows.length > 0 && rows.every((row) => checked.has(row.id)),
@@ -79,9 +75,14 @@ export function SimilarCategoryDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="px-5 pt-5">
-          <h3 className="text-[18px] font-medium leading-tight text-text-primary">
-            {rows.length} similar transaction{rows.length === 1 ? "" : "s"}
-          </h3>
+          <div className="flex items-start gap-2">
+            <h3 className="min-w-0 flex-1 text-[18px] font-medium leading-tight text-text-primary">
+              {rows.length} similar transaction{rows.length === 1 ? "" : "s"}
+            </h3>
+            {/* Same outcome as "Just this one" — the edit that opened this is
+                already saved, so backing out only declines the offer. */}
+            <CloseButton onClick={onDismiss} />
+          </div>
           <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13.5px] leading-snug text-text-secondary">
             Set {rows.length === 1 ? "it" : "them"} to
             <CategoryTag category={category} />

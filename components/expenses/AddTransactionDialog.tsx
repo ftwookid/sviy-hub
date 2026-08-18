@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronRight, FileText, Loader2, PenLine, UploadCloud } from "lucide-react";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { cn } from "@/lib/cn";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { periodMonthLabel } from "@/lib/expenses";
 import { formatBytes } from "@/lib/receiptImage";
 import type { StatementImport } from "@/types/statementImport";
@@ -46,13 +48,9 @@ export function AddTransactionDialog({
   const [pending, setPending] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !scanning) onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, scanning]);
+  // Nothing to close to mid-scan: the passes keep running either way, and the
+  // dialog is the only place their outcome can land.
+  useEscapeKey(onClose, !scanning);
 
   function start(file: File | undefined) {
     if (!file) return;
@@ -105,7 +103,7 @@ export function AddTransactionDialog({
           </div>
         ) : step === "choose" ? (
           <>
-            <h3 className="text-[19px] font-medium leading-tight text-text-primary">Add transactions</h3>
+            <DialogHeader title="Add transactions" onClose={onClose} />
 
             <div className="mt-4 space-y-2">
               <ChoiceRow
@@ -153,9 +151,7 @@ export function AddTransactionDialog({
           </>
         ) : (
           <>
-            <h3 className="text-[19px] font-medium leading-tight text-text-primary">
-              Upload a statement
-            </h3>
+            <DialogHeader title="Upload a statement" onClose={onClose} />
             <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
               Keep the business transactions, drop the rest. Nothing is written to your books
               until you say so.
@@ -215,6 +211,24 @@ export function AddTransactionDialog({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Title and a way out, on one row.
+ *
+ * Escape and a click on the dim backdrop both closed this already, but neither
+ * is visible — on a phone there is no Escape key at all, and the sheet reaches
+ * the bottom edge, so there is barely any backdrop left to tap.
+ */
+function DialogHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="flex items-start gap-2">
+      <h3 className="min-w-0 flex-1 text-[19px] font-medium leading-tight text-text-primary">
+        {title}
+      </h3>
+      <CloseButton onClick={onClose} />
     </div>
   );
 }
