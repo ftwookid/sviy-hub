@@ -43,35 +43,6 @@ export function daysBetween(start: Date, end: Date) {
   return days;
 }
 
-/**
- * A stop address is a full postal line; what makes a list readable is the part
- * that names the place. Everything that is true of every row — the state, the
- * zip, "Portland" on its own — carries no information, so it is dropped.
- */
-export function destinationArea(value: string | null) {
-  if (!value?.trim()) return "Area not named";
-  const pieces = value
-    .split(",")
-    .map((piece) => piece.trim())
-    .filter(Boolean);
-  const neighborhood = /\b(?:northwest|southwest|northeast|southeast|north|south|east|west)\s+portland\b/i;
-  const named = pieces.find((piece) => neighborhood.test(piece));
-  if (named) return named;
-
-  const candidates = pieces.filter((piece) => {
-    if (/^(?:usa|united states)$/i.test(piece)) return false;
-    if (/^\d{5}(?:-\d{4})?$/.test(piece)) return false;
-    if (/^[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?$/i.test(piece)) return false;
-    if (/^(?:oregon|washington)(?:\s+\d{5}(?:-\d{4})?)?$/i.test(piece)) return false;
-    if (/^portland(?:\s+(?:or|oregon))?(?:\s+\d{5}(?:-\d{4})?)?$/i.test(piece)) return false;
-    if (/^\d+\s/.test(piece)) return false;
-    return true;
-  });
-
-  return candidates[0] ?? pieces.find((piece) => !/\d{5}/.test(piece)) ?? "Area not named";
-}
-
-/** "all" is everyone's driving; anything else is one person's, for filtering. */
 export type MileageScope = { ownerId: string };
 
 export async function loadMileageUploads({ ownerId }: MileageScope) {

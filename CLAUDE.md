@@ -210,9 +210,10 @@ tabs across the top (`components/SectionTabs.tsx`):
 | Tab | Route | Question it answers |
 | --- | --- | --- |
 | Transactions | `/`, `/import` | What did we spend? |
-| Mileage | `/mileage` | What did we drive? |
-| Car | `/car` | Is the car worth driving? |
+| Driving | `/mileage` | What did we drive, and what does the car cost? |
 | Reports | `/reports` | What does the year come to? |
+
+`/car` redirects to `/mileage`.
 
 Spending and driving are the same deduction asked twice, so splitting them
 across top-level tabs meant nobody could see the year's real number in one
@@ -230,49 +231,45 @@ Reports now adds the mileage deduction to the year:
 - Mileage is read straight off the active uploads, so restoring a different
   month's import moves the report total with it.
 
-### Mileage
+### Driving
 
-Rebuilt around five questions and nothing else: miles logged, month-over-month
-breakdown, what that is worth, the busiest day, and the average drive.
+One tab, one period selector, two halves of the same question: what the driving
+is worth, then what it costs. They were separate tabs and should not have been —
+cost per mile is only meaningful against the miles right above it.
 
-Removed, because none of it changed a decision: the "what stands out" insight
-banner, the top-areas ranking, the weekday bar chart (the busiest day is a stat
-now), short/long drive filters, the five advanced filters, drive pagination, the
-active-days stat, the longest-drive stat, per-owner stacked chart colors, and
-the stat-card icons. Imported months moved behind a disclosure at the bottom.
+The mileage half:
 
-Typography is two sizes on this page: `11px` uppercase for a label, `24px` for a
-number. Every stat card is the same card.
+- Three stats: miles, deduction, average drive.
+- One bar chart, daily within a month and monthly otherwise, with a **Miles /
+  Dollars** toggle. The two are not the same shape over "All time" — the IRS rate
+  changes between years — which is the whole reason the toggle earns its place
+  rather than being a relabelled axis.
+- **By weekday**, all seven days with the busiest one picked out in dark. A
+  single "busiest day" stat said which day won but not whether it won by a mile
+  or a mile and a half.
+- No table of individual drives. Four hundred rows of `Mar 3 · Northwest
+  Portland · 4.2 mi` answered no question anyone was asking.
+- Imported months stay behind a disclosure at the bottom.
 
-`lib/mileage.ts` holds what the Mileage, Car, and Reports pages all need —
-trip paging (Supabase caps a select at 1000 rows and a year of driving runs past
-that), month/day helpers, `destinationArea()`, and `totalsFor()`.
+The car half:
 
-### Car
+- The verdict line, then cost per mile, returned per mile, kept per mile, and
+  upkeep per 1,000 miles — the reliability number, since a car that is cheap on
+  fuel and ruinous on repairs shows up there and nowhere else.
+- Fuel economy and pump price save on blur. Everything else is logged in the
+  costs ledger below.
+- **Break-even mpg** and a what-if comparison against another car's economy.
+  Break-even is null when the fixed costs alone already outrun the deduction,
+  which is the real answer in that case.
+- Costs follow the page's period, so a month view prices that month.
 
-`/car` answers whether the car Yana drives is worth driving. Nothing here is a
-deduction; it sits next to Mileage because it is the same miles seen as a cost.
+A car belongs to one person, so with the driver filter on **Everyone** the car
+half falls back to the signed-in user's own car — measured against *their* miles,
+not the household's — and the heading names whose car it is. Mixing one person's
+car with two people's miles would produce a cost per mile that is quietly wrong.
 
-You enter fuel economy and pump price once (`vehicle_profiles`, one row per
-person), then log the costs that are not fuel — repairs, insurance, the payment
-(`vehicle_costs`). From that and the year's business miles:
-
-- **Cost per mile** — fuel burned over those miles, plus everything logged.
-- **Returned per mile** — the IRS rate already on the trips.
-- **Kept per mile** — the difference, and the verdict line at the top of the page.
-- **Upkeep per 1,000 miles** — maintenance and repairs only. This is the
-  reliability number: a car that is fine on fuel and ruinous on repairs shows up
-  here and nowhere else.
-- **Break-even mpg** — the fuel economy at which a mile would pay for itself.
-  Null when the fixed costs alone already outrun the deduction, which is the
-  real answer in that case: no amount of fuel economy fixes it.
-- **Compare against mpg** — what a thriftier car would save over the same miles.
-
-Fuel is derived from miles and pump price, so hand-logged `Fuel` rows are kept
-in the ledger as a record of actual spend but excluded from cost per mile —
-otherwise the same gallons would be counted twice.
-
-`lib/vehicle.ts` holds the arithmetic; the page holds none of it.
+`lib/mileage.ts` holds the shared trip loading and date helpers; `lib/vehicle.ts`
+holds the economics. The page holds neither.
 
 ### Clients Section
 
@@ -630,9 +627,8 @@ Cancel and delete:
 
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
-- `app/mileage/page.tsx`: Mileage — miles, month-over-month, deduction value.
-- `app/car/page.tsx`: Car — what a business mile costs against what it returns.
-- `components/SectionTabs.tsx`: The four Deductions tabs.
+- `app/mileage/page.tsx`: Driving — miles, month-over-month, and what the car costs.
+- `components/SectionTabs.tsx`: The three Deductions tabs.
 - `lib/mileage.ts`: Trip loading and the helpers Mileage/Car/Reports share.
 - `lib/vehicle.ts`: Cost per mile, break-even mpg, what-if comparison.
 - `supabase/vehicle-schema.sql`: `vehicle_profiles` and `vehicle_costs`.
