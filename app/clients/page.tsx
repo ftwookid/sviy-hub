@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
+import { ClientIncomeSummary } from "@/components/ClientIncomeSummary";
 import { ClientForm } from "@/components/ClientForm";
 import { HouseSittingDashboard } from "@/components/HouseSittingDashboard";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
@@ -294,6 +295,10 @@ function ClientsPageContent() {
 
         {activeView === "performance" && !loading && filteredClients.length > 0 ? (
           <ClientAnalyticsDashboard clients={filteredClients} />
+        ) : null}
+
+        {activeView === "regular" && !loading && filteredClients.length > 0 ? (
+          <ClientIncomeSummary clients={filteredClients} />
         ) : null}
 
         {activeView === "regular" && !loading && filteredClients.length > 0 ? (
