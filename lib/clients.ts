@@ -72,6 +72,19 @@ export function estimateClientMonthlyNet(client: ClientWithPets) {
   return estimateClientCurrentEarnings(client).monthlyNet;
 }
 
+/**
+ * What the regular clients bring in, at the three horizons worth knowing.
+ *
+ * Net, like every other earnings figure in the app — Rover's cut is money that
+ * never arrives. Weekly and annual are derived from the monthly figure rather
+ * than summed separately, so the three numbers can never disagree with each
+ * other or with a client card.
+ */
+export function clientIncomeTotals(clients: ClientWithPets[]) {
+  const monthly = clients.reduce((total, client) => total + estimateClientMonthlyNet(client), 0);
+  return { weekly: monthly / WEEKS_PER_MONTH, monthly, annual: monthly * 12 };
+}
+
 export function defaultClientValues(): ClientFormValues {
   return {
     name: "",

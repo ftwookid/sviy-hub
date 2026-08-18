@@ -88,6 +88,33 @@ http://localhost:3000/*
 - Added reports page with Schedule C table, monthly breakdown, and CSV export.
 - Moved Reports into the Expenses section as an Expenses/Reports segmented sub-tab.
 
+### Saved Cards
+
+`expenses.payment_method` used to be three fixed values — Main card, Other card,
+Cash — which made every card past the first "Other", exactly when the useful
+question is which account a charge came out of.
+
+- `payment_cards` (`supabase/payment-cards-schema.sql`) holds one row per card:
+  a nickname and an owner, nothing else. No numbers, no expiry — the nickname is
+  the whole record, because its only job is to be recognisable in a picker.
+- The expense still stores the **text**, not a foreign key. Deleting a card
+  therefore cannot rewrite history: the transactions that used it still say so,
+  it just stops being offered for new ones.
+- `PaymentMethod` is now `string`: "Cash", or a card nickname.
+- `PaymentMethodPicker` is the one control, used by both the transaction
+  slide-over and the statement review. It offers Cash, the saved cards, and
+  always the current value — an old row naming a deleted card must not silently
+  read as paid some other way.
+- Adding a card is inline: `+ Card`, type a nickname, Enter. Removing sits
+  behind the pencil, so a stray tap mid-entry cannot delete anything, and takes
+  no confirmation once you are in there.
+- While no card is saved, the picker falls back to the original three. That
+  covers a new account and, more to the point, the window before the migration
+  has been run, when the card list cannot load at all.
+- The migration seeds each person's cards from the distinct `payment_method`
+  values already on their own transactions, so nobody opens the picker to an
+  empty list.
+
 ### Proof Sheets — one file as proof for many transactions
 
 Some costs arrive as fifty tiny charges plus one monthly report that accounts for
@@ -491,6 +518,9 @@ Cancel and delete:
 - `lib/statementImportClient.ts`: Browser-side import queries, confirm, merchant memory.
 - `components/expenses/StatementDropzone.tsx`: PDF drop target and scan progress.
 - `components/expenses/ImportRowCard.tsx`: One reviewable transaction.
+- `components/expenses/PaymentMethodPicker.tsx`: Cards by nickname — pick, add, remove.
+- `lib/paymentMethods.ts`: The card list, and what the picker offers.
+- `supabase/payment-cards-schema.sql`: `payment_cards` table, RLS, and the seed.
 - `app/api/receipts/proof-sheet/route.ts`: Reads a vendor report and proposes the
   transactions it proves. Writes nothing.
 - `lib/spreadsheet.ts`: Dependency-free `.xlsx`/`.csv` reader; grid preview for the model.
@@ -636,6 +666,11 @@ This replaced the full 22-item Schedule C list. Rules:
   column must not resize per row.
 
 ## Next Step
+
+Run `supabase/payment-cards-schema.sql` in Supabase. It is re-runnable, creates
+`payment_cards`, and seeds it from the payment methods already on each person's
+transactions. Until it runs, the payment picker falls back to Main card / Other
+card / Cash and saving a new card reports that the table is missing.
 
 Run `supabase/category-migration.sql` in Supabase to rewrite stored categories
 onto the nine above. It is re-runnable and covers `expenses`,

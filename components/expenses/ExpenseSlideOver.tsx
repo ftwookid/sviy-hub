@@ -8,6 +8,7 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select, Textarea } from "@/components/ui/Field";
+import { PaymentMethodPicker } from "@/components/expenses/PaymentMethodPicker";
 import { ProofBadge } from "@/components/expenses/ProofBadge";
 import { DEFAULT_CATEGORY, EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
@@ -15,16 +16,11 @@ import { deleteExpenses } from "@/lib/expenseDelete";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { proofState } from "@/lib/expenses";
 import { todayInputValue } from "@/lib/formatters";
-import { PAYMENT_METHODS } from "@/lib/paymentMethods";
+import { DEFAULT_PAYMENT_METHOD } from "@/lib/paymentMethods";
 import { formatBytes } from "@/lib/receiptImage";
 import { receiptViewUrl, uploadReceipt } from "@/lib/receiptUpload";
 import { supabase } from "@/lib/supabase";
-import type {
-  Expense,
-  ExpenseFormValues,
-  PaymentMethod,
-  Receipt
-} from "@/types/expense";
+import type { Expense, ExpenseFormValues, Receipt } from "@/types/expense";
 
 type FormErrors = Partial<Record<keyof ExpenseFormValues, string>>;
 
@@ -36,7 +32,7 @@ function initialValues(expense?: Expense, defaultDate?: string): ExpenseFormValu
       description: "",
       amount: "",
       category: EXPENSE_CATEGORIES[0],
-      payment_method: "Main card",
+      payment_method: DEFAULT_PAYMENT_METHOD,
       notes: ""
     };
   }
@@ -312,23 +308,11 @@ export function ExpenseSlideOver({
           </Select>
 
           <FieldShell label="Payment method">
-            <div className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
-              {PAYMENT_METHODS.map((method) => (
-                <button
-                  key={method}
-                  className={cn(
-                    "focus-ring rounded-xl text-[13px] font-medium transition duration-150 ease-out sm:text-[14px]",
-                    values.payment_method === method
-                      ? "bg-surface text-text-primary shadow-sm"
-                      : "text-text-secondary"
-                  )}
-                  type="button"
-                  onClick={() => update("payment_method", method as PaymentMethod)}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
+            <PaymentMethodPicker
+              value={values.payment_method}
+              userId={userId}
+              onChange={(method) => update("payment_method", method)}
+            />
           </FieldShell>
 
           {/* Proof of transaction */}
