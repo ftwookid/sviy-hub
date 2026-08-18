@@ -46,6 +46,7 @@ import {
 } from "@/lib/houseSitting";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
+import { loadUsers } from "@/lib/userLabels";
 import type { ClientPaymentMethod, ClientWithPets, PetType } from "@/types/client";
 import type {
   HouseSittingBooking,
@@ -57,7 +58,6 @@ import type {
 
 type HouseSittingDashboardProps = {
   userId: string;
-  isAdmin: boolean;
   regularClients: ClientWithPets[];
 };
 
@@ -270,7 +270,7 @@ function errorMessage(error: unknown, fallback: string) {
   return postgrestError?.message ?? fallback;
 }
 
-export function HouseSittingDashboard({ userId, isAdmin, regularClients }: HouseSittingDashboardProps) {
+export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDashboardProps) {
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
   const [houseCustomers, setHouseCustomers] = useState<HouseSittingCustomer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,11 +294,6 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
     const bookingQuery = supabase.from("house_sittings").select("*").order("start_date", { ascending: true });
     const customerQuery = supabase.from("house_sitting_customers").select("*").order("name", { ascending: true });
 
-    if (!isAdmin) {
-      bookingQuery.eq("user_id", userId);
-      customerQuery.eq("user_id", userId);
-    }
-
     const [{ data: bookingData, error: bookingError }, { data: customerData, error: customerError }] = await Promise.all([
       bookingQuery,
       customerQuery
@@ -320,52 +315,21 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
     );
     setHouseCustomers((customerData ?? []) as HouseSittingCustomer[]);
     setLoading(false);
-  }, [isAdmin, userId]);
+  }, []);
 
   useEffect(() => {
     loadHouseSitting();
   }, [loadHouseSitting]);
 
   useEffect(() => {
-    if (!isAdmin || !supabase) {
-      setOwnerOptions([]);
-      return;
-    }
-
     let active = true;
-
-    async function loadOwners() {
-      const {
-        data: { session }
-      } = await supabase!.auth.getSession();
-
-      if (!session?.access_token) {
-        if (active) setOwnerOptions([]);
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/admin/users", {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
-        });
-
-        if (!response.ok) throw new Error("Could not load owners.");
-
-        const body = (await response.json()) as { users?: OwnerOption[] };
-        if (active) setOwnerOptions(body.users ?? []);
-      } catch {
-        if (active) setOwnerOptions([]);
-      }
-    }
-
-    loadOwners();
-
+    loadUsers().then((users) => {
+      if (active) setOwnerOptions(users);
+    });
     return () => {
       active = false;
     };
-  }, [isAdmin]);
+  }, []);
 
   const ownerLabels = useMemo(() => {
     const labels: Record<string, string> = {};
@@ -621,7 +585,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
                 <WeekCalendar
                   cursorDate={cursorDate}
                   bookings={bookings}
-                  ownerLabels={isAdmin ? ownerLabels : {}}
+                  ownerLabels={ownerLabels}
                   onOpenBooking={openBooking}
                   onOpenDay={openDay}
                 />
@@ -630,7 +594,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
                 <MonthCalendar
                   cursorDate={cursorDate}
                   bookings={bookings}
-                  ownerLabels={isAdmin ? ownerLabels : {}}
+                  ownerLabels={ownerLabels}
                   onOpenBooking={openBooking}
                   onOpenDay={openDay}
                 />
@@ -639,7 +603,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
                 <YearCalendar
                   cursorDate={cursorDate}
                   bookings={bookings}
-                  ownerLabels={isAdmin ? ownerLabels : {}}
+                  ownerLabels={ownerLabels}
                   onOpenBooking={openBooking}
                   onSelectMonth={(month) => {
                     setCursorDate(new Date(cursorDate.getFullYear(), month, 1));
@@ -653,14 +617,14 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
       </section>
 
       {!loading && !loadError && bookings.length > 0 ? (
-        <BookingList bookings={bookings} ownerLabels={isAdmin ? ownerLabels : {}} onOpenBooking={openBooking} />
+        <BookingList bookings={bookings} ownerLabels={ownerLabels} onOpenBooking={openBooking} />
       ) : null}
 
       {daySheetDate ? (
         <DaySheet
           date={daySheetDate}
           bookings={daySheetBookings}
-          ownerLabels={isAdmin ? ownerLabels : {}}
+          ownerLabels={ownerLabels}
           onClose={() => setDaySheetDate(null)}
           onOpenBooking={(booking) => {
             setDaySheetDate(null);
@@ -681,7 +645,7 @@ export function HouseSittingDashboard({ userId, isAdmin, regularClients }: House
           initialDate={formInitialDate}
           bookings={bookings}
           userId={userId}
-          canChangeOwner={isAdmin}
+          canChangeOwner
           ownerOptions={ownerOptions}
           regularClients={regularClients}
           houseCustomers={houseCustomers}

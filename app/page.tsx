@@ -19,7 +19,6 @@ import { StatementReview } from "@/components/expenses/StatementReview";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
-import { authedFetch } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
 import { deleteExpenses } from "@/lib/expenseDelete";
 import {
@@ -34,6 +33,7 @@ import { formatCurrency, formatShortDate } from "@/lib/formatters";
 import { SimilarCategoryDialog } from "@/components/expenses/SimilarCategoryDialog";
 import { scanProofSheet } from "@/lib/proofSheetClient";
 import { loadImports, scanStatement } from "@/lib/statementImportClient";
+import { loadUserLabels } from "@/lib/userLabels";
 import { similarCandidates } from "@/lib/statementImports";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -49,7 +49,7 @@ import type { StatementImport } from "@/types/statementImport";
  * a reason to care. There is one Add button now; the route is chosen inside it.
  */
 export default function TransactionsPage() {
-  const { user, isAdmin, authLoading } = useAuthUser();
+  const { user, authLoading } = useAuthUser();
   // Yana files in arrears, so the month that just ended is the useful default.
   const [periodMonth, setPeriodMonth] = useState(() => previousPeriodMonth());
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -101,31 +101,28 @@ export default function TransactionsPage() {
 
     const { start, end } = periodMonthBounds(periodMonth);
 
-    let expenseQuery = supabase
+    const expenseQuery = supabase
       .from("expenses")
       .select("*")
       .gte("date", start)
       .lte("date", end)
       .order("date", { ascending: false });
 
-    let pendingQuery = supabase
+    // Scoped to the caller even though the books are shared: this counts what
+    // Sync can actually push, and Sync can only reach the caller's own Drive.
+    const pendingQuery = supabase
       .from("receipts")
       .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
       .is("drive_file_id", null)
       .not("storage_path", "is", null);
 
-    let olderQuery = supabase
+    const olderQuery = supabase
       .from("expenses")
       .select("id", { count: "exact", head: true })
       .lt("date", start)
       .is("receipt_id", null)
       .eq("proof_waived", false);
-
-    if (!isAdmin) {
-      expenseQuery = expenseQuery.eq("user_id", user.id);
-      pendingQuery = pendingQuery.eq("user_id", user.id);
-      olderQuery = olderQuery.eq("user_id", user.id);
-    }
 
     const [expenseResult, pendingResult, olderResult] = await Promise.all([
       expenseQuery,
@@ -164,7 +161,7 @@ export default function TransactionsPage() {
     }
 
     setLoading(false);
-  }, [isAdmin, periodMonth, user]);
+  }, [periodMonth, user]);
 
   useEffect(() => {
     loadMonth();
@@ -173,28 +170,17 @@ export default function TransactionsPage() {
   const refreshImports = useCallback(async () => {
     if (!user) return;
     try {
-      const list = await loadImports(user.id, isAdmin);
+      const list = await loadImports();
       setImports(list);
 
-      // Admins work across everyone's statements, so each one needs an owner.
-      if (isAdmin && list.length > 0) {
-        const userIds = Array.from(new Set(list.map((item) => item.user_id)));
-        try {
-          const { labels } = await authedFetch<{ labels: Record<string, string> }>(
-            "/api/admin/user-labels",
-            { method: "POST", body: JSON.stringify({ userIds }) }
-          );
-          setOwnerLabels(labels ?? {});
-        } catch {
-          // Owner labels are a nicety; the imports themselves still load.
-        }
-      }
+      // Statements from both people sit in one list, so each needs a name on it.
+      if (list.length > 0) setOwnerLabels(await loadUserLabels());
     } catch {
       // The import tables may not be migrated yet. Typing transactions in still
       // works, so this stays quiet until the user actually reaches for import.
       setImports([]);
     }
-  }, [isAdmin, user]);
+  }, [user]);
 
   useEffect(() => {
     refreshImports();
@@ -448,7 +434,7 @@ export default function TransactionsPage() {
           <StatementReview
             importId={reviewingId}
             userId={user.id}
-            ownerLabel={isAdmin ? reviewingOwnerLabel : undefined}
+            ownerLabel={reviewingOwnerLabel}
             onBack={() => setReviewingId(null)}
             onImported={(outcome) => {
               refreshImports();

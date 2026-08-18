@@ -12,6 +12,11 @@ import { resolveArchiveTarget } from "@/lib/receiptArchive";
  * A `receiptId` in the body narrows the run to a single receipt. That is what
  * saving a transaction uses, so attaching proof archives just that file rather
  * than dragging along every other receipt that happens to be pending.
+ *
+ * The books are shared but Drive accounts are not, so a receipt always archives
+ * into the Drive of whoever uploaded it. A backlog drain with no `receiptId` is
+ * therefore the caller clearing their own queue — it is the only queue their
+ * Google account can write to.
  */
 const BATCH_SIZE = 8;
 
@@ -31,7 +36,17 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as { receiptId?: string };
 
-  const setup = await resolveArchiveTarget(admin, userId);
+  let archiveOwnerId = userId;
+  if (body.receiptId) {
+    const { data: target } = await admin
+      .from("receipts")
+      .select("user_id")
+      .eq("id", body.receiptId)
+      .maybeSingle();
+    if (target?.user_id) archiveOwnerId = target.user_id as string;
+  }
+
+  const setup = await resolveArchiveTarget(admin, archiveOwnerId);
   if (!setup.ok) {
     // A save that auto-archives should not fail because Drive is not set up
     // yet, so an unconfigured archive reports zero work instead of an error.
@@ -46,11 +61,11 @@ export async function POST(request: Request) {
   let query = admin
     .from("receipts")
     .select("id, filename, mime_type, storage_path, period_month")
-    .eq("user_id", userId)
     .is("drive_file_id", null)
     .not("storage_path", "is", null);
 
   if (body.receiptId) query = query.eq("id", body.receiptId);
+  else query = query.eq("user_id", userId);
 
   const { data: pending, error: pendingError } = await query
     .order("period_month", { ascending: true })
@@ -119,7 +134,7 @@ export async function POST(request: Request) {
       last_sync_error: failures.length ? failures[0].message : null,
       updated_at: new Date().toISOString()
     })
-    .eq("user_id", userId);
+    .eq("user_id", archiveOwnerId);
 
   return NextResponse.json({
     synced,

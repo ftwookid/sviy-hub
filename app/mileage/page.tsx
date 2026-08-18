@@ -26,6 +26,7 @@ import {
 } from "@/lib/mileage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
+import { loadUsers } from "@/lib/userLabels";
 import type { MileageTrip, MileageUpload } from "@/types/mileage";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -47,7 +48,7 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
 
 export default function MileagePage() {
   const now = useMemo(() => new Date(), []);
-  const { user, isAdmin, authLoading } = useAuthUser();
+  const { user, authLoading } = useAuthUser();
   const [uploads, setUploads] = useState<MileageUpload[]>([]);
   const [trips, setTrips] = useState<MileageTrip[]>([]);
   const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
@@ -72,7 +73,7 @@ export default function MileagePage() {
     return labels;
   }, [ownerOptions]);
 
-  const importOwnerId = isAdmin && selectedOwnerId !== "all" ? selectedOwnerId : user?.id ?? "";
+  const importOwnerId = selectedOwnerId !== "all" ? selectedOwnerId : user?.id ?? "";
   const importOwnerLabel = ownerLabels[importOwnerId] ?? "your account";
 
   const loadMileage = useCallback(async () => {
@@ -80,7 +81,7 @@ export default function MileagePage() {
     setLoading(true);
     setSchemaError("");
 
-    const scope = { userId: user.id, isAdmin, ownerId: selectedOwnerId };
+    const scope = { ownerId: selectedOwnerId };
     const { uploads: nextUploads, error: uploadError } = await loadMileageUploads(scope);
     if (uploadError) {
       setSchemaError(uploadError.message);
@@ -110,39 +111,21 @@ export default function MileagePage() {
     setUploads(nextUploads);
     setTrips(nextTrips);
     setLoading(false);
-  }, [isAdmin, selectedOwnerId, user]);
+  }, [selectedOwnerId, user]);
 
   useEffect(() => {
     loadMileage();
   }, [loadMileage]);
 
   useEffect(() => {
-    if (!supabase || !user || !isAdmin) return;
     let active = true;
-
-    async function loadOwners() {
-      const {
-        data: { session }
-      } = await supabase!.auth.getSession();
-      if (!session?.access_token) return;
-
-      try {
-        const response = await fetch("/api/admin/users", {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-        if (!response.ok) return;
-        const body = (await response.json()) as { users?: OwnerOption[] };
-        if (active) setOwnerOptions(body.users ?? []);
-      } catch {
-        if (active) setOwnerOptions([]);
-      }
-    }
-
-    loadOwners();
+    loadUsers().then((users) => {
+      if (active) setOwnerOptions(users);
+    });
     return () => {
       active = false;
     };
-  }, [isAdmin, user]);
+  }, []);
 
   const availableMonths = useMemo(
     () =>
@@ -273,7 +256,7 @@ export default function MileagePage() {
   }
 
   async function changeUploadOwner(upload: MileageUpload, nextOwnerId: string) {
-    if (!supabase || !isAdmin || nextOwnerId === upload.user_id) return;
+    if (!supabase || nextOwnerId === upload.user_id) return;
     const label = monthLabel(upload.period_month.slice(0, 7));
     const nextOwnerLabel = ownerLabels[nextOwnerId] ?? `User ${nextOwnerId.slice(0, 8)}`;
     if (!window.confirm(`Move ${label} mileage to ${nextOwnerLabel}?`)) return;
@@ -360,7 +343,7 @@ export default function MileagePage() {
             </select>
           ) : null}
 
-          {isAdmin ? (
+          {ownerOptions.length > 1 ? (
             <select
               aria-label="Driver"
               className={cn(selectClass, "min-w-0 flex-1 sm:max-w-[160px]")}
@@ -503,7 +486,7 @@ export default function MileagePage() {
                     changingOwnerId={changingOwnerId}
                     ownerLabels={ownerLabels}
                     ownerOptions={ownerOptions}
-                    canChangeOwner={isAdmin}
+                    canChangeOwner
                     onRestore={restore}
                     onChangeOwner={changeUploadOwner}
                   />

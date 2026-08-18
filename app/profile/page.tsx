@@ -20,17 +20,15 @@ export default function ProfilePage() {
   const loadPendingCount = useCallback(async () => {
     if (!supabase || !user) return;
 
-    let query = supabase
+    // The caller's own backlog: Sync writes to their Drive and no other.
+    const { count } = await supabase
       .from("receipts")
       .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
       .is("drive_file_id", null)
       .not("storage_path", "is", null);
-
-    if (!isAdmin) query = query.eq("user_id", user.id);
-
-    const { count } = await query;
     setPendingDriveCount(count ?? 0);
-  }, [isAdmin, user]);
+  }, [user]);
 
   useEffect(() => {
     loadPendingCount();
@@ -62,6 +60,13 @@ export default function ProfilePage() {
               </div>
               <div className="truncate text-[15px] font-medium text-text-primary">{user.email}</div>
             </div>
+            {/* The books are shared; the role is not. This is the only place the
+                difference is visible, and the only thing it still governs. */}
+            {isAdmin ? (
+              <span className="ml-auto shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-text-primary">
+                Admin
+              </span>
+            ) : null}
           </div>
         </section>
 

@@ -43,13 +43,13 @@ export function PaymentMethodPicker({
 
   useEffect(() => {
     let live = true;
-    loadPaymentCards(userId).then((list) => {
+    loadPaymentCards().then((list) => {
       if (live) setCards(list);
     });
     return () => {
       live = false;
     };
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (adding) inputRef.current?.focus();

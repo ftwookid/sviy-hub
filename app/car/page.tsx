@@ -13,11 +13,10 @@ import { formatCurrency, todayInputValue } from "@/lib/formatters";
 import { dateFromTimestamp, loadMileageTrips, loadMileageUploads, totalsFor } from "@/lib/mileage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
+import { loadUsers, type UserOption } from "@/lib/userLabels";
 import { carEconomics, normalizeCostKind, savingsAtMpg } from "@/lib/vehicle";
 import { VEHICLE_COST_KINDS } from "@/types/vehicle";
 import type { VehicleCost, VehicleCostKind, VehicleProfile } from "@/types/vehicle";
-
-type OwnerOption = { id: string; label: string };
 
 function centsPerMile(value: number) {
   return `${(value * 100).toFixed(1)}¢`;
@@ -42,10 +41,10 @@ function Stat({ label, value, detail, tone }: { label: string; value: string; de
 
 export default function CarPage() {
   const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const { user, isAdmin, authLoading } = useAuthUser();
+  const { user, authLoading } = useAuthUser();
   const [year, setYear] = useState(currentYear);
   const [ownerId, setOwnerId] = useState("");
-  const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
+  const [ownerOptions, setOwnerOptions] = useState<UserOption[]>([]);
   const [profile, setProfile] = useState<VehicleProfile | null>(null);
   const [costs, setCosts] = useState<VehicleCost[]>([]);
   const [miles, setMiles] = useState(0);
@@ -69,31 +68,14 @@ export default function CarPage() {
   }, [ownerId, user]);
 
   useEffect(() => {
-    if (!supabase || !user || !isAdmin) return;
     let active = true;
-
-    async function loadOwners() {
-      const {
-        data: { session }
-      } = await supabase!.auth.getSession();
-      if (!session?.access_token) return;
-      try {
-        const response = await fetch("/api/admin/users", {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-        if (!response.ok) return;
-        const body = (await response.json()) as { users?: OwnerOption[] };
-        if (active) setOwnerOptions(body.users ?? []);
-      } catch {
-        if (active) setOwnerOptions([]);
-      }
-    }
-
-    loadOwners();
+    loadUsers().then((users) => {
+      if (active) setOwnerOptions(users);
+    });
     return () => {
       active = false;
     };
-  }, [isAdmin, user]);
+  }, []);
 
   const load = useCallback(async () => {
     if (!supabase || !user || !ownerId) return;
@@ -127,7 +109,7 @@ export default function CarPage() {
 
     // The car's cost only means something against the miles it covered, so the
     // same trips the Mileage tab totals are what this is measured over.
-    const scope = { userId: user.id, isAdmin, ownerId };
+    const scope = { ownerId };
     const { uploads } = await loadMileageUploads(scope);
     const { trips } = await loadMileageTrips(
       scope,
@@ -138,7 +120,7 @@ export default function CarPage() {
     setMiles(totals.miles);
     setDeduction(totals.deduction);
     setLoading(false);
-  }, [isAdmin, ownerId, user, year]);
+  }, [ownerId, user, year]);
 
   useEffect(() => {
     load();
@@ -260,7 +242,7 @@ export default function CarPage() {
               </option>
             ))}
           </select>
-          {isAdmin && ownerOptions.length ? (
+          {ownerOptions.length > 1 ? (
             <select
               aria-label="Driver"
               className={cn(selectClass, "min-w-0 flex-1 sm:max-w-[180px]")}

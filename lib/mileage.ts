@@ -71,13 +71,10 @@ export function destinationArea(value: string | null) {
   return candidates[0] ?? pieces.find((piece) => !/\d{5}/.test(piece)) ?? "Area not named";
 }
 
-export type MileageScope = {
-  userId: string;
-  isAdmin: boolean;
-  ownerId: string;
-};
+/** "all" is everyone's driving; anything else is one person's, for filtering. */
+export type MileageScope = { ownerId: string };
 
-export async function loadMileageUploads({ userId, isAdmin, ownerId }: MileageScope) {
+export async function loadMileageUploads({ ownerId }: MileageScope) {
   if (!supabase) return { uploads: [] as MileageUpload[], error: null as { message: string } | null };
 
   let query = supabase
@@ -86,8 +83,7 @@ export async function loadMileageUploads({ userId, isAdmin, ownerId }: MileageSc
     .order("period_month", { ascending: false })
     .order("uploaded_at", { ascending: false });
 
-  if (!isAdmin) query = query.eq("user_id", userId);
-  else if (ownerId !== "all") query = query.eq("user_id", ownerId);
+  if (ownerId !== "all") query = query.eq("user_id", ownerId);
 
   const { data, error } = await query;
   if (error) return { uploads: [], error };
@@ -112,8 +108,7 @@ export async function loadMileageTrips(scope: MileageScope, activeUploadIds: str
       .order("start_at", { ascending: false })
       .range(from, from + TRIP_PAGE_SIZE - 1);
 
-    if (!scope.isAdmin) query = query.eq("user_id", scope.userId);
-    else if (scope.ownerId !== "all") query = query.eq("user_id", scope.ownerId);
+    if (scope.ownerId !== "all") query = query.eq("user_id", scope.ownerId);
 
     const { data, error } = await query;
     if (error) return { trips: [], error };

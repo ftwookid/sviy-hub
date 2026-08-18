@@ -18,7 +18,7 @@ import type { Expense } from "@/types/expense";
 
 export default function ReportsPage() {
   const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const { user, isAdmin, authLoading } = useAuthUser();
+  const { user, authLoading } = useAuthUser();
   const [year, setYear] = useState(currentYear);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -30,18 +30,13 @@ export default function ReportsPage() {
     if (!supabase || !user) return;
     setLoading(true);
 
-    let yearQuery = supabase
+    const yearQuery = supabase
       .from("expenses")
       .select("*")
       .gte("date", `${year}-01-01`)
       .lte("date", `${year}-12-31`)
       .order("date", { ascending: true });
-    let datesQuery = supabase.from("expenses").select("date");
-
-    if (!isAdmin) {
-      yearQuery = yearQuery.eq("user_id", user.id);
-      datesQuery = datesQuery.eq("user_id", user.id);
-    }
+    const datesQuery = supabase.from("expenses").select("date");
 
     const [{ data: yearData }, { data: allDates }] = await Promise.all([
       yearQuery,
@@ -57,7 +52,7 @@ export default function ReportsPage() {
 
     // Miles are a deduction too. A year total that leaves them out is not the
     // number this page exists to give.
-    const scope = { userId: user.id, isAdmin, ownerId: "all" };
+    const scope = { ownerId: "all" };
     const { uploads } = await loadMileageUploads(scope);
     const { trips } = await loadMileageTrips(
       scope,
@@ -74,7 +69,7 @@ export default function ReportsPage() {
     setMileageByMonth(months);
     setMileageMiles(miles);
     setLoading(false);
-  }, [currentYear, isAdmin, user, year]);
+  }, [currentYear, user, year]);
 
   useEffect(() => {
     loadReports();

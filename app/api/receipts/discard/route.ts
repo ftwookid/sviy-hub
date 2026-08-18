@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { admin, userId } = auth.caller;
+  const { admin } = auth.caller;
   const body = (await request.json().catch(() => ({}))) as { receiptId?: string };
 
   if (!body.receiptId) {
@@ -28,9 +28,8 @@ export async function POST(request: Request) {
 
   const { data: receipt, error: readError } = await admin
     .from("receipts")
-    .select("id, storage_path, drive_file_id")
+    .select("id, user_id, storage_path, drive_file_id")
     .eq("id", body.receiptId)
-    .eq("user_id", userId)
     .maybeSingle();
 
   if (readError) return NextResponse.json({ error: "Could not read that receipt." }, { status: 500 });
@@ -49,7 +48,11 @@ export async function POST(request: Request) {
 
   let trashed = false;
   if (receipt.drive_file_id) {
-    const setup = await resolveArchiveTarget(admin, userId);
+    // The archive belongs to whoever uploaded the receipt, not to whoever is
+    // deleting the transaction. Both people share the books; they do not share
+    // a Google account, and trashing a file needs the token of the Drive it is
+    // actually sitting in.
+    const setup = await resolveArchiveTarget(admin, receipt.user_id);
     if (setup.ok) {
       try {
         await trashFile(setup.target.accessToken, receipt.drive_file_id);

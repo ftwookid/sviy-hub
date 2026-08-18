@@ -47,17 +47,13 @@ export async function scanStatement(file: File): Promise<ParseStatementResponse>
   return { importId: payload.importId };
 }
 
-export async function loadImports(userId: string, isAdmin: boolean) {
-  let query = requireClient()
+export async function loadImports() {
+  const { data, error } = await requireClient()
     .from("statement_imports")
     .select("*")
     .not("status", "eq", "Discarded")
     .order("created_at", { ascending: false })
     .limit(25);
-
-  if (!isAdmin) query = query.eq("user_id", userId);
-
-  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as StatementImport[];
 }

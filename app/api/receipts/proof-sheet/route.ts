@@ -115,14 +115,13 @@ export async function POST(request: Request) {
   const { data: expenseRows, error: expenseError } = await admin
     .from("expenses")
     .select("id, date, merchant, amount, category, receipt_id, proof_waived")
-    .eq("user_id", userId)
     .is("receipt_id", null)
     .gte("date", range.start)
     .lte("date", range.end)
     .order("date", { ascending: true });
 
   if (expenseError) {
-    return NextResponse.json({ error: "Could not read your transactions." }, { status: 500 });
+    return NextResponse.json({ error: "Could not read the transactions." }, { status: 500 });
   }
 
   const candidates: ProofSheetExpense[] = (expenseRows ?? []).map((row) => ({

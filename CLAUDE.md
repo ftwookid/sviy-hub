@@ -183,7 +183,7 @@ How lines are matched (`matchProofLines` in `lib/proofSheets.ts`):
   retire a file someone chose.
 - Candidate pairs are ranked by how close the dates are and claimed one-to-one,
   so three identical $2.10 charges never all match the single nearest row.
-- Matching is scoped to the caller's own transactions even for an admin.
+- Matching runs across everyone's transactions, since the books are shared.
 - Nothing about the match is decided by a model. A wrong match is a receipt
   attached to a transaction it does not prove — the exact thing an audit looks
   for — so the review screen exists and every match can be unticked.
@@ -284,12 +284,12 @@ otherwise the same gallons would be counted twice.
   - Pet type icons.
   - Payment method badge.
   - Estimated monthly earnings with a compact `/mo` period label.
-  - Admin-only owner label showing the client's owner nickname.
+  - Owner label showing whose client it is.
 - Client card behavior:
   - Paused clients render with a muted/greyed-out style so they are obvious in the All view.
   - In the All filter, Active clients sort first and Paused clients sort at the bottom.
   - Active and Paused tabs keep their existing name-based ordering.
-  - Admin-only delete icon appears only for Paused clients.
+  - Delete icon appears only for Paused clients.
   - Active clients cannot be deleted from client cards.
   - Paused cards do not translate/lift on hover, so the delete icon stays still.
 - Added add/edit client slide-over form.
@@ -341,7 +341,7 @@ otherwise the same gallons would be counted twice.
   - `Cancel` returns to editing without losing changes.
   - `Confirm changes` saves the update.
   - If no values changed, the form shows `No changes to update.`
-  - Admin edits preserve the original client owner instead of reassigning the client to the admin.
+  - Editing preserves the original client owner instead of reassigning it to whoever saved.
 
 ### Client Database
 
@@ -354,58 +354,75 @@ otherwise the same gallons would be counted twice.
 - Supabase Storage bucket still needs to exist manually:
   - `pet-photos`
 
-### Admin/User Permissions
+### Shared Books, Admin Settings
 
-- Added backend-only admin/user permission system.
-- No UI changes were made for roles.
-- Created `profiles` table in Supabase:
-  - `id uuid primary key references auth.users(id) on delete cascade`
-  - `role text not null default 'user'`
-  - `nickname text`
-  - Role values are constrained to `admin` or `user`.
-  - `created_at` and `updated_at` timestamps are included in SQL docs.
-- Added `is_admin()` SQL helper function.
-- Added `handle_new_user_profile()` trigger function.
-- Added `on_auth_user_created` trigger on `auth.users` so new auth users get a default `profiles` row.
-- Updated RLS policies for:
-  - `expenses`
-  - `clients`
-  - `pets`
-  - `profiles`
-- Permission behavior:
-  - Regular users can see/manage only rows where `auth.uid() = user_id`.
-  - Admin users can see/manage all rows in current app tables.
-  - Admins can manage profile rows.
-  - Users can view their own profile.
-- Frontend role behavior:
-  - `useAuthUser()` now loads `profiles.role` and exposes `isAdmin`.
-  - Clients, expenses dashboard, and reports only apply `.eq("user_id", user.id)` filters for non-admin users.
-  - Admin users rely on RLS to see all rows.
-  - This fixed the bug where admin RLS allowed all rows but the frontend still filtered to the admin's own `user_id`.
-- Added protected admin-only API route `app/api/admin/user-labels/route.ts`.
-  - Uses the user's bearer token to confirm the caller is authenticated.
-  - Checks `profiles.role = 'admin'`.
-  - Uses `SUPABASE_SERVICE_ROLE_KEY` server-side to resolve auth user IDs to profile nicknames.
-  - Falls back to auth email/name only if a nickname is missing.
-  - Regular users do not call this route and do not see owner labels.
-- Added user nicknames:
-  - Existing owner/admin nickname should be `Ivan K. (Admin)`.
-  - Existing Yana nickname should be `Yani`.
-  - Owner labels on admin client cards now use nicknames instead of email when available.
-- Added signup/onboarding flow:
-  - Login remains a normal sign-in flow and does not force onboarding.
-  - Login page now has a sign-up mode.
-  - Successful sign-up redirects to `/onboarding`.
-  - `/onboarding` asks for a nickname and saves it to `profiles.nickname`.
-  - The onboarding page is intentionally separate so it can be extended later with more profile fields.
-- The admin SQL has already been run successfully in Supabase.
-- The current owner account has already been set to `admin`.
-- Yana remains a regular `user` by default unless manually promoted.
-- Future app tables should include a `user_id uuid references auth.users(id) on delete cascade` column and reuse this policy shape:
+Everyone signed in sees and edits everything. `user_id` is still stamped on every
+row, but it now answers "who logged this" — navigation, not permission.
+
+Why: two people keeping one set of books were each shown half of it. The year's
+deductible total is a household number, and the person who drove the miles could
+not see what the miles came to. Splitting reads by owner made the app worse at
+its only job.
+
+- `supabase/shared-access-schema.sql` is the migration. Every data table gets one
+  policy, `for all to authenticated using (true) with check (true)`. It drops
+  existing policies **by lookup** rather than by name, because these tables have
+  carried several policy names over the years and a stale owner-scoped policy
+  would not block anything (policies OR together) but would misdescribe the
+  schema to the next person reading it.
+- `profiles` is readable by everyone — that is where owner-label nicknames come
+  from. `role` stays privileged: the update policy pins `role = 'user'`, so a
+  regular user editing their nickname cannot promote themselves in the same
+  statement. Admins pass through the separate permissive admin policy.
+- `google_drive_accounts` still has **no policy at all**. It holds OAuth tokens
+  and is service-role only.
+- `merchant_rules` deliberately stays per-user. It is not a record of anything —
+  it replays one person's judgement calls onto next month's statement, and
+  sharing the books does not make Ivan's sense of what counts as business the
+  right default for Yana's review screen.
+- `payment_cards` is shared and deduplicated by nickname on read. A shared
+  statement can contain a charge on the other person's card; offering only your
+  own would force it to be filed as Cash. The unique index is still per user, so
+  the same nickname can exist twice and the first one added wins.
+
+What `isAdmin` still governs: `profiles.role`, and nothing else. `useAuthUser()`
+keeps exposing it, and Profile shows an `Admin` chip. There is no admin-only
+read, no admin-only delete, and no admin-only owner reassignment any more.
+
+- `/api/users` replaced `/api/admin/users` and `/api/admin/user-labels`. One
+  route, authenticated but not role-checked, returning every user by display
+  name. Both old routes were the same query behind the same service-role client;
+  the label variant only existed to avoid handing non-admins a list of names,
+  which is no longer a thing worth avoiding.
+- `lib/userLabels.ts` is the only client-side caller: `loadUsers()` for owner
+  pickers, `loadUserLabels()` for id→name maps, `labelFor()` for a single row.
+
+Receipts are the one place where sharing has a hard edge. The books are shared
+but Google accounts are not, so **a receipt always archives into the Drive of
+whoever uploaded it**:
+
+- `discard` and `refile` look the receipt up without an owner filter, then
+  resolve the Drive token from `receipt.user_id` rather than the caller.
+- `sync` with a `receiptId` does the same. A backlog drain with no `receiptId`
+  stays scoped to the caller, because the caller's Drive is the only queue their
+  Google account can write to.
+- The "waiting to archive" counts on Transactions and Profile are scoped to the
+  caller for the same reason: they count what Sync can actually push.
+
+Still true, and unchanged:
+
+- `profiles` table, `is_admin()`, `handle_new_user_profile()`, and the
+  `on_auth_user_created` trigger.
+- Nicknames: `Ivan K. (Admin)` and `Yani`. Owner labels prefer the nickname and
+  fall back to email.
+- Signup goes to `/onboarding` for a nickname; login does not.
+- New tables should carry `user_id uuid references auth.users(id) on delete
+  cascade` for attribution, and this policy shape:
 
 ```sql
-using (auth.uid() = user_id or is_admin())
-with check (auth.uid() = user_id or is_admin())
+create policy "Shared workspace" on <table>
+  for all to authenticated
+  using (true) with check (true);
 ```
 
 ### Google Drive Receipt Archive
@@ -538,14 +555,14 @@ Merchant memory (`merchant_rules`):
 - The next import pre-fills category and Include/Exclude from those rules and
   marks the row `auto_applied` (a sparkle icon in the list).
 - Flagged rows deliberately write no rule — "not sure" is not worth replaying.
-- Rules are per-user and **not** admin-wide, so one person's sense of what counts
-  as business never pre-selects rows on someone else's statement. Admins still
-  see every import and every row through the normal admin-aware RLS.
+- Rules are per-user, so one person's sense of what counts as business never
+  pre-selects rows on someone else's statement. Everyone still sees every import
+  and every row — only the memory behind the pre-fill is personal.
 
 ### House Sitting Section
 
 - Lives inside the Clients tab as a separate view, backed by `supabase/house-sitting-schema.sql`.
-- Tables are `house_sittings` and `house_sitting_customers`, both with admin-aware RLS.
+- Tables are `house_sittings` and `house_sitting_customers`.
 - Calendar supports week, month, and year views.
 
 Responsive behavior (mobile-first):
@@ -634,7 +651,9 @@ Cancel and delete:
 - `components/expenses/ImportSummaryCard.tsx`: Totals cross-check banner.
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
 - `app/clients/page.tsx`: Clients section.
-- `app/api/admin/user-labels/route.ts`: Admin-only API route for resolving owner labels.
+- `app/api/users/route.ts`: Everyone signed in, by display name.
+- `lib/userLabels.ts`: The client side of that route.
+- `supabase/shared-access-schema.sql`: Shared-access RLS for every table.
 - `app/onboarding/page.tsx`: Post-signup nickname onboarding screen.
 - `app/login/page.tsx`: Sign-in/sign-up entry point.
 - `app/profile/page.tsx`: Profile section.
@@ -645,8 +664,8 @@ Cancel and delete:
 - `lib/useAuthUser.ts`: Auth user and profile role loading.
 - `lib/clients.ts`: Client constants and earnings calculations.
 - `types/client.ts`: Client and pet TypeScript types.
-- `supabase/clients-schema.sql`: SQL for client/pet tables and admin-aware RLS.
-- `supabase/schema.sql`: Expenses schema plus profiles table, admin helper functions, triggers, and admin-aware RLS.
+- `supabase/clients-schema.sql`: SQL for client/pet tables.
+- `supabase/schema.sql`: Expenses schema plus profiles table, helper functions, and triggers.
 
 ## Verification Completed
 
@@ -765,8 +784,13 @@ This replaced the full 22-item Schedule C list. Rules:
 
 ## Next Step
 
-Run `supabase/vehicle-schema.sql` in Supabase. It is re-runnable and creates
-`vehicle_profiles` and `vehicle_costs` with admin-aware RLS. Until it runs, the
+Run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable and
+rewrites RLS on every table so both accounts see and edit the same books. Until
+it runs, the app asks for everyone's rows and the database returns only your own,
+so the pages look right but the totals stay half-sized.
+
+Then run `supabase/vehicle-schema.sql` in Supabase. It is re-runnable and creates
+`vehicle_profiles` and `vehicle_costs`. Until it runs, the
 Car tab loads but shows a setup notice instead of saving anything.
 
 Then run `supabase/payment-cards-schema.sql` in Supabase. It is re-runnable, creates
@@ -821,16 +845,16 @@ Then test the full client workflow in the browser:
 
 Also test permissions with both users:
 
-1. Log in as admin and confirm all users' clients/pets/expenses are visible.
-2. Confirm admin client cards show nickname owner labels.
-3. Log in as Yana and confirm only Yana-owned rows are visible.
-4. Confirm Yana does not see owner labels.
-5. Confirm admin test data is not visible to Yana.
+1. Log in as Ivan and note the client list, the year's deductible total, and the mileage total.
+2. Log in as Yana and confirm all three numbers match exactly.
+3. Confirm every client card, import, and stay is labelled with whose it is, for both accounts.
+4. As Yana, edit one of Ivan's transactions and confirm it saves.
+5. Confirm Profile shows the `Admin` chip for Ivan and not for Yana.
 
 Also test client-card/edit behavior:
 
 1. Confirm Active clients do not show a delete icon.
-2. Confirm Paused clients show a delete icon for admin only.
+2. Confirm Paused clients show a delete icon.
 3. Confirm hovering Paused cards does not move the delete icon.
 4. Edit an existing client and confirm `Update client` opens the change summary modal.
 5. Confirm `Cancel` returns to editing and `Confirm changes` saves.
