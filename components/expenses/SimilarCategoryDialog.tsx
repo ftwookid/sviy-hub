@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { CategoryTag } from "@/components/CategoryTag";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
@@ -79,9 +80,21 @@ export function SimilarCategoryDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="px-5 pt-5">
-          <h3 className="text-[18px] font-medium leading-tight text-text-primary">
-            {rows.length} similar transaction{rows.length === 1 ? "" : "s"}
-          </h3>
+          <div className="flex items-start gap-2">
+            <h3 className="min-w-0 flex-1 text-[18px] font-medium leading-tight text-text-primary">
+              {rows.length} similar transaction{rows.length === 1 ? "" : "s"}
+            </h3>
+            {/* Same outcome as "Just this one" — the edit that opened this is
+                already saved, so backing out only declines the offer. */}
+            <button
+              className="focus-ring -mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+              type="button"
+              aria-label="Close"
+              onClick={onDismiss}
+            >
+              <X size={18} strokeWidth={1.8} />
+            </button>
+          </div>
           <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13.5px] leading-snug text-text-secondary">
             Set {rows.length === 1 ? "it" : "them"} to
             <CategoryTag category={category} />

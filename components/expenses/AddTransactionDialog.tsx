@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, FileText, Loader2, PenLine, UploadCloud } from "lucide-react";
+import { ChevronRight, FileText, Loader2, PenLine, UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { periodMonthLabel } from "@/lib/expenses";
 import { formatBytes } from "@/lib/receiptImage";
@@ -105,7 +105,7 @@ export function AddTransactionDialog({
           </div>
         ) : step === "choose" ? (
           <>
-            <h3 className="text-[19px] font-medium leading-tight text-text-primary">Add transactions</h3>
+            <DialogHeader title="Add transactions" onClose={onClose} />
 
             <div className="mt-4 space-y-2">
               <ChoiceRow
@@ -153,9 +153,7 @@ export function AddTransactionDialog({
           </>
         ) : (
           <>
-            <h3 className="text-[19px] font-medium leading-tight text-text-primary">
-              Upload a statement
-            </h3>
+            <DialogHeader title="Upload a statement" onClose={onClose} />
             <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
               Keep the business transactions, drop the rest. Nothing is written to your books
               until you say so.
@@ -215,6 +213,31 @@ export function AddTransactionDialog({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Title and a way out, on one row.
+ *
+ * Escape and a click on the dim backdrop both closed this already, but neither
+ * is visible — on a phone there is no Escape key at all, and the sheet reaches
+ * the bottom edge, so there is barely any backdrop left to tap.
+ */
+function DialogHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="flex items-start gap-2">
+      <h3 className="min-w-0 flex-1 text-[19px] font-medium leading-tight text-text-primary">
+        {title}
+      </h3>
+      <button
+        className="focus-ring -mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+      >
+        <X size={18} strokeWidth={1.8} />
+      </button>
     </div>
   );
 }
