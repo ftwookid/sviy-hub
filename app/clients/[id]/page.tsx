@@ -317,7 +317,7 @@ export default function ClientDetailPage() {
   const suppressPriceHistoryClickUntilRef = useRef(0);
   const params = useParams<{ id: string }>();
   const clientId = params.id;
-  const { user, isAdmin, authLoading } = useAuthUser();
+  const { user, authLoading } = useAuthUser();
   const [client, setClient] = useState<ClientWithPets | null>(null);
   const [history, setHistory] = useState<StatusHistory[]>([]);
   const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
@@ -344,8 +344,7 @@ export default function ClientDetailPage() {
     setLoading(true);
     setError("");
 
-    let clientQuery = supabase.from("clients").select("*, pets(*)").eq("id", clientId);
-    if (!isAdmin) clientQuery = clientQuery.eq("user_id", user.id);
+    const clientQuery = supabase.from("clients").select("*, pets(*)").eq("id", clientId);
 
     const [
       { data: clientData, error: clientError },
@@ -370,7 +369,7 @@ export default function ClientDetailPage() {
     }
 
     setLoading(false);
-  }, [clientId, isAdmin, user]);
+  }, [clientId, user]);
 
   useEffect(() => {
     loadClient();
@@ -1103,7 +1102,7 @@ export default function ClientDetailPage() {
               key={client.id}
               userId={user.id}
               client={client}
-              canChangeOwner={isAdmin}
+              canChangeOwner
               hideStatusField
               statusHistory={timeline}
               onCancel={() => setEditorOpen(false)}

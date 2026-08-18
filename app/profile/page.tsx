@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { DriveArchiveCard } from "@/components/expenses/DriveArchiveCard";
+import { VehicleSettingsCard } from "@/components/VehicleSettingsCard";
 import { Button } from "@/components/ui/Button";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -20,17 +21,13 @@ export default function ProfilePage() {
   const loadPendingCount = useCallback(async () => {
     if (!supabase || !user) return;
 
-    let query = supabase
+    const { count } = await supabase
       .from("receipts")
       .select("id", { count: "exact", head: true })
       .is("drive_file_id", null)
       .not("storage_path", "is", null);
-
-    if (!isAdmin) query = query.eq("user_id", user.id);
-
-    const { count } = await query;
     setPendingDriveCount(count ?? 0);
-  }, [isAdmin, user]);
+  }, [user]);
 
   useEffect(() => {
     loadPendingCount();
@@ -62,13 +59,22 @@ export default function ProfilePage() {
               </div>
               <div className="truncate text-[15px] font-medium text-text-primary">{user.email}</div>
             </div>
+            {/* The books are shared; the role is not. This is the only place the
+                difference is visible, and the only thing it still governs. */}
+            {isAdmin ? (
+              <span className="ml-auto shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-text-primary">
+                Admin
+              </span>
+            ) : null}
           </div>
         </section>
 
         {/* Archive setup belongs with the settings, not in the middle of the
             month's transactions. The transactions page only nudges when the
             archive actually needs a hand. */}
-        <DriveArchiveCard pendingCount={pendingDriveCount} />
+        <DriveArchiveCard pendingCount={pendingDriveCount} isAdmin={isAdmin} />
+
+        {isAdmin ? <VehicleSettingsCard userId={user.id} /> : null}
 
         <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
           <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/serverAuth";
+import { authenticateAdmin } from "@/lib/serverAuth";
 import { describeFolder, getAccessToken } from "@/lib/googleDrive";
+import { archiveAccountUserId } from "@/lib/receiptArchive";
 
 /**
  * Stores the Drive folder the user selected in the Google Picker.
@@ -9,7 +10,7 @@ import { describeFolder, getAccessToken } from "@/lib/googleDrive";
  * so this is verified server-side before it is saved.
  */
 export async function POST(request: Request) {
-  const auth = await authenticateRequest(request);
+  const auth = await authenticateAdmin(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   let folderId = "";
@@ -25,7 +26,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { accessToken } = await getAccessToken(auth.caller.admin, auth.caller.userId);
+    // The folder is picked inside the one archive account, not the caller's —
+    // they are the same person today, and this stays right if they stop being.
+    const ownerId = (await archiveAccountUserId(auth.caller.admin)) ?? auth.caller.userId;
+    const { accessToken } = await getAccessToken(auth.caller.admin, ownerId);
     const folder = await describeFolder(accessToken, folderId);
 
     const { error } = await auth.caller.admin
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
         last_sync_error: null,
         updated_at: new Date().toISOString()
       })
-      .eq("user_id", auth.caller.userId);
+      .eq("user_id", ownerId);
 
     if (error) throw error;
 

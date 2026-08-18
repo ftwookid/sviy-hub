@@ -22,6 +22,7 @@ import {
 } from "@/lib/clients";
 import { formatCurrency, formatShortDate, sanitizeFilename, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
+import { loadUsers } from "@/lib/userLabels";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type {
   ClientFormPet,
@@ -134,31 +135,10 @@ export function ClientForm({
 
     async function loadOwners() {
       setOwnerLoading(true);
-      const {
-        data: { session }
-      } = await supabase!.auth.getSession();
-
-      if (!session?.access_token) {
-        if (active) setOwnerLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/admin/users", {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
-        });
-
-        if (!response.ok) throw new Error("Could not load owners.");
-
-        const body = (await response.json()) as { users?: OwnerOption[] };
-        if (active) setOwnerOptions(body.users ?? []);
-      } catch {
-        if (active) setFormError("Could not load owner options.");
-      } finally {
-        if (active) setOwnerLoading(false);
-      }
+      const users = await loadUsers();
+      if (!active) return;
+      setOwnerOptions(users);
+      setOwnerLoading(false);
     }
 
     loadOwners();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/serverAuth";
 import { ensureMonthFolder, uploadFileToDrive } from "@/lib/googleDrive";
-import { resolveArchiveTarget } from "@/lib/receiptArchive";
+import { archiveAccountUserId, resolveArchiveTarget } from "@/lib/receiptArchive";
 
 /**
  * Archives receipts that are in Supabase Storage but not yet in Drive.
@@ -12,6 +12,9 @@ import { resolveArchiveTarget } from "@/lib/receiptArchive";
  * A `receiptId` in the body narrows the run to a single receipt. That is what
  * saving a transaction uses, so attaching proof archives just that file rather
  * than dragging along every other receipt that happens to be pending.
+ *
+ * There is one archive for the whole app — the admin's Drive — so a backlog
+ * drain covers everyone's pending receipts regardless of who is signed in.
  */
 const BATCH_SIZE = 8;
 
@@ -27,11 +30,12 @@ export async function POST(request: Request) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { admin, userId } = auth.caller;
+  const { admin } = auth.caller;
 
   const body = (await request.json().catch(() => ({}))) as { receiptId?: string };
 
-  const setup = await resolveArchiveTarget(admin, userId);
+  const archiveOwnerId = await archiveAccountUserId(admin);
+  const setup = await resolveArchiveTarget(admin);
   if (!setup.ok) {
     // A save that auto-archives should not fail because Drive is not set up
     // yet, so an unconfigured archive reports zero work instead of an error.
@@ -46,7 +50,6 @@ export async function POST(request: Request) {
   let query = admin
     .from("receipts")
     .select("id, filename, mime_type, storage_path, period_month")
-    .eq("user_id", userId)
     .is("drive_file_id", null)
     .not("storage_path", "is", null);
 
@@ -119,7 +122,7 @@ export async function POST(request: Request) {
       last_sync_error: failures.length ? failures[0].message : null,
       updated_at: new Date().toISOString()
     })
-    .eq("user_id", userId);
+    .eq("user_id", archiveOwnerId ?? "");
 
   return NextResponse.json({
     synced,

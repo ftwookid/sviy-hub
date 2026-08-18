@@ -48,17 +48,32 @@ function requireClient() {
   return supabase;
 }
 
-export async function loadPaymentCards(userId: string): Promise<PaymentCard[]> {
+/**
+ * Every card in the household, whoever added it.
+ *
+ * The books are shared, so a statement review can land on a charge made with
+ * the other person's card — offering only your own would force you to file it
+ * as Cash. The unique index is per user, so the same nickname can exist twice;
+ * the first one added wins and the duplicate is dropped, because the picker
+ * shows nicknames and two identical rows in it are unusable.
+ */
+export async function loadPaymentCards(): Promise<PaymentCard[]> {
   const { data, error } = await requireClient()
     .from("payment_cards")
     .select("*")
-    .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
   // The table may not be migrated yet. Cash and the current value still work,
   // so this stays quiet rather than blocking the form behind a setup notice.
   if (error) return [];
-  return (data ?? []) as PaymentCard[];
+
+  const seen = new Set<string>();
+  return ((data ?? []) as PaymentCard[]).filter((card) => {
+    const key = card.nickname.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function addPaymentCard(userId: string, nickname: string): Promise<PaymentCard> {
@@ -74,7 +89,7 @@ export async function addPaymentCard(userId: string, nickname: string): Promise<
   if (error) {
     // The unique index is on the lowercased nickname, so this is the one error
     // worth naming: the user already has this card.
-    if (error.code === "23505") throw new Error(`You already have a card called ${trimmed}.`);
+    if (error.code === "23505") throw new Error(`There is already a card called ${trimmed}.`);
     throw new Error(error.message || "That card could not be saved.");
   }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/serverAuth";
+import { authenticateAdmin } from "@/lib/serverAuth";
 import { buildConsentUrl, googleOAuthConfigured } from "@/lib/googleDrive";
 
 /** Returns the Google consent URL for the signed-in user to visit. */
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const auth = await authenticateRequest(request);
+  const auth = await authenticateAdmin(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   return NextResponse.json({ url: buildConsentUrl(request, auth.caller.userId) });

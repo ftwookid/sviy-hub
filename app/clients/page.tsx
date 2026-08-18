@@ -18,6 +18,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { estimateClientMonthlyNet } from "@/lib/clients";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
+import { labelFor, loadUserLabels } from "@/lib/userLabels";
 import type { ClientStatus, ClientWithPets } from "@/types/client";
 
 type ClientFilter = ClientStatus | "All";
@@ -61,7 +62,7 @@ export default function ClientsPage() {
 function ClientsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAdmin, authLoading } = useAuthUser();
+  const { user, authLoading } = useAuthUser();
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClientFilter>("Active");
@@ -72,55 +73,21 @@ function ClientsPageContent() {
   const loadClients = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
-    let query = supabase
+    const { data } = await supabase
       .from("clients")
       .select("*, pets(*), price_history(*)")
       .order("name", { ascending: true });
-
-    if (!isAdmin) query = query.eq("user_id", user.id);
-
-    const { data } = await query;
 
     const nextClients = ((data ?? []) as Array<ClientWithPets & { pets: ClientWithPets["pets"] | null }>).map(
       (client) => ({ ...client, pets: client.pets ?? [], price_history: client.price_history ?? [] })
     );
 
-    if (isAdmin && nextClients.length > 0) {
-      const {
-        data: { session }
-      } = await supabase.auth.getSession();
-      const userIds = Array.from(new Set(nextClients.map((client) => client.user_id)));
-
-      if (session?.access_token) {
-        try {
-          const response = await fetch("/api/admin/user-labels", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ userIds })
-          });
-
-          if (response.ok) {
-            const body = (await response.json()) as { labels?: Record<string, string> };
-            setOwnerLabels(body.labels ?? {});
-          } else {
-            setOwnerLabels({});
-          }
-        } catch {
-          setOwnerLabels({});
-        }
-      } else {
-        setOwnerLabels({});
-      }
-    } else {
-      setOwnerLabels({});
-    }
+    // Both people's clients are in one list now, so every card says whose it is.
+    setOwnerLabels(nextClients.length > 0 ? await loadUserLabels() : {});
 
     setClients(nextClients);
     setLoading(false);
-  }, [isAdmin, user]);
+  }, [user]);
 
   useEffect(() => {
     loadClients();
@@ -260,7 +227,7 @@ function ClientsPageContent() {
         </div>
 
         {activeView === "house-sitting" ? (
-          <HouseSittingDashboard userId={user.id} isAdmin={isAdmin} regularClients={clients} />
+          <HouseSittingDashboard userId={user.id} regularClients={clients} />
         ) : null}
 
         {activeView !== "house-sitting" && loading ? <SkeletonRows /> : null}
@@ -307,8 +274,8 @@ function ClientsPageContent() {
               <ClientCard
                 key={client.id}
                 client={client}
-                ownerLabel={isAdmin ? ownerLabels[client.user_id] ?? `User ${client.user_id.slice(0, 8)}` : undefined}
-                onDelete={isAdmin && client.status === "Paused" ? () => deleteClient(client) : undefined}
+                ownerLabel={labelFor(ownerLabels, client.user_id)}
+                onDelete={client.status === "Paused" ? () => deleteClient(client) : undefined}
                 onClick={() => router.push(`/clients/${client.id}`)}
               />
             ))}
@@ -346,7 +313,7 @@ function ClientsPageContent() {
               key={editingClient?.id ?? "new"}
               userId={user.id}
               client={editingClient}
-              canChangeOwner={isAdmin}
+              canChangeOwner
               onCancel={closeEditor}
               onSaved={() => {
                 closeEditor();
