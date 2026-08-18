@@ -210,7 +210,7 @@ tabs across the top (`components/SectionTabs.tsx`):
 | Tab | Route | Question it answers |
 | --- | --- | --- |
 | Transactions | `/`, `/import` | What did we spend? |
-| Mileage | `/mileage` | What did we drive, and is the car worth keeping? |
+| Mileage | `/mileage` | What did we drive, and what does the car take back? |
 | Reports | `/reports` | What does the year come to? |
 
 `/car` redirects to `/mileage`.
@@ -233,55 +233,55 @@ Reports now adds the mileage deduction to the year:
 
 ### Mileage
 
-One tab, one period selector: what the driving is worth, then whether the car
-doing it is worth keeping.
+Two containers: the driving, then what the car takes out of it.
 
-Density is a requirement here, not a preference. The page was thirteen stacked
-blocks — nine bordered, shadowed, padded cards and seven stat tiles — carrying
-about a screen's worth of actual content. It is six now, two of them side by
-side, and every stat lives in a divided strip rather than a card of its own.
-Reserved-but-empty rows (a fixed-height detail line under each stat, kept so the
-cards lined up) are gone.
+The driving:
 
-Mileage half:
+- A three-cell strip — miles, deduction, average drive.
+- Bars over the period, daily within a month and monthly otherwise. **Miles and
+  dollars are both on every bar**, miles sizing it and the deduction under them.
+  They were behind a Miles/Dollars toggle for a while; a toggle makes you click
+  to compare two readings of one fact.
+- **By weekday** below a divider: seven rows, day, bar, miles, dollars, busiest
+  in dark. A seven-column version was tried and reverted — it was a third of the
+  height and unreadable to anyone seeing it for the first time.
 
-- A three-cell strip: miles, deduction, average drive.
-- One container holding the run over time — daily within a month, monthly
-  otherwise, with a **Miles / Dollars** toggle — and beneath a divider, the same
-  period folded onto a week as seven columns with the busiest picked out. Seven
-  columns rather than seven stacked rows: a third of the height, and the shape
-  of the week reads at once.
-- No table of individual drives. It answered nothing.
+The car, always measured **since 1 January 2026** (`CAR_EPOCH`) rather than the
+selected period, because what the driving deducts against what the car swallows
+is a cumulative question that a single month would swing on one repair bill:
 
-Car half — built around one decision, keep it or replace it:
+- Deducted · Fuel · Everything else · **Car takes N%**, then one bar putting
+  total car spend inside total deduction.
+- Cost per mile over twelve months.
 
-- **The verdict**, and it is the headline: cost per mile, which way it is
-  moving, and a sentence naming what to do. Tinted by conclusion. The rules are
-  ordered so the loudest true thing wins — dear *and* repair-driven is a
-  different decision from merely dear.
-- **Cost per mile over twelve months**, always twelve regardless of the selected
-  period, because a trend needs history and a Month view would otherwise draw a
-  single bar. Bars above the benchmark turn red.
-- **Repairs and upkeep** against the same span a year earlier. A car on its way
-  out shows here before anywhere else.
-- **Price a replacement**: economy, monthly payment, expected yearly upkeep in,
-  a year of each car out. Annualised, so a February and a full year give the
-  same answer — a car is a multi-year decision.
-- The costs ledger sits behind a disclosure, summarised on the button.
+Fuel is computed from miles ÷ mpg × pump price, which is why those two numbers
+are worth entering. Hand-logged `Fuel` rows stay in the ledger as a record of
+actual spend but are excluded from the total, or the same gallons would count
+twice.
 
-The benchmark is the IRS standard rate read off the trips, and it is used as a
-**yardstick, never as income**. An earlier version showed "kept per mile" by
-subtracting running cost from that rate, which overstated the car by roughly the
-inverse of a tax bracket — the rate is a deduction, worth rate × bracket in tax
-actually saved, not rate in cash. `CarEconomics` no longer exposes a net figure
-at all; the concept was removed at the source rather than relabelled.
+**No prose verdicts.** An earlier version led with a tinted sentence telling the
+reader what to conclude — "replacing this one would likely pay for itself",
+"drive it into the ground". It was removed and must not come back: the figures
+go up, the reader draws the conclusion. Nothing on this page asserts one.
+
+Also gone, and deliberately: a table of individual drives, a repairs-vs-last-year
+block (the cost-per-mile chart already carries repairs), and a replacement
+price comparison. And "kept per mile", which subtracted running cost from the
+IRS rate as though the rate were income — it is a deduction, worth rate × a tax
+bracket, so that number overstated the car by roughly the inverse of the bracket.
+`CarEconomics` exposes no net figure at all.
+
+Entering the car's numbers happens in **Profile**, not here
+(`components/VehicleSettingsCard.tsx`, admin only): fuel economy, pump price, and
+the cost ledger, with a driver picker for whose car. It is setup, done a few
+times a year; Mileage is opened to read totals. Notes on already-logged costs are
+editable in place — the note most likely to need fixing is one written months
+ago. Dates use `DateField`, never a bare `<input type="date">`, which renders the
+browser's own picker instead of the app's.
 
 A car belongs to one person, so with the driver filter on **Everyone** the car
-half falls back to the signed-in user's own car — measured against *their* miles,
-not the household's — and the heading names whose car it is.
-
-`lib/mileage.ts` holds trip loading and date helpers; `lib/vehicle.ts` holds the
-economics and the replacement comparison. The page holds neither.
+half falls back to the signed-in user's own car, measured against *their* miles,
+and the heading names whose car it is.
 
 ### Clients Section
 
@@ -639,10 +639,11 @@ Cancel and delete:
 
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
-- `app/mileage/page.tsx`: Mileage — miles, month-over-month, and keep-or-replace.
+- `app/mileage/page.tsx`: Mileage — miles, month-over-month, deduction against car spend.
 - `components/SectionTabs.tsx`: The three Deductions tabs.
 - `lib/mileage.ts`: Trip loading and the helpers Mileage/Car/Reports share.
-- `lib/vehicle.ts`: Cost per mile, the benchmark, replacement comparison.
+- `lib/vehicle.ts`: Fuel from miles, cost per mile, deduction alongside spend.
+- `components/VehicleSettingsCard.tsx`: Car setup and the cost ledger, in Profile.
 - `supabase/vehicle-schema.sql`: `vehicle_profiles` and `vehicle_costs`.
 - `app/import/page.tsx`: Statement import — dropzone, review list, confirm.
 - `app/api/statements/parse/route.ts`: Reads an uploaded statement PDF into rows.

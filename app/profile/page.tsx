@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { DriveArchiveCard } from "@/components/expenses/DriveArchiveCard";
+import { VehicleSettingsCard } from "@/components/VehicleSettingsCard";
 import { Button } from "@/components/ui/Button";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -72,6 +73,8 @@ export default function ProfilePage() {
             month's transactions. The transactions page only nudges when the
             archive actually needs a hand. */}
         <DriveArchiveCard pendingCount={pendingDriveCount} isAdmin={isAdmin} />
+
+        {isAdmin ? <VehicleSettingsCard userId={user.id} /> : null}
 
         <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
           <div className="flex items-center gap-3">
