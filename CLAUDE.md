@@ -868,6 +868,7 @@ Cancel and delete:
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/PageHeader.tsx`: The section title every page shares.
+- `scripts/verify-ui.mjs`: Renders pages in Chromium and measures them.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
 - `components/ClientCard.tsx`: Client card UI.
@@ -879,10 +880,41 @@ Cancel and delete:
 
 ## Verifying UI Changes
 
-The dev server is behind Supabase auth, so an unauthenticated request only proves
-a route returns 200. Anything that renders must be checked signed in, against
-real data — twice, "compiles and serves clean" has hidden a bug that was obvious
-on screen.
+**Never hand a UI change back unverified, and never ask Ivan to check whether it
+looks right.** He has said this outright, and every instance has been a real
+failure: the press-scale that flashed white gutters, the title sitting 7px lower
+on Clients, the header gap that differed per section. None of them appeared in a
+diff, a typecheck, a lint or a build — all of them were obvious the moment a
+browser rendered the page. `npm run typecheck && npm run lint && npm run build`
+is the floor, not the check. A phrase like "worth a look on the preview" in a
+reply means the work is not finished.
+
+Chromium is always available at `/opt/pw-browsers` and `scripts/verify-ui.mjs`
+drives it, so there is no environment in which the check cannot be done:
+
+```bash
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm i playwright --prefix /tmp/pw
+npm run dev &
+NODE_PATH=/tmp/pw/node_modules node scripts/verify-ui.mjs \
+  "http://localhost:3000/" "http://localhost:3000/health" \
+  --selectors "h1,#first" --widths 390,1280
+```
+
+It prints the bounding box of each selector at each viewport and writes
+screenshots — so "the titles line up" is a measurement (`top 31 left 16` on every
+section) rather than an opinion, and the screenshots get read back, not just
+saved. Measure at **390px first**: this app is used on a phone.
+
+When the change is behind auth and no session is available — the remote
+container has no `.env.local`, since it is gitignored and lives on Ivan's
+machine — do not stop there. Render the same components through a temporary
+route under `app/` that supplies a fake `user` and mock props, measure that, and
+**delete the route before committing**. A harness that reproduces the real JSX
+proves geometry exactly; it just cannot prove data.
+
+Signed in, against real data, is still the better check, and is what the flow
+below is for. Anything that renders must eventually be seen that way — twice,
+"compiles and serves clean" has hidden a bug that was obvious on screen.
 
 No password is needed, and none should ever be typed. From a throwaway script in
 the project root (module resolution fails outside it), read `.env.local`, then:
