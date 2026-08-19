@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
 /**
- * Deductions is one section, three questions. What you spent, what you drove,
+ * Taxes is one section, three questions. What you spent, what you drove,
  * and what the year adds up to — the same books, so they share a nav item
  * rather than competing for one at the top level.
  */

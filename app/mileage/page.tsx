@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, Settings2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MileageHistory } from "@/components/MileageHistory";
 import { MileageUploader } from "@/components/MileageUploader";
@@ -104,7 +105,7 @@ function StatStrip({
 
 export default function MileagePage() {
   const now = useMemo(() => new Date(), []);
-  const { user, authLoading } = useAuthUser();
+  const { user, isAdmin, authLoading } = useAuthUser();
   const [uploads, setUploads] = useState<MileageUpload[]>([]);
   const [trips, setTrips] = useState<MileageTrip[]>([]);
   const [ownerOptions, setOwnerOptions] = useState<UserOption[]>([]);
@@ -702,11 +703,23 @@ export default function MileagePage() {
                 <h2 className="text-[14px] font-medium leading-tight text-text-primary">
                   The car · since Jan 1 {epochYear}
                 </h2>
-                {!configured ? (
+                {/* Entering the car's numbers still belongs in Profile — it is setup,
+                    done a few times a year — but this is the page where you notice
+                    they need entering, so the way there is named here rather than
+                    left to be found. */}
+                {isAdmin ? (
+                  <Link
+                    href="/profile#car-settings"
+                    className="focus-ring inline-flex items-center gap-1 rounded-lg px-1 text-[12px] font-medium text-text-secondary transition hover:text-text-primary"
+                  >
+                    <Settings2 size={14} strokeWidth={1.7} />
+                    {configured ? "Edit car data" : "Add car data"}
+                  </Link>
+                ) : (
                   <span className="text-[12px] text-text-tertiary">
-                    Fuel economy and pump price are set in Profile.
+                    Fuel economy, pump price and car costs are set in Profile.
                   </span>
-                ) : null}
+                )}
               </div>
 
               <StatStrip columns="grid-cols-3" bare>

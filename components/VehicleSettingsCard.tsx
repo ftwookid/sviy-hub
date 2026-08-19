@@ -135,7 +135,12 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
     "focus-ring h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] text-text-primary placeholder:text-text-tertiary";
 
   return (
-    <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
+    // Mileage links straight here, so the card needs an anchor and room above it
+    // for the sticky page top not to swallow the heading it scrolls to.
+    <section
+      id="car-settings"
+      className="scroll-mt-6 rounded-[20px] border border-border bg-surface p-3.5 shadow-card"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-medium leading-tight text-text-primary">Car</h2>
       </div>

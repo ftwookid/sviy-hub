@@ -198,14 +198,16 @@ parking charge must not trash the file proving the other forty-nine.
 - Added `AppShell` with:
   - Desktop left sidebar.
   - Mobile fixed bottom tab bar.
-  - Three sections: Deductions, Clients, Profile.
+  - Four sections: Taxes, Clients, Health, Profile.
 - Added safe mobile bottom padding so content does not sit under the tab bar.
 - Strengthened the visual system with warmer backgrounds, larger form controls, softer shadows, and more rounded cards.
 
-### Deductions Section
+### Taxes Section
 
-Everything that lowers the tax bill is one nav item — **Deductions** — with four
-tabs across the top (`components/SectionTabs.tsx`):
+Everything that lowers the tax bill is one nav item — **Taxes** — with three
+tabs across the top (`components/SectionTabs.tsx`). It was called Deductions
+until the nav grew a fourth item; "Taxes" is what the section is for, and it
+reads at a glance in a four-up mobile tab bar where the longer word did not:
 
 | Tab | Route | Question it answers |
 | --- | --- | --- |
@@ -217,7 +219,7 @@ tabs across the top (`components/SectionTabs.tsx`):
 
 Spending and driving are the same deduction asked twice, so splitting them
 across top-level tabs meant nobody could see the year's real number in one
-place. `DEDUCTION_ROUTES` in `AppShell` keeps all five routes lighting the same
+place. `TAX_ROUTES` in `AppShell` keeps all five routes lighting the same
 nav item.
 
 The old `Expenses` h1 is gone from `/` and `/reports`. The sidebar already names
@@ -287,7 +289,12 @@ bracket, so that number overstated the car by roughly the inverse of the bracket
 Entering the car's numbers happens in **Profile**, not here
 (`components/VehicleSettingsCard.tsx`, admin only): fuel economy, pump price, and
 the cost ledger. It is setup, done a few
-times a year; Mileage is opened to read totals. Notes on already-logged costs are
+times a year; Mileage is opened to read totals. But Mileage is where you notice
+the numbers are missing, so the car block links straight to it —
+`Add car data` / `Edit car data` → `/profile#car-settings` for admins, and the
+line naming Profile for everyone else. The card carries the `car-settings`
+anchor. Keeping the entry in Profile while hiding the way there just made the
+setting unfindable. Notes on already-logged costs are
 editable in place — the note most likely to need fixing is one written months
 ago. Dates use `DateField`, never a bare `<input type="date">`, which renders the
 browser's own picker instead of the app's.
@@ -299,6 +306,56 @@ the driver filter above. Dividing shared costs by one person's miles produced
 costs have to meet shared miles. `vehicle_profiles` is read as a singleton (most
 recently updated row) and the settings card updates that row in place, so a
 second admin editing cannot open a rival car alongside the first.
+
+### Health Section
+
+`/health`, its own nav item, because it is not the business's books — nothing in
+it is shared, added up, or deducted.
+
+Two levels of tabs, both plain state rather than routes (there is one page):
+
+- **Who**, built from `loadUsers()` so the tabs are the real accounts rather than
+  two hardcoded names, labelled by first name — a tab is a person, so it drops
+  the `Ivan K. (Admin)` decoration owner labels carry elsewhere. The reader's own
+  tab sorts first.
+- **Body · Weight · Fatloss**, the three questions asked of the same readings.
+
+The data is one table, `health_entries`, one row per person per day — a morning
+weigh-in and an evening tape measure land on the same row rather than two
+half-filled ones, which is what the `(person_id, recorded_on)` unique index is
+for. `health_profiles` holds the fixed facts and the goal: height, birth date,
+goal weight, target date.
+
+`person_id` — not `user_id` — is the axis. Everywhere else in the app `user_id`
+means "who logged this" and the totals are the household's; a body has an owner,
+so the column that says whose it is has a different name and `logged_by` keeps
+the attribution separately. RLS is still the shared-workspace policy: two people
+in one household, either able to type in the other's weigh-in.
+
+What each tab shows:
+
+- **Body** — height, age, BMI with its band, and the tape: chest, waist, hips,
+  arm, thigh, each against its own previous reading, since a waist comes in over
+  months the scale sits still. Waist over time is behind a disclosure.
+- **Weight** — current, the 4-week trend, the 30-day change, a fitted line chart,
+  the log form, and the recent readings with delete.
+- **Fatloss** — goal weight and target date, the progress bar from the first
+  weigh-in to the goal, what the target date demands per week against the current
+  pace, and body composition (body fat %, fat mass, lean mass).
+
+Two things it deliberately does not do:
+
+- **The trend is a slope, not two endpoints.** `weeklyRate()` is a least-squares
+  fit over the last 28 days. Weight swings a couple of pounds on water alone, so
+  first-minus-last reports "gaining" through a month that plainly trended down.
+- **No projection off a flat or rising trend.** `projectedGoalDate()` returns
+  null unless weight is actually coming down, and the card reads `—`. An arrival
+  date computed from a gaining fortnight is a made-up number, and, like Mileage,
+  this page states figures rather than asserting conclusions.
+
+An empty input field means "not measured today", never zero — `numberOrNull()`
+leaves the last reading standing rather than writing a 0 that would tank every
+line on the page.
 
 ### Clients Section
 
@@ -686,6 +743,13 @@ Cancel and delete:
   Chewy rows too?" after a single category edit.
 - `components/expenses/ImportSummaryCard.tsx`: Totals cross-check banner.
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
+- `app/health/page.tsx`: Health — person tabs, Body/Weight/Fatloss.
+- `lib/health.ts`: Health queries, and the trend/BMI/goal maths.
+- `components/health/primitives.tsx`: Stats, fields, and the fitted line chart.
+- `components/health/BodyPanel.tsx`: Height, age, BMI, and the tape measure.
+- `components/health/WeightPanel.tsx`: Weigh-ins and the trend.
+- `components/health/FatlossPanel.tsx`: The goal, the pace, and composition.
+- `supabase/health-schema.sql`: `health_profiles` and `health_entries`.
 - `app/clients/page.tsx`: Clients section.
 - `app/api/users/route.ts`: Everyone signed in, by display name.
 - `lib/userLabels.ts`: The client side of that route.
@@ -843,7 +907,11 @@ This replaced the full 22-item Schedule C list. Rules:
 
 ## Next Step
 
-Run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
+Run `supabase/health-schema.sql` in Supabase. It is re-runnable and creates
+`health_profiles` and `health_entries`. Until it runs, `/health` loads but shows
+a setup notice instead of the tabs.
+
+Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
 re-keys `merchant_rules` on the merchant alone. Until it runs, the app asks for
 everyone's rows and the database returns only your own, so the pages look right
