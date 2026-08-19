@@ -6,6 +6,84 @@ Sviy Hub is a private, single-user family CRM and business tracker for a small p
 
 The app should feel calm, premium, warm, and consumer-grade. The design direction is soft off-white backgrounds, warm gold accents, generous whitespace, rounded corners, subtle shadows, and comfortable mobile-first tap targets.
 
+## Space and Navigation — the standing rule
+
+This comes up on almost every task, so it is written here rather than repeated
+in chat. It applies to every screen, before the first line of layout is written.
+
+**Vertical space is the scarcest thing on the page.** The app is used on a phone,
+where roughly 700px decides whether a number is seen or scrolled past. Chrome —
+headers, borders, padding, empty labels — is what pushes the answer below the
+fold, and it is never worth its cost.
+
+The rules that follow from that:
+
+- **One row of navigation per level, and never two segmented rows stacked.**
+  If a screen needs both a "who" and a "what" switch, they share a line: the
+  question that changes rarely gets a compact pill group, the one being flipped
+  through gets the rest of the width.
+- **No heading that repeats the tab you are on.** A panel called "Weight" inside
+  the Weight tab is a wasted 40px that tells the reader nothing.
+- **One card per screen, divided — not a stack of cards.** Each card costs a
+  border, a shadow, a title and two lots of padding. Related blocks belong inside
+  one container separated by `border-t`, the way the Mileage car block already does.
+- **Entry forms collapse; readings do not.** A page is opened to read a number
+  ten times for every once it is typed into. Log forms, setup fields and goal
+  editors sit behind a disclosure or appear only while their value is unset. What
+  the page exists to show is never behind a click.
+- **Stats go in a divided strip, not in a grid of cards.** `StatStrip` + `Stat`
+  is the house pattern: three numbers, one set of chrome.
+- **No reserved-but-empty rows.** A detail line, a delta, a sub-label that is
+  blank half the time should not hold its space when it has nothing to say.
+- **Nothing is stated twice.** The sidebar names the section, the tab row names
+  the page. A third label on the content is noise.
+
+**But shrinking chrome is the last move, not the first.** Smaller buttons and
+tighter padding are what you do once the structure is right; reaching for them
+first is how a screen ends up dense *and* still wrong. Start instead by asking
+what actually happens on this screen:
+
+1. **Count the visits, not the features.** List what the user comes here to do
+   and how often. On Health it is: weigh in (most days), glance at the trend
+   (often), tape measure (weekly), set a goal or a height (once). Frequency, not
+   the tidiness of the taxonomy, decides what gets the top of the screen.
+2. **The most frequent action should cost one tap, and no navigation.** If the
+   daily job is behind a tab, a disclosure and a Save button, the layout is
+   wrong however compact it looks.
+3. **Prefer a stage over a row.** Navigation that is on screen permanently is
+   paid for on every visit, even by the nine visits in ten that never use it.
+   An overview that drills into a subject on tap — with a back arrow to return —
+   costs nothing until it is wanted. A small control that opens the full set of
+   options (a sheet, a picker, a popover) beats a row of controls sitting there
+   all day.
+4. **Let state do the talking.** A card that is an input until today's number
+   exists, and the number afterwards, answers "have I done this yet?" without a
+   label, an empty state or a badge.
+5. **Two honest things beat three padded ones.** Do not add a third tile, tab or
+   stat to balance a grid.
+
+If a screen ends up needing more chrome than this allows, the screen is doing
+too much — split what it answers, do not add height.
+
+**Motion**: nothing scales — not on press, not on hover. The global rule in
+`globals.css` was `button:active { transform: scale(0.97) }`, which is fine on a
+pill and wrong on anything larger: a tile inside a bordered card kept its border
+while its contents shrank away from it, flashing white gutters down both edges,
+and the text went soft mid-scale. **Press is `opacity: 0.72`** — it moves no
+geometry, so a chip and a full-width card press identically. Panels and menus
+travel a few pixels and fade (`.sheet-panel`, `.slide-over-panel`,
+`.popover-panel`, 140–200ms `ease-out`, all off under `prefers-reduced-motion`).
+Everything else responds in colour: `transition-colors duration-200 ease-out`.
+If a new interaction seems to want a transform, it wants a colour or an opacity
+change instead. There is no hover lift left anywhere — the client cards deepen
+their shadow instead of rising, so a card never pulls its own delete button out
+from under the cursor.
+
+**A control that changes what you are looking at shows you the options.** No
+blind toggles: tapping the person avatar opens the list of people, it does not
+silently swap to the other one. Cycling makes the reader check the screen
+afterwards to find out what happened.
+
 ## Tech Stack
 
 - Next.js 14 App Router
@@ -198,14 +276,16 @@ parking charge must not trash the file proving the other forty-nine.
 - Added `AppShell` with:
   - Desktop left sidebar.
   - Mobile fixed bottom tab bar.
-  - Three sections: Deductions, Clients, Profile.
+  - Four sections: Taxes, Clients, Health, Profile.
 - Added safe mobile bottom padding so content does not sit under the tab bar.
 - Strengthened the visual system with warmer backgrounds, larger form controls, softer shadows, and more rounded cards.
 
-### Deductions Section
+### Taxes Section
 
-Everything that lowers the tax bill is one nav item — **Deductions** — with four
-tabs across the top (`components/SectionTabs.tsx`):
+Everything that lowers the tax bill is one nav item — **Taxes** — with three
+tabs across the top (`components/SectionTabs.tsx`). It was called Deductions
+until the nav grew a fourth item; "Taxes" is what the section is for, and it
+reads at a glance in a four-up mobile tab bar where the longer word did not:
 
 | Tab | Route | Question it answers |
 | --- | --- | --- |
@@ -217,7 +297,7 @@ tabs across the top (`components/SectionTabs.tsx`):
 
 Spending and driving are the same deduction asked twice, so splitting them
 across top-level tabs meant nobody could see the year's real number in one
-place. `DEDUCTION_ROUTES` in `AppShell` keeps all five routes lighting the same
+place. `TAX_ROUTES` in `AppShell` keeps all five routes lighting the same
 nav item.
 
 The old `Expenses` h1 is gone from `/` and `/reports`. The sidebar already names
@@ -287,7 +367,12 @@ bracket, so that number overstated the car by roughly the inverse of the bracket
 Entering the car's numbers happens in **Profile**, not here
 (`components/VehicleSettingsCard.tsx`, admin only): fuel economy, pump price, and
 the cost ledger. It is setup, done a few
-times a year; Mileage is opened to read totals. Notes on already-logged costs are
+times a year; Mileage is opened to read totals. But Mileage is where you notice
+the numbers are missing, so the car block links straight to it —
+`Add car data` / `Edit car data` → `/profile#car-settings` for admins, and the
+line naming Profile for everyone else. The card carries the `car-settings`
+anchor. Keeping the entry in Profile while hiding the way there just made the
+setting unfindable. Notes on already-logged costs are
 editable in place — the note most likely to need fixing is one written months
 ago. Dates use `DateField`, never a bare `<input type="date">`, which renders the
 browser's own picker instead of the app's.
@@ -299,6 +384,70 @@ the driver filter above. Dividing shared costs by one person's miles produced
 costs have to meet shared miles. `vehicle_profiles` is read as a singleton (most
 recently updated row) and the settings card updates that row in place, so a
 second admin editing cannot open a rival car alongside the first.
+
+### Health Section
+
+`/health`, its own nav item, because it is not the business's books — nothing in
+it is shared, added up, or deducted.
+
+**It has no tabs.** It had three, plus a row of person tabs above them, and that
+was the wrong shape for how the page is used: nearly every visit is one action —
+type this morning's weight — and the rest barely repeat. Two rows of navigation
+asking which of three pages you wanted, before a single figure appeared, was a
+question the reader answers the same way nine times in ten.
+
+What replaced them:
+
+- **The weigh-in is the page.** `TodayCard` is a number field with the keyboard
+  one tap away, and it is the first thing on screen. Enter saves. The card is
+  written by its own state: until today has a reading it is an input asking for
+  one; the moment it does, it becomes the reading with the change beside it. That
+  is also the answer to "have I weighed in yet?", so nothing has to say it.
+- **The trend is the row under it** — a sparkline and the 4-week rate — and that
+  row is a button into the full weight history.
+- **Two tiles, `Goal` and `Body`**, each opening its subject in full (`GoalDetail`,
+  `BodyDetail`, `WeightDetail`) with a back arrow to return. Charts, history,
+  deletes, height, birth date and the goal editor live in there, one deliberate
+  tap away, instead of competing with the daily job. Two tiles, not three: there
+  was no honest third.
+- **Everything rare is a sheet.** `＋` opens `LogSheet` — date, weight, body fat,
+  and the five tape measurements behind one more line — for the weekly measure or
+  a day caught up late.
+- **The person is context, not navigation.** An avatar in the same row as `＋`
+  (`PersonMenu`), so whose readings these are costs no height. Tapping it drops a
+  menu of everyone, avatar and name each, with a tick on the current one — never
+  a silent swap to the other account. It is not rendered at all when there is
+  only one account, and the reading names the person while you are looking at
+  someone else's.
+
+So the whole overview is a card and a half, permanent navigation is zero rows,
+and the daily action is: open, tap, type, done.
+
+The data is one table, `health_entries`, one row per person per day — a morning
+weigh-in and an evening tape measure land on the same row rather than two
+half-filled ones, which is what the `(person_id, recorded_on)` unique index is
+for. `health_profiles` holds the fixed facts and the goal: height, birth date,
+goal weight, target date.
+
+`person_id` — not `user_id` — is the axis. Everywhere else in the app `user_id`
+means "who logged this" and the totals are the household's; a body has an owner,
+so the column that says whose it is has a different name and `logged_by` keeps
+the attribution separately. RLS is still the shared-workspace policy: two people
+in one household, either able to type in the other's weigh-in.
+
+Two things it deliberately does not do:
+
+- **The trend is a slope, not two endpoints.** `weeklyRate()` is a least-squares
+  fit over the last 28 days. Weight swings a couple of pounds on water alone, so
+  first-minus-last reports "gaining" through a month that plainly trended down.
+- **No projection off a flat or rising trend.** `projectedGoalDate()` returns
+  null unless weight is actually coming down, and the card reads `—`. An arrival
+  date computed from a gaining fortnight is a made-up number, and, like Mileage,
+  this page states figures rather than asserting conclusions.
+
+An empty input field means "not measured today", never zero — `numberOrNull()`
+leaves the last reading standing rather than writing a 0 that would tank every
+line on the page.
 
 ### Clients Section
 
@@ -317,7 +466,8 @@ second admin editing cannot open a rival car alongside the first.
   - Active and Paused tabs keep their existing name-based ordering.
   - Delete icon appears only for Paused clients.
   - Active clients cannot be deleted from client cards.
-  - Paused cards do not translate/lift on hover, so the delete icon stays still.
+  - No card lifts on hover; the shadow deepens instead, so the delete icon on a
+    paused card never moves out from under the cursor.
 - Added add/edit client slide-over form.
 - Add/edit client slide-over closes from both the X button and clicks on the dimmed overlay outside the panel.
 - Added dynamic pets list.
@@ -686,6 +836,16 @@ Cancel and delete:
   Chewy rows too?" after a single category edit.
 - `components/expenses/ImportSummaryCard.tsx`: Totals cross-check banner.
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
+- `app/health/page.tsx`: Health — person tabs, Body/Weight/Fatloss.
+- `lib/health.ts`: Health queries, and the trend/BMI/goal maths.
+- `components/health/TodayCard.tsx`: The weigh-in, the trend row, the person avatar.
+- `components/health/PersonMenu.tsx`: Whose readings — avatar, dropdown, tick.
+- `components/health/LogSheet.tsx`: The full reading — tape, body fat, an older date.
+- `components/health/primitives.tsx`: Tiles, sheet, stats, sparkline, ring, chart.
+- `components/health/WeightDetail.tsx`: The history and the fitted line.
+- `components/health/BodyDetail.tsx`: BMI, the tape, height and birth date.
+- `components/health/GoalDetail.tsx`: The goal, the pace, and composition.
+- `supabase/health-schema.sql`: `health_profiles` and `health_entries`.
 - `app/clients/page.tsx`: Clients section.
 - `app/api/users/route.ts`: Everyone signed in, by display name.
 - `lib/userLabels.ts`: The client side of that route.
@@ -843,7 +1003,11 @@ This replaced the full 22-item Schedule C list. Rules:
 
 ## Next Step
 
-Run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
+Run `supabase/health-schema.sql` in Supabase. It is re-runnable and creates
+`health_profiles` and `health_entries`. Until it runs, `/health` loads but shows
+a setup notice instead of the tabs.
+
+Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
 re-keys `merchant_rules` on the merchant alone. Until it runs, the app asks for
 everyone's rows and the database returns only your own, so the pages look right

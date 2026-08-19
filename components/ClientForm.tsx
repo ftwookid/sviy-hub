@@ -598,7 +598,7 @@ export function ClientForm({
                   <Minus size={18} strokeWidth={1.6} />
                 </Button>
               </div>
-              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-[14px] font-medium text-text-secondary transition duration-150 ease-out hover:bg-[#FBFAF7] active:scale-[0.97]">
+              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-[14px] font-medium text-text-secondary transition-colors duration-200 ease-out hover:bg-[#FBFAF7]">
                 <Camera size={16} strokeWidth={1.6} />
                 {pet.photoFile?.name ?? pet.photo_filename ?? "Add pet photo"}
                 <input className="sr-only" type="file" accept="image/*" onChange={(event) => selectPhoto(index, event)} />
