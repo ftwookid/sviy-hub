@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { DateField } from "@/components/ui/DateField";
-import { EmptyNote, NumberField, Panel, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
+import { Block, Card, Disclosure, Hint, NumberField, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
 import { cn } from "@/lib/cn";
-import { formatShortDate } from "@/lib/formatters";
+import { formatShortDate, todayInputValue } from "@/lib/formatters";
 import {
   changeOver,
   daysBetween,
@@ -31,7 +31,7 @@ function signed(value: number, unit: string, digits = 1) {
  *
  * The projection is deliberately silent when the recent trend is flat or going
  * the wrong way: a date computed off a gaining fortnight is a made-up number,
- * and this page should not assert one.
+ * and this page states figures rather than asserting conclusions.
  */
 export function FatlossPanel({
   personId,
@@ -69,10 +69,10 @@ export function FatlossPanel({
   const lean = leanMass(current?.value ?? null, bodyFat?.value ?? null);
   const fatPoints = series(entries, "body_fat_pct").slice(-24);
 
-  /** What the target date would demand, so the goal can be checked against the trend. */
+  /** What the target date would demand, so the goal can be checked against the pace. */
   const requiredRate = (() => {
     if (!profile?.goal_date || toGo == null || toGo <= 0) return null;
-    const days = daysBetween(new Date().toISOString().slice(0, 10), profile.goal_date);
+    const days = daysBetween(todayInputValue(), profile.goal_date);
     if (days <= 0) return null;
     return -toGo / (days / 7);
   })();
@@ -86,14 +86,37 @@ export function FatlossPanel({
     onSaved("Goal saved");
   }
 
+  const goalFields = (
+    <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-1">
+      <NumberField
+        label="Goal weight (lb)"
+        value={goalWeight}
+        onChange={setGoalWeight}
+        placeholder="165"
+        onBlur={() => {
+          if (goalWeight !== (goal != null ? String(goal) : "")) save({ goal_weight_lb: numberOrNull(goalWeight) });
+        }}
+      />
+      <DateField
+        label="Target date"
+        value={goalDate}
+        dimFutureDates={false}
+        onChange={(value) => {
+          setGoalDate(value);
+          if (value !== (profile?.goal_date ?? "")) save({ goal_date: value || null });
+        }}
+      />
+    </div>
+  );
+
   return (
-    <div className="space-y-3">
-      <Panel title="Toward the goal">
+    <Card>
+      <Block>
         <StatStrip columns="grid-cols-3">
           <Stat
             label="To go"
             value={toGo != null ? `${Math.max(0, toGo).toFixed(1)} lb` : "—"}
-            detail={goal != null ? `Goal ${goal} lb` : "Set a goal below"}
+            detail={goal != null ? `Goal ${goal} lb` : undefined}
             tone={toGo != null && toGo <= 0 ? "good" : undefined}
           />
           <Stat
@@ -105,16 +128,12 @@ export function FatlossPanel({
           <Stat
             label="On track for"
             value={projected ? formatShortDate(projected) : "—"}
-            detail={
-              rate != null
-                ? `At ${signed(rate, "lb")}/wk`
-                : "Needs a downward trend"
-            }
+            detail={rate != null ? `At ${signed(rate, "lb")}/wk` : undefined}
           />
         </StatStrip>
 
         {progress != null ? (
-          <div className="px-3 pb-3 pt-1">
+          <div className="px-3 pb-3 pt-2">
             <div className="h-2.5 overflow-hidden rounded-full bg-subtle">
               <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(2, progress * 100)}%` }} />
             </div>
@@ -125,28 +144,28 @@ export function FatlossPanel({
             </div>
           </div>
         ) : (
-          <EmptyNote>Set a goal weight and log a weigh-in, and the progress bar fills in.</EmptyNote>
+          <Hint>Set a goal weight below and log a weigh-in, and the progress bar fills in.</Hint>
         )}
 
         {requiredRate != null && profile?.goal_date ? (
-          <div className="border-t border-border px-3 py-2.5 text-[12px] text-text-secondary">
-            Hitting {formatShortDate(profile.goal_date)} needs{" "}
+          <p className="px-3 pb-3 text-[12px] text-text-secondary">
+            {formatShortDate(profile.goal_date)} needs{" "}
             <span className="font-medium text-text-primary">{signed(requiredRate, "lb")}</span> a week.
             {rate != null ? (
               <span className={cn("ml-1", rate <= requiredRate ? "text-success" : "text-danger")}>
-                Current pace {signed(rate, "lb")}.
+                Pace {signed(rate, "lb")}.
               </span>
             ) : null}
-          </div>
+          </p>
         ) : null}
-      </Panel>
+      </Block>
 
-      <Panel title="Body composition">
+      <Block>
         <StatStrip columns="grid-cols-3">
           <Stat
             label="Body fat"
             value={bodyFat ? `${bodyFat.value.toFixed(1)}%` : "—"}
-            detail={bodyFat ? formatShortDate(bodyFat.date) : "Log one on the Weight tab"}
+            detail={bodyFat ? formatShortDate(bodyFat.date) : "Log one on Weight"}
           />
           <Stat
             label="Fat mass"
@@ -157,32 +176,13 @@ export function FatlossPanel({
           <Stat label="Lean mass" value={lean != null ? `${lean.toFixed(1)} lb` : "—"} />
         </StatStrip>
         <TrendChart points={fatPoints} unit="%" />
-      </Panel>
+      </Block>
 
-      <Panel title="The goal">
-        <div className="grid grid-cols-1 gap-2 px-3 pb-3 pt-2 sm:grid-cols-2">
-          <NumberField
-            label="Goal weight (lb)"
-            value={goalWeight}
-            onChange={setGoalWeight}
-            placeholder="165"
-            onBlur={() => {
-              if (goalWeight !== (goal != null ? String(goal) : "")) {
-                save({ goal_weight_lb: numberOrNull(goalWeight) });
-              }
-            }}
-          />
-          <DateField
-            label="Target date"
-            value={goalDate}
-            dimFutureDates={false}
-            onChange={(value) => {
-              setGoalDate(value);
-              if (value !== (profile?.goal_date ?? "")) save({ goal_date: value || null });
-            }}
-          />
-        </div>
-      </Panel>
-    </div>
+      {goal == null && !profile?.goal_date ? (
+        <Block>{goalFields}</Block>
+      ) : (
+        <Disclosure label="Goal weight and target date">{goalFields}</Disclosure>
+      )}
+    </Card>
   );
 }

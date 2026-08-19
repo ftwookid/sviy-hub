@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
-import { EmptyNote, NumberField, Panel, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
+import { Block, Card, Disclosure, Hint, NumberField, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
+import { cn } from "@/lib/cn";
 import { formatShortDate, todayInputValue } from "@/lib/formatters";
 import {
   ageFrom,
@@ -32,12 +33,19 @@ function delta(value: number) {
   return `${sign}${Math.abs(value).toFixed(1)}"`;
 }
 
+function feetInches(value: number) {
+  const feet = Math.floor(value / 12);
+  const inches = Math.round(value - feet * 12);
+  return `${feet}'${inches}"`;
+}
+
 /**
- * The body itself: the fixed facts (height, age), and the tape measure.
+ * The body itself: the fixed facts, then the tape measure.
  *
- * Measurements move when the scale does not — a waist can come in over a month
- * the weight sat still — so each one is shown next to its own last reading
- * rather than only as a current number.
+ * Measurements move when the scale does not — a waist comes in over a month the
+ * weight sat still — so each is shown against its own last reading. Height and
+ * date of birth are typed once in a lifetime, so they only take space while
+ * they are missing.
  */
 export function BodyPanel({
   personId,
@@ -59,7 +67,6 @@ export function BodyPanel({
   const [date, setDate] = useState(todayInputValue());
   const [form, setForm] = useState<Record<MeasurementKey, string>>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [waistPoints, setWaistPoints] = useState(false);
 
   useEffect(() => {
     setHeight(profile?.height_in != null ? String(profile.height_in) : "");
@@ -71,6 +78,8 @@ export function BodyPanel({
   const bmiValue = bmi(currentWeight?.value ?? null, heightIn);
   const age = ageFrom(profile?.birth_date ?? null);
   const waist = series(entries, "waist_in").slice(-24);
+  const hasMeasurements = MEASUREMENTS.some((measurement) => latest(entries, measurement.key));
+  const setupMissing = heightIn == null || !profile?.birth_date;
 
   async function saveProfile(patch: { height_in?: number | null; birth_date?: string | null }) {
     const { error } = await saveHealthProfile(personId, patch);
@@ -105,60 +114,69 @@ export function BodyPanel({
     onSaved("Measurements saved");
   }
 
+  const setupFields = (
+    <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-1">
+      <NumberField
+        label="Height (in)"
+        value={height}
+        onChange={setHeight}
+        placeholder="70"
+        step="0.5"
+        onBlur={() => {
+          if (height !== (heightIn != null ? String(heightIn) : "")) saveProfile({ height_in: numberOrNull(height) });
+        }}
+      />
+      <DateField
+        label="Date of birth"
+        value={birthDate}
+        dimFutureDates={false}
+        onChange={(value) => {
+          setBirthDate(value);
+          if (value !== (profile?.birth_date ?? "")) saveProfile({ birth_date: value || null });
+        }}
+      />
+    </div>
+  );
+
   return (
-    <div className="space-y-3">
-      <Panel title="The basics">
+    <Card>
+      <Block>
         <StatStrip columns="grid-cols-3">
-          <Stat label="Height" value={heightIn ? `${heightIn}"` : "—"} detail={heightIn ? feetInches(heightIn) : "Set below"} />
-          <Stat label="Age" value={age != null ? String(age) : "—"} detail={profile?.birth_date ? formatShortDate(profile.birth_date) : undefined} />
+          <Stat label="Height" value={heightIn ? feetInches(heightIn) : "—"} detail={heightIn ? `${heightIn}"` : undefined} />
+          <Stat
+            label="Age"
+            value={age != null ? String(age) : "—"}
+            detail={profile?.birth_date ? formatShortDate(profile.birth_date) : undefined}
+          />
           <Stat
             label="BMI"
             value={bmiValue ? bmiValue.toFixed(1) : "—"}
             detail={bmiValue ? bmiBand(bmiValue) : "Needs height and a weigh-in"}
           />
         </StatStrip>
+        {/* Set once, then out of the way — but never hidden while still blank. */}
+        {setupMissing ? setupFields : null}
+      </Block>
 
-        <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-2">
-          <NumberField
-            label="Height (in)"
-            value={height}
-            onChange={setHeight}
-            placeholder="70"
-            step="0.5"
-            onBlur={() => {
-              if (height !== (heightIn != null ? String(heightIn) : "")) saveProfile({ height_in: numberOrNull(height) });
-            }}
-          />
-          <DateField
-            label="Date of birth"
-            value={birthDate}
-            dimFutureDates={false}
-            onChange={(value) => {
-              setBirthDate(value);
-              if (value !== (profile?.birth_date ?? "")) saveProfile({ birth_date: value || null });
-            }}
-          />
-        </div>
-      </Panel>
-
-      <Panel title="Measurements">
-        {MEASUREMENTS.some((measurement) => latest(entries, measurement.key)) ? (
-          <ul className="divide-y divide-border px-3 pb-2 pt-1">
+      <Block>
+        {hasMeasurements ? (
+          <ul className="divide-y divide-border px-3">
             {MEASUREMENTS.map((measurement) => {
               const current = latest(entries, measurement.key);
               const before = previous(entries, measurement.key);
               const change = current && before ? current.value - before.value : null;
               return (
-                <li key={measurement.key} className="flex items-center gap-3 py-2.5">
+                <li key={measurement.key} className="flex items-center gap-3 py-2">
                   <span className="w-16 shrink-0 text-[13px] text-text-secondary">{measurement.label}</span>
                   <span className="text-[15px] font-medium text-text-primary">
                     {current ? `${current.value.toFixed(1)}"` : "—"}
                   </span>
                   {change != null ? (
                     <span
-                      className={
-                        change < 0 ? "text-[12px] text-success" : change > 0 ? "text-[12px] text-danger" : "text-[12px] text-text-tertiary"
-                      }
+                      className={cn(
+                        "text-[12px]",
+                        change < 0 ? "text-success" : change > 0 ? "text-danger" : "text-text-tertiary"
+                      )}
                     >
                       {delta(change)}
                     </span>
@@ -171,28 +189,14 @@ export function BodyPanel({
             })}
           </ul>
         ) : (
-          <EmptyNote>No measurements yet. The form below starts the record.</EmptyNote>
+          <Hint>No measurements yet — the form below starts the record.</Hint>
         )}
+        <TrendChart points={waist} unit="in" />
+      </Block>
 
-        {waist.length > 1 ? (
-          <div className="border-t border-border">
-            <button
-              type="button"
-              className="focus-ring w-full px-3 pt-2 text-left text-[13px] font-medium text-text-secondary transition hover:text-text-primary"
-              onClick={() => setWaistPoints((open) => !open)}
-            >
-              Waist over time {waistPoints ? "▾" : "▸"}
-            </button>
-            {waistPoints ? <TrendChart points={waist} unit="in" /> : <div className="pb-3" />}
-          </div>
-        ) : null}
-      </Panel>
-
-      <Panel title="Log measurements">
-        <div className="px-3 pb-1 pt-2">
+      <Disclosure label="Log measurements" defaultOpen={!hasMeasurements}>
+        <div className="grid grid-cols-2 gap-2 px-3 pb-2 pt-1 sm:grid-cols-3">
           <DateField label="Date" value={date} onChange={setDate} />
-        </div>
-        <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-2 sm:grid-cols-5">
           {MEASUREMENTS.map((measurement) => (
             <NumberField
               key={measurement.key}
@@ -207,13 +211,9 @@ export function BodyPanel({
             {saving ? "Saving..." : "Save measurements"}
           </Button>
         </div>
-      </Panel>
-    </div>
-  );
-}
+      </Disclosure>
 
-function feetInches(value: number) {
-  const feet = Math.floor(value / 12);
-  const inches = Math.round(value - feet * 12);
-  return `${feet}'${inches}"`;
+      {!setupMissing ? <Disclosure label="Height and date of birth">{setupFields}</Disclosure> : null}
+    </Card>
+  );
 }

@@ -4,17 +4,9 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
-import { EmptyNote, NumberField, Panel, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
+import { Block, Card, Disclosure, Hint, NumberField, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
 import { formatShortDate, todayInputValue } from "@/lib/formatters";
-import {
-  changeOver,
-  deleteHealthEntry,
-  latest,
-  numberOrNull,
-  saveHealthEntry,
-  series,
-  weeklyRate
-} from "@/lib/health";
+import { changeOver, deleteHealthEntry, latest, numberOrNull, saveHealthEntry, series, weeklyRate } from "@/lib/health";
 import type { HealthEntry } from "@/types/health";
 
 function signed(value: number, unit: string, digits = 1) {
@@ -25,8 +17,8 @@ function signed(value: number, unit: string, digits = 1) {
 /**
  * The weigh-in log: what the scale says, and which way it has been going.
  *
- * Losing weight is a slope, not a reading, so the strip leads with the trend
- * and the single latest number sits beside it rather than on its own.
+ * Losing weight is a slope, not a reading, so the strip leads with the trend and
+ * the latest number sits beside it. No heading says "Weight" — the tab does.
  */
 export function WeightPanel({
   personId,
@@ -51,7 +43,7 @@ export function WeightPanel({
   const monthChange = changeOver(entries, "weight_lb", 30);
   const rate = weeklyRate(entries);
   const points = series(entries, "weight_lb").slice(-24);
-  const recent = [...entries].filter((entry) => entry.weight_lb != null).reverse().slice(0, 8);
+  const recent = [...entries].filter((entry) => entry.weight_lb != null).reverse().slice(0, 6);
 
   async function save() {
     const weightValue = numberOrNull(weight);
@@ -88,8 +80,8 @@ export function WeightPanel({
   }
 
   return (
-    <div className="space-y-3">
-      <Panel title="Weight">
+    <Card>
+      <Block>
         <StatStrip columns="grid-cols-3">
           <Stat
             label="Now"
@@ -110,28 +102,15 @@ export function WeightPanel({
           />
         </StatStrip>
         <TrendChart points={points} unit="lb" />
-      </Panel>
+        {!current ? <Hint>Nothing logged yet — the first weigh-in below starts the line.</Hint> : null}
+      </Block>
 
-      <Panel title="Log a weigh-in">
-        <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-2 sm:grid-cols-4">
-          <div className="col-span-2 sm:col-span-2">
-            <DateField label="Date" value={date} onChange={setDate} />
-          </div>
-          <NumberField label="Weight (lb)" value={weight} onChange={setWeight} placeholder="178.4" />
-          <NumberField label="Body fat %" value={bodyFat} onChange={setBodyFat} placeholder="22.5" step="0.1" />
-        </div>
-        <div className="px-3 pb-3">
-          <Button variant="accent" onClick={save} disabled={saving}>
-            {saving ? "Saving..." : "Save reading"}
-          </Button>
-        </div>
-      </Panel>
-
-      <Panel title="Recent readings">
-        {recent.length ? (
-          <ul className="divide-y divide-border px-3 pb-2">
+      {/* Readings stay open: they are what the tab is for. */}
+      {recent.length ? (
+        <Block>
+          <ul className="divide-y divide-border px-3">
             {recent.map((entry) => (
-              <li key={entry.id} className="flex items-center gap-3 py-2.5">
+              <li key={entry.id} className="flex items-center gap-3 py-2">
                 <span className="w-20 shrink-0 text-[12px] text-text-tertiary">
                   {formatShortDate(entry.recorded_on)}
                 </span>
@@ -152,10 +131,23 @@ export function WeightPanel({
               </li>
             ))}
           </ul>
-        ) : (
-          <EmptyNote>Nothing logged yet. The first weigh-in above starts the line.</EmptyNote>
-        )}
-      </Panel>
-    </div>
+        </Block>
+      ) : null}
+
+      <Disclosure label="Log a weigh-in" defaultOpen={!current}>
+        <div className="grid grid-cols-2 gap-2 px-3 pb-2 pt-1 sm:grid-cols-4">
+          <div className="col-span-2">
+            <DateField label="Date" value={date} onChange={setDate} />
+          </div>
+          <NumberField label="Weight (lb)" value={weight} onChange={setWeight} placeholder="178.4" />
+          <NumberField label="Body fat %" value={bodyFat} onChange={setBodyFat} placeholder="22.5" />
+        </div>
+        <div className="px-3 pb-3">
+          <Button variant="accent" onClick={save} disabled={saving}>
+            {saving ? "Saving..." : "Save reading"}
+          </Button>
+        </div>
+      </Disclosure>
+    </Card>
   );
 }

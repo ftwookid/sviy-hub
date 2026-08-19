@@ -6,6 +6,41 @@ Sviy Hub is a private, single-user family CRM and business tracker for a small p
 
 The app should feel calm, premium, warm, and consumer-grade. The design direction is soft off-white backgrounds, warm gold accents, generous whitespace, rounded corners, subtle shadows, and comfortable mobile-first tap targets.
 
+## Space and Navigation — the standing rule
+
+This comes up on almost every task, so it is written here rather than repeated
+in chat. It applies to every screen, before the first line of layout is written.
+
+**Vertical space is the scarcest thing on the page.** The app is used on a phone,
+where roughly 700px decides whether a number is seen or scrolled past. Chrome —
+headers, borders, padding, empty labels — is what pushes the answer below the
+fold, and it is never worth its cost.
+
+The rules that follow from that:
+
+- **One row of navigation per level, and never two segmented rows stacked.**
+  If a screen needs both a "who" and a "what" switch, they share a line: the
+  question that changes rarely gets a compact pill group, the one being flipped
+  through gets the rest of the width.
+- **No heading that repeats the tab you are on.** A panel called "Weight" inside
+  the Weight tab is a wasted 40px that tells the reader nothing.
+- **One card per screen, divided — not a stack of cards.** Each card costs a
+  border, a shadow, a title and two lots of padding. Related blocks belong inside
+  one container separated by `border-t`, the way the Mileage car block already does.
+- **Entry forms collapse; readings do not.** A page is opened to read a number
+  ten times for every once it is typed into. Log forms, setup fields and goal
+  editors sit behind a disclosure or appear only while their value is unset. What
+  the page exists to show is never behind a click.
+- **Stats go in a divided strip, not in a grid of cards.** `StatStrip` + `Stat`
+  is the house pattern: three numbers, one set of chrome.
+- **No reserved-but-empty rows.** A detail line, a delta, a sub-label that is
+  blank half the time should not hold its space when it has nothing to say.
+- **Nothing is stated twice.** The sidebar names the section, the tab row names
+  the page. A third label on the content is noise.
+
+If a screen ends up needing more chrome than this allows, the screen is doing
+too much — split what it answers, do not add height.
+
 ## Tech Stack
 
 - Next.js 14 App Router
@@ -312,13 +347,23 @@ second admin editing cannot open a rival car alongside the first.
 `/health`, its own nav item, because it is not the business's books — nothing in
 it is shared, added up, or deducted.
 
-Two levels of tabs, both plain state rather than routes (there is one page):
+Two switches, **one row** (`Switcher` in `app/health/page.tsx`), both plain state
+rather than routes since there is one page:
 
-- **Who**, built from `loadUsers()` so the tabs are the real accounts rather than
-  two hardcoded names, labelled by first name — a tab is a person, so it drops
-  the `Ivan K. (Admin)` decoration owner labels carry elsewhere. The reader's own
-  tab sorts first.
-- **Body · Weight · Fatloss**, the three questions asked of the same readings.
+- **Body · Weight · Fatloss** takes the width — it is the one being flipped
+  through.
+- **Who** rides beside it as a compact pill group, built from `loadUsers()` so the
+  tabs are the real accounts rather than two hardcoded names, labelled by first
+  name — a tab is a person, so it drops the `Ivan K. (Admin)` decoration owner
+  labels carry elsewhere. The reader's own tab sorts first, and the group hides
+  entirely when there is only one account.
+
+Each tab is **one card** of `Block`s divided by a rule, never a stack of cards,
+and no block repeats the tab's own name as a heading. Forms are collapsed
+(`Disclosure`) and readings are not: logging happens once a day, reading happens
+all day. A form does open by default while its data is still empty — height and
+date of birth show as fields until they are set, then fold behind a disclosure —
+because a page with nothing on it should say what to type, not hide it.
 
 The data is one table, `health_entries`, one row per person per day — a morning
 weigh-in and an evening tape measure land on the same row rather than two
@@ -336,9 +381,9 @@ What each tab shows:
 
 - **Body** — height, age, BMI with its band, and the tape: chest, waist, hips,
   arm, thigh, each against its own previous reading, since a waist comes in over
-  months the scale sits still. Waist over time is behind a disclosure.
+  months the scale sits still, plus waist over time once there are two readings.
 - **Weight** — current, the 4-week trend, the 30-day change, a fitted line chart,
-  the log form, and the recent readings with delete.
+  and the recent readings with delete.
 - **Fatloss** — goal weight and target date, the progress bar from the first
   weigh-in to the goal, what the target date demands per week against the current
   pace, and body composition (body fat %, fat mass, lean mass).

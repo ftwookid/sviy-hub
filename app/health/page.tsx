@@ -32,19 +32,31 @@ function firstName(label: string) {
   return label.split(/[\s(]/)[0].replace(/[^A-Za-zÀ-ÿ0-9'-]/g, "") || label;
 }
 
-function Segmented<T extends string>({
+/**
+ * One row of navigation, not two stacked.
+ *
+ * Health switches on two axes — whose body, and which question — and giving each
+ * its own full-width segmented row spent about 90px of a phone screen before a
+ * single number appeared. The question being flipped through takes the width;
+ * whose body it is rarely changes, so it rides along as a compact pill group.
+ */
+function Switcher<T extends string>({
   options,
   value,
-  onChange
+  onChange,
+  compact,
+  className
 }: {
   options: { key: T; label: string }[];
   value: T;
   onChange: (key: T) => void;
+  compact?: boolean;
+  className?: string;
 }) {
   return (
     <div
-      className="grid gap-0.5 rounded-xl border border-border bg-subtle p-0.5"
-      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+      className={cn("flex gap-0.5 rounded-xl border border-border bg-subtle p-0.5", className)}
+      role="tablist"
     >
       {options.map((option) => {
         const active = option.key === value;
@@ -52,10 +64,12 @@ function Segmented<T extends string>({
           <button
             key={option.key}
             type="button"
-            aria-current={active ? "page" : undefined}
+            role="tab"
+            aria-selected={active}
             onClick={() => onChange(option.key)}
             className={cn(
-              "focus-ring flex min-h-9 items-center justify-center rounded-[10px] px-2 text-[13px] font-medium transition duration-150 ease-out",
+              "focus-ring flex min-h-9 items-center justify-center rounded-[10px] font-medium transition duration-150 ease-out",
+              compact ? "px-2.5 text-[12px]" : "min-w-0 flex-1 px-2 text-[13px]",
               active ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
             )}
           >
@@ -147,16 +161,23 @@ export default function HealthPage() {
 
   return (
     <AppShell user={user}>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          {orderedPeople.length ? (
-            <Segmented
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Switcher
+            options={SECTIONS.map((item) => ({ ...item }))}
+            value={section}
+            onChange={setSection}
+            className="min-w-0 flex-1"
+          />
+          {orderedPeople.length > 1 ? (
+            <Switcher
               options={orderedPeople.map((person) => ({ key: person.id, label: firstName(person.label) }))}
               value={personId}
               onChange={setPersonId}
+              compact
+              className="shrink-0"
             />
           ) : null}
-          <Segmented options={SECTIONS.map((item) => ({ ...item }))} value={section} onChange={setSection} />
         </div>
 
         {schemaError ? (
