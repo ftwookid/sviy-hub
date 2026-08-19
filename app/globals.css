@@ -37,12 +37,26 @@ textarea {
 button {
   cursor: pointer;
   transition-duration: 180ms;
-  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+  transition-property: background-color, border-color, color, box-shadow, opacity;
   transition-timing-function: ease-out;
 }
 
+/*
+ * Press is a dip in opacity, never a change in size.
+ *
+ * This used to be `transform: scale(0.97)` on every button in the app, which
+ * broke the moment a button became a whole panel rather than a pill: a tile
+ * inside a bordered card kept its border while its contents shrank away from
+ * it, so tapping flashed white gutters down both edges. Text also resamples
+ * mid-scale and goes momentarily soft.
+ *
+ * Opacity moves no geometry, so it works at any size — a 40px chip and a
+ * full-width card press the same way. It drops fast under the thumb and eases
+ * back over the standard 180ms when released.
+ */
 button:not(:disabled):active {
-  transform: scale(0.97);
+  opacity: 0.72;
+  transition-duration: 60ms;
 }
 
 button:disabled {
@@ -126,10 +140,9 @@ button:disabled {
 /*
  * Menus fade in and settle, they do not spring.
  *
- * Nothing in this app scales on press: a control that shrinks under the thumb
- * reads as cheap, and on a list it makes the whole row twitch. Motion here is
- * opacity and a few pixels of travel, over ~140ms, and colour changes carry the
- * rest.
+ * Nothing in this app scales, at rest or on press — see the press rule above.
+ * Motion here is opacity and a few pixels of travel, over ~140ms, and colour
+ * changes carry the rest.
  */
 .popover-panel {
   animation: popover-enter 140ms ease-out both;

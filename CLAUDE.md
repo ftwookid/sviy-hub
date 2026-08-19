@@ -65,12 +65,17 @@ what actually happens on this screen:
 If a screen ends up needing more chrome than this allows, the screen is doing
 too much — split what it answers, do not add height.
 
-**Motion**: nothing scales on press. A control that shrinks under the thumb
-reads as cheap, and inside a list it makes the row twitch. Movement is opacity
-and a few pixels of travel — `.sheet-panel`, `.slide-over-panel`, `.popover-panel`
-in `globals.css`, 140–200ms `ease-out`, all switched off under
-`prefers-reduced-motion`. Everything else responds in colour:
-`transition-colors duration-200 ease-out`. Hover lift stays where the design
+**Motion**: nothing scales — not on press, not on hover. The global rule in
+`globals.css` was `button:active { transform: scale(0.97) }`, which is fine on a
+pill and wrong on anything larger: a tile inside a bordered card kept its border
+while its contents shrank away from it, flashing white gutters down both edges,
+and the text went soft mid-scale. **Press is `opacity: 0.72`** — it moves no
+geometry, so a chip and a full-width card press identically. Panels and menus
+travel a few pixels and fade (`.sheet-panel`, `.slide-over-panel`,
+`.popover-panel`, 140–200ms `ease-out`, all off under `prefers-reduced-motion`).
+Everything else responds in colour: `transition-colors duration-200 ease-out`.
+If a new interaction seems to want a transform, it wants a colour or an opacity
+change instead. Hover lift stays where the design
 already has it (client cards); it is not added anywhere new.
 
 **A control that changes what you are looking at shows you the options.** No
