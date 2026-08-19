@@ -300,8 +300,12 @@ across top-level tabs meant nobody could see the year's real number in one
 place. `TAX_ROUTES` in `AppShell` keeps all five routes lighting the same
 nav item.
 
-The old `Expenses` h1 is gone from `/` and `/reports`. The sidebar already names
-the section and the tab row already names the page; a third label said nothing.
+All four routes carry the same `Taxes` title (`components/PageHeader.tsx`), with
+the tab row under it naming the page. The old `Expenses` h1 was dropped on the
+grounds that the sidebar already names the section — true on a desktop, and
+wrong on the phone the app is actually used on, where there is no sidebar at all
+and nothing said where you were. One `PageHeader` now serves every section, so
+Taxes, Clients, Health and Profile all wear the same title at the same scale.
 
 Reports now adds the mileage deduction to the year:
 
@@ -397,6 +401,9 @@ asking which of three pages you wanted, before a single figure appeared, was a
 question the reader answers the same way nine times in ten.
 
 What replaced them:
+
+The overview carries the `Health` title like every other section; a drill-down
+replaces it with its own back header rather than stacking two rows.
 
 - **The weigh-in is the page.** `TodayCard` is a number field with the keyboard
   one tap away, and it is the first thing on screen. Enter saves. The card is
@@ -854,6 +861,7 @@ Cancel and delete:
 - `app/login/page.tsx`: Sign-in/sign-up entry point.
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
+- `components/PageHeader.tsx`: The section title every page shares.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
 - `components/ClientCard.tsx`: Client card UI.

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, HeartHandshake, Home, PauseCircle, Plus, UsersRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { ClientCard } from "@/components/ClientCard";
 import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
 import { ClientIncomeSummary } from "@/components/ClientIncomeSummary";
@@ -158,21 +159,23 @@ function ClientsPageContent() {
   return (
     <AppShell user={user}>
       <div className="space-y-5">
-        <header className="flex items-center justify-between gap-3">
-          <h1 className="text-[34px] font-medium leading-none tracking-[-0.01em] text-text-primary">Clients</h1>
-          <div className="hidden min-h-11 min-w-[132px] justify-end sm:flex">
-            <Button
-              className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
-              variant="accent"
-              onClick={openNewClient}
-              aria-hidden={activeView === "house-sitting"}
-              tabIndex={activeView === "house-sitting" ? -1 : 0}
-            >
-              <Plus size={18} strokeWidth={1.6} />
-              Add client
-            </Button>
-          </div>
-        </header>
+        <PageHeader
+          title="Clients"
+          action={
+            <div className="hidden min-h-11 min-w-[132px] justify-end sm:flex">
+              <Button
+                className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
+                variant="accent"
+                onClick={openNewClient}
+                aria-hidden={activeView === "house-sitting"}
+                tabIndex={activeView === "house-sitting" ? -1 : 0}
+              >
+                <Plus size={18} strokeWidth={1.6} />
+                Add client
+              </Button>
+            </div>
+          }
+        />
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <nav

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { SectionTabs } from "@/components/SectionTabs";
 import { ReportTable } from "@/components/ReportTable";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
@@ -115,6 +116,7 @@ export default function ReportsPage() {
   return (
     <AppShell user={user}>
       <div className="space-y-3">
+        <PageHeader title="Taxes" />
         <SectionTabs />
 
         {/* Year and export are one control row — the same shape as the month
