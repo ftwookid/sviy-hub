@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { DriveArchiveCard } from "@/components/expenses/DriveArchiveCard";
 import { VehicleSettingsCard } from "@/components/VehicleSettingsCard";
@@ -43,11 +44,8 @@ export default function ProfilePage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Profile" />
       <div className="space-y-4">
-        <h1 className="text-[22px] font-medium leading-tight tracking-[-0.01em] text-text-primary sm:text-[26px]">
-          Profile
-        </h1>
-
         <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-full bg-accent-soft text-[17px] font-medium text-text-primary">

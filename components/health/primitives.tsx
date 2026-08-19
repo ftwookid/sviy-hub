@@ -99,10 +99,16 @@ export function Tile({
   );
 }
 
-/** Stage two. The back arrow is the only navigation a detail view needs. */
+/**
+ * Stage two. The back arrow is the only navigation a detail view needs.
+ *
+ * It stands in the same slot as `PageHeader`, at the same 44px height and with
+ * the same gap under it, so stepping into Goal or Body does not nudge the
+ * content below by a few pixels.
+ */
 export function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="mb-4 flex min-h-11 items-center gap-1">
       <button
         type="button"
         onClick={onBack}

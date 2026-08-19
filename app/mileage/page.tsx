@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Settings2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { MileageHistory } from "@/components/MileageHistory";
 import { MileageUploader } from "@/components/MileageUploader";
 import { SectionTabs } from "@/components/SectionTabs";
@@ -505,6 +506,7 @@ export default function MileagePage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Taxes" />
       <div className="space-y-2.5">
         <SectionTabs />
 

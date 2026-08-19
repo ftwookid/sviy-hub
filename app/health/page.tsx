@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { BodyDetail } from "@/components/health/BodyDetail";
 import { GoalDetail } from "@/components/health/GoalDetail";
@@ -151,6 +152,17 @@ export default function HealthPage() {
 
   return (
     <AppShell user={user}>
+      {/* A drill-down brings its own back header, so the section title steps
+          aside rather than stacking a second row on top of it. Both occupy the
+          same slot above the content, so nothing below them shifts. */}
+      {view === "overview" ? (
+        <PageHeader title="Health" />
+      ) : (
+        <DetailHeader
+          title={viewingOther && person ? `${firstName(person.label)} · ${TITLES[view]}` : TITLES[view]}
+          onBack={() => setView("overview")}
+        />
+      )}
       <div className="space-y-3">
         {schemaError ? (
           <section className="rounded-[16px] border border-warning/20 bg-warning-soft p-3">
@@ -219,10 +231,6 @@ export default function HealthPage() {
           </>
         ) : (
           <>
-            <DetailHeader
-              title={viewingOther && person ? `${firstName(person.label)} · ${TITLES[view]}` : TITLES[view]}
-              onBack={() => setView("overview")}
-            />
             {view === "weight" ? (
               <WeightDetail entries={personEntries} onSaved={onSaved} onError={flash} />
             ) : view === "body" ? (

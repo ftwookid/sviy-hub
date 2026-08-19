@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleAlert, Plus, Receipt as ReceiptIcon, Tag, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { CategoryTag } from "@/components/CategoryTag";
 import { SectionTabs } from "@/components/SectionTabs";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
@@ -405,6 +406,7 @@ export default function TransactionsPage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Taxes" />
       <div className="space-y-3">
         <SectionTabs />
 
