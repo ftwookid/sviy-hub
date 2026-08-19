@@ -44,9 +44,8 @@ export default function ProfilePage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Profile" />
       <div className="space-y-4">
-        <PageHeader title="Profile" />
-
         <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-full bg-accent-soft text-[17px] font-medium text-text-primary">

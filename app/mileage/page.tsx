@@ -506,8 +506,8 @@ export default function MileagePage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Taxes" />
       <div className="space-y-2.5">
-        <PageHeader title="Taxes" />
         <SectionTabs />
 
         <div className="flex flex-wrap items-center gap-2">

@@ -158,25 +158,24 @@ function ClientsPageContent() {
 
   return (
     <AppShell user={user}>
+      <PageHeader
+        title="Clients"
+        action={
+          <div className="hidden min-h-11 min-w-[132px] justify-end sm:flex">
+            <Button
+              className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
+              variant="accent"
+              onClick={openNewClient}
+              aria-hidden={activeView === "house-sitting"}
+              tabIndex={activeView === "house-sitting" ? -1 : 0}
+            >
+              <Plus size={18} strokeWidth={1.6} />
+              Add client
+            </Button>
+          </div>
+        }
+      />
       <div className="space-y-5">
-        <PageHeader
-          title="Clients"
-          action={
-            <div className="hidden min-h-11 min-w-[132px] justify-end sm:flex">
-              <Button
-                className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
-                variant="accent"
-                onClick={openNewClient}
-                aria-hidden={activeView === "house-sitting"}
-                tabIndex={activeView === "house-sitting" ? -1 : 0}
-              >
-                <Plus size={18} strokeWidth={1.6} />
-                Add client
-              </Button>
-            </div>
-          }
-        />
-
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <nav
             className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 lg:w-fit"

@@ -406,8 +406,8 @@ export default function TransactionsPage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Taxes" />
       <div className="space-y-3">
-        <PageHeader title="Taxes" />
         <SectionTabs />
 
         {proofSheet ? (

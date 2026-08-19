@@ -305,7 +305,13 @@ the tab row under it naming the page. The old `Expenses` h1 was dropped on the
 grounds that the sidebar already names the section — true on a desktop, and
 wrong on the phone the app is actually used on, where there is no sidebar at all
 and nothing said where you were. One `PageHeader` now serves every section, so
-Taxes, Clients, Health and Profile all wear the same title at the same scale.
+Taxes, Clients, Health and Profile all wear the same title at the same scale —
+and in the same place, which took two rules: the header row is always 44px tall
+whether or not the page has a button in its action slot, and the gap under it
+belongs to the header rather than to each page's own `space-y` (which ranged
+from 2 to 5). The header therefore sits outside that container. Health's
+`DetailHeader` stands in the same slot at the same height, so drilling into Goal
+or Body does not nudge the content below.
 
 Reports now adds the mileage deduction to the year:
 

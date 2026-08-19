@@ -115,8 +115,8 @@ export default function ReportsPage() {
 
   return (
     <AppShell user={user}>
+      <PageHeader title="Taxes" />
       <div className="space-y-3">
-        <PageHeader title="Taxes" />
         <SectionTabs />
 
         {/* Year and export are one control row — the same shape as the month
