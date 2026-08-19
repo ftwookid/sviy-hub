@@ -75,8 +75,9 @@ travel a few pixels and fade (`.sheet-panel`, `.slide-over-panel`,
 `.popover-panel`, 140–200ms `ease-out`, all off under `prefers-reduced-motion`).
 Everything else responds in colour: `transition-colors duration-200 ease-out`.
 If a new interaction seems to want a transform, it wants a colour or an opacity
-change instead. Hover lift stays where the design
-already has it (client cards); it is not added anywhere new.
+change instead. There is no hover lift left anywhere — the client cards deepen
+their shadow instead of rising, so a card never pulls its own delete button out
+from under the cursor.
 
 **A control that changes what you are looking at shows you the options.** No
 blind toggles: tapping the person avatar opens the list of people, it does not
@@ -465,7 +466,8 @@ line on the page.
   - Active and Paused tabs keep their existing name-based ordering.
   - Delete icon appears only for Paused clients.
   - Active clients cannot be deleted from client cards.
-  - Paused cards do not translate/lift on hover, so the delete icon stays still.
+  - No card lifts on hover; the shadow deepens instead, so the delete icon on a
+    paused card never moves out from under the cursor.
 - Added add/edit client slide-over form.
 - Add/edit client slide-over closes from both the X button and clicks on the dimmed overlay outside the panel.
 - Added dynamic pets list.

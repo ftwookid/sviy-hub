@@ -49,7 +49,10 @@ export function ClientCard({
   return (
     <button
       className={cn(
-        "group w-full rounded-[18px] border p-4 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(80,66,44,0.13)]",
+        // No lift: nothing in this app moves on hover or press. A card that
+        // rises pulls its own delete button out from under the cursor, and the
+        // shadow alone reads as "this is tappable" without shifting geometry.
+        "group w-full rounded-[18px] border p-4 text-left transition-colors duration-200 ease-out hover:shadow-[0_14px_36px_rgba(80,66,44,0.10)]",
         isPaused
           ? "border-border bg-subtle/70 opacity-70 shadow-none hover:border-border-emphasis hover:opacity-85"
           : "border-border bg-surface shadow-card hover:border-border-emphasis"
