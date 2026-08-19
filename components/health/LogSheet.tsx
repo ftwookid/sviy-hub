@@ -87,7 +87,7 @@ export function LogSheet({
         type="button"
         aria-expanded={tapeOpen}
         onClick={() => setTapeOpen((open) => !open)}
-        className="focus-ring mt-3 flex min-h-10 w-full items-center text-left text-[13px] font-medium text-text-secondary transition hover:text-text-primary"
+        className="focus-ring mt-3 flex min-h-10 w-full items-center text-left text-[13px] font-medium text-text-secondary transition-colors duration-200 ease-out hover:text-text-primary"
       >
         {tapeOpen ? "Hide tape measurements" : "Add tape measurements"}
       </button>

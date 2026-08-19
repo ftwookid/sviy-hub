@@ -124,6 +124,31 @@ button:disabled {
 }
 
 /*
+ * Menus fade in and settle, they do not spring.
+ *
+ * Nothing in this app scales on press: a control that shrinks under the thumb
+ * reads as cheap, and on a list it makes the whole row twitch. Motion here is
+ * opacity and a few pixels of travel, over ~140ms, and colour changes carry the
+ * rest.
+ */
+.popover-panel {
+  animation: popover-enter 140ms ease-out both;
+  transform-origin: top right;
+}
+
+@keyframes popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
  * Reserve the scrollbar track the way `html` already does.
  *
  * These panels scroll, and their content height changes as you use them — an
@@ -150,7 +175,8 @@ button:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   .slide-over-panel,
-  .sheet-panel {
+  .sheet-panel,
+  .popover-panel {
     animation: none;
   }
 }

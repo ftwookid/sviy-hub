@@ -78,7 +78,7 @@ export function Tile({
     <button
       type="button"
       onClick={onClick}
-      className="focus-ring group flex min-w-0 items-center gap-2 px-3 py-2.5 text-left transition active:scale-[0.99]"
+      className="focus-ring group flex min-w-0 items-center gap-2 px-3 py-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/50"
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
@@ -107,7 +107,7 @@ export function DetailHeader({ title, onBack }: { title: string; onBack: () => v
         type="button"
         onClick={onBack}
         aria-label="Back"
-        className="focus-ring -ml-2 rounded-xl p-2 text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+        className="focus-ring -ml-2 rounded-xl p-2 text-text-secondary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-primary"
       >
         <ChevronLeft size={20} strokeWidth={1.8} />
       </button>
@@ -144,7 +144,7 @@ export function Sheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="focus-ring rounded-xl p-1.5 text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+            className="focus-ring rounded-xl p-1.5 text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-primary"
           >
             <X size={18} strokeWidth={1.7} />
           </button>

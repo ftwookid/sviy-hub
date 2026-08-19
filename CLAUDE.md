@@ -65,6 +65,19 @@ what actually happens on this screen:
 If a screen ends up needing more chrome than this allows, the screen is doing
 too much — split what it answers, do not add height.
 
+**Motion**: nothing scales on press. A control that shrinks under the thumb
+reads as cheap, and inside a list it makes the row twitch. Movement is opacity
+and a few pixels of travel — `.sheet-panel`, `.slide-over-panel`, `.popover-panel`
+in `globals.css`, 140–200ms `ease-out`, all switched off under
+`prefers-reduced-motion`. Everything else responds in colour:
+`transition-colors duration-200 ease-out`. Hover lift stays where the design
+already has it (client cards); it is not added anywhere new.
+
+**A control that changes what you are looking at shows you the options.** No
+blind toggles: tapping the person avatar opens the list of people, it does not
+silently swap to the other one. Cycling makes the reader check the screen
+afterwards to find out what happened.
+
 ## Tech Stack
 
 - Next.js 14 App Router
@@ -394,11 +407,12 @@ What replaced them:
 - **Everything rare is a sheet.** `＋` opens `LogSheet` — date, weight, body fat,
   and the five tape measurements behind one more line — for the weekly measure or
   a day caught up late.
-- **The person is context, not navigation.** An initial in the same row as `＋`.
-  With two accounts it simply swaps on tap, since a menu to choose between two
-  things is a tap spent on nothing; with three it opens a picker sheet. It is
-  gone entirely when there is only one account, and tinted when the readings on
-  screen are not the reader's own.
+- **The person is context, not navigation.** An avatar in the same row as `＋`
+  (`PersonMenu`), so whose readings these are costs no height. Tapping it drops a
+  menu of everyone, avatar and name each, with a tick on the current one — never
+  a silent swap to the other account. It is not rendered at all when there is
+  only one account, and the reading names the person while you are looking at
+  someone else's.
 
 So the whole overview is a card and a half, permanent navigation is zero rows,
 and the daily action is: open, tap, type, done.
@@ -817,7 +831,8 @@ Cancel and delete:
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
 - `app/health/page.tsx`: Health — person tabs, Body/Weight/Fatloss.
 - `lib/health.ts`: Health queries, and the trend/BMI/goal maths.
-- `components/health/TodayCard.tsx`: The weigh-in, the trend row, the person chip.
+- `components/health/TodayCard.tsx`: The weigh-in, the trend row, the person avatar.
+- `components/health/PersonMenu.tsx`: Whose readings — avatar, dropdown, tick.
 - `components/health/LogSheet.tsx`: The full reading — tape, body fat, an older date.
 - `components/health/primitives.tsx`: Tiles, sheet, stats, sparkline, ring, chart.
 - `components/health/WeightDetail.tsx`: The history and the fitted line.

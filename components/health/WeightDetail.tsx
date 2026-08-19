@@ -83,7 +83,7 @@ export function WeightDetail({
                 <button
                   type="button"
                   aria-label="Delete reading"
-                  className="focus-ring ml-auto rounded-lg p-1.5 text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
+                  className="focus-ring ml-auto rounded-lg p-1.5 text-text-tertiary transition-colors duration-200 ease-out hover:bg-danger-soft hover:text-danger"
                   onClick={() => remove(entry.id)}
                 >
                   <Trash2 size={16} strokeWidth={1.7} />

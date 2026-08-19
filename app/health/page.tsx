@@ -6,12 +6,11 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { BodyDetail } from "@/components/health/BodyDetail";
 import { GoalDetail } from "@/components/health/GoalDetail";
 import { LogSheet } from "@/components/health/LogSheet";
-import { DetailHeader, Card, Ring, Sheet, Tile } from "@/components/health/primitives";
+import { DetailHeader, Card, Ring, Tile } from "@/components/health/primitives";
 import { TodayCard } from "@/components/health/TodayCard";
 import { WeightDetail } from "@/components/health/WeightDetail";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
-import { cn } from "@/lib/cn";
 import { todayInputValue } from "@/lib/formatters";
 import {
   bmi,
@@ -72,7 +71,6 @@ export default function HealthPage() {
   const [loading, setLoading] = useState(true);
   const [schemaError, setSchemaError] = useState("");
   const [logOpen, setLogOpen] = useState(false);
-  const [peopleOpen, setPeopleOpen] = useState(false);
   const [toast, setToast] = useState("");
   const today = todayInputValue();
 
@@ -139,19 +137,6 @@ export default function HealthPage() {
     load();
   }
 
-  /**
-   * Two accounts is the whole household, so the avatar just swaps — a menu to
-   * choose between two things is a tap spent on nothing. A third account turns
-   * the same control into a picker.
-   */
-  function switchPerson() {
-    if (orderedPeople.length === 2) {
-      setPersonId((current) => orderedPeople.find((candidate) => candidate.id !== current)?.id ?? current);
-      return;
-    }
-    setPeopleOpen(true);
-  }
-
   const currentWeight = latest(personEntries, "weight_lb");
   const goal = personProfile?.goal_weight_lb ?? null;
   const toGo = currentWeight && goal != null ? currentWeight.value - goal : null;
@@ -190,9 +175,9 @@ export default function HealthPage() {
               loggedBy={user.id}
               today={today}
               entries={personEntries}
-              person={person ? { label: firstName(person.label), isOther: viewingOther } : null}
-              canSwitchPerson={orderedPeople.length > 1}
-              onSwitchPerson={switchPerson}
+              people={orderedPeople.map((candidate) => ({ id: candidate.id, label: firstName(candidate.label) }))}
+              personLabel={viewingOther && person ? firstName(person.label) : null}
+              onSelectPerson={setPersonId}
               onSaved={onSaved}
               onError={flash}
               onOpenHistory={() => setView("weight")}
@@ -269,32 +254,6 @@ export default function HealthPage() {
           onSaved={onSaved}
           onError={flash}
         />
-      ) : null}
-
-      {peopleOpen ? (
-        <Sheet title="Whose readings" onClose={() => setPeopleOpen(false)}>
-          <ul className="pb-1 pt-1">
-            {orderedPeople.map((candidate) => (
-              <li key={candidate.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPersonId(candidate.id);
-                    setPeopleOpen(false);
-                  }}
-                  className={cn(
-                    "focus-ring flex min-h-12 w-full items-center rounded-xl px-3 text-left text-[15px] transition",
-                    candidate.id === personId
-                      ? "bg-accent-soft font-medium text-text-primary"
-                      : "text-text-secondary hover:bg-subtle"
-                  )}
-                >
-                  {firstName(candidate.label)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Sheet>
       ) : null}
 
       {toast ? <Toast message={toast} /> : null}

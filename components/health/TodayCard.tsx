@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { PersonMenu, type Person } from "@/components/health/PersonMenu";
 import { Sparkline } from "@/components/health/primitives";
 import { daysAgo } from "@/lib/formatters";
 import { latest, numberOrNull, saveHealthEntry, series, weeklyRate } from "@/lib/health";
@@ -31,9 +32,9 @@ export function TodayCard({
   loggedBy,
   today,
   entries,
-  person,
-  canSwitchPerson,
-  onSwitchPerson,
+  people,
+  personLabel,
+  onSelectPerson,
   onSaved,
   onError,
   onOpenHistory,
@@ -43,9 +44,9 @@ export function TodayCard({
   loggedBy: string;
   today: string;
   entries: HealthEntry[];
-  person: { label: string; isOther: boolean } | null;
-  canSwitchPerson: boolean;
-  onSwitchPerson: () => void;
+  people: Person[];
+  personLabel: string | null;
+  onSelectPerson: (id: string) => void;
   onSaved: (message: string) => void;
   onError: (message: string) => void;
   onOpenHistory: () => void;
@@ -120,7 +121,7 @@ export function TodayCard({
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="focus-ring ml-auto rounded-xl bg-accent px-3.5 py-2 text-[14px] font-medium text-text-primary transition hover:bg-[#BE9E62]"
+                className="focus-ring ml-auto rounded-xl bg-accent px-3.5 py-2 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-[#BE9E62]"
               >
                 {saving ? "..." : "Save"}
               </button>
@@ -144,7 +145,9 @@ export function TodayCard({
             <span className="text-[30px] font-medium leading-none tracking-[-0.02em] text-text-primary">
               {Number(todayEntry?.weight_lb).toFixed(1)}
             </span>
-            <span className="text-[14px] text-text-tertiary">lb today</span>
+            <span className="text-[14px] text-text-tertiary">
+              lb{personLabel ? ` · ${personLabel}` : ""} today
+            </span>
             {change != null ? (
               <span
                 className={cn(
@@ -158,26 +161,9 @@ export function TodayCard({
           </button>
         )}
 
-        {/* Whose body this is rides in the same row as an initial, and only
-            when there is someone to switch to. A person is context, not
-            navigation — it does not deserve a row of its own, and while you are
-            on your own readings it says so quietly rather than shouting. */}
-        {canSwitchPerson && person ? (
-          <button
-            type="button"
-            onClick={onSwitchPerson}
-            aria-label={`Showing ${person.label}. Switch person`}
-            title={person.label}
-            className={cn(
-              "focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-full text-[13px] font-medium transition",
-              person.isOther
-                ? "bg-accent text-text-primary ring-1 ring-inset ring-accent"
-                : "bg-accent-soft text-text-primary hover:bg-accent/40"
-            )}
-          >
-            {person.label[0]?.toUpperCase()}
-          </button>
-        ) : null}
+        {/* Whose body this is rides in the same row as ＋, so context costs no
+            height. Tapping it opens the list rather than swapping silently. */}
+        <PersonMenu people={people} personId={personId} onSelect={onSelectPerson} />
 
         {/* Everything else a reading can carry — tape, body fat, a day missed —
             is one tap away rather than five more fields nobody fills daily. */}
@@ -185,7 +171,7 @@ export function TodayCard({
           type="button"
           onClick={onOpenLog}
           aria-label="Log more"
-          className="focus-ring shrink-0 rounded-xl border border-border bg-subtle p-2 text-text-secondary transition hover:border-border-emphasis hover:text-text-primary"
+          className="focus-ring shrink-0 rounded-xl border border-border bg-subtle p-2 text-text-secondary transition-colors duration-200 ease-out hover:border-border-emphasis hover:text-text-primary"
         >
           <Plus size={18} strokeWidth={1.8} />
         </button>
@@ -195,7 +181,7 @@ export function TodayCard({
         <button
           type="button"
           onClick={onOpenHistory}
-          className="focus-ring flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left transition active:scale-[0.99]"
+          className="focus-ring flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/50"
         >
           <Sparkline points={trend} />
           <span className="min-w-0 flex-1 truncate text-[13px] text-text-secondary">
