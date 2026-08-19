@@ -38,6 +38,30 @@ The rules that follow from that:
 - **Nothing is stated twice.** The sidebar names the section, the tab row names
   the page. A third label on the content is noise.
 
+**But shrinking chrome is the last move, not the first.** Smaller buttons and
+tighter padding are what you do once the structure is right; reaching for them
+first is how a screen ends up dense *and* still wrong. Start instead by asking
+what actually happens on this screen:
+
+1. **Count the visits, not the features.** List what the user comes here to do
+   and how often. On Health it is: weigh in (most days), glance at the trend
+   (often), tape measure (weekly), set a goal or a height (once). Frequency, not
+   the tidiness of the taxonomy, decides what gets the top of the screen.
+2. **The most frequent action should cost one tap, and no navigation.** If the
+   daily job is behind a tab, a disclosure and a Save button, the layout is
+   wrong however compact it looks.
+3. **Prefer a stage over a row.** Navigation that is on screen permanently is
+   paid for on every visit, even by the nine visits in ten that never use it.
+   An overview that drills into a subject on tap — with a back arrow to return —
+   costs nothing until it is wanted. A small control that opens the full set of
+   options (a sheet, a picker, a popover) beats a row of controls sitting there
+   all day.
+4. **Let state do the talking.** A card that is an input until today's number
+   exists, and the number afterwards, answers "have I done this yet?" without a
+   label, an empty state or a badge.
+5. **Two honest things beat three padded ones.** Do not add a third tile, tab or
+   stat to balance a grid.
+
 If a screen ends up needing more chrome than this allows, the screen is doing
 too much — split what it answers, do not add height.
 
@@ -347,23 +371,37 @@ second admin editing cannot open a rival car alongside the first.
 `/health`, its own nav item, because it is not the business's books — nothing in
 it is shared, added up, or deducted.
 
-Two switches, **one row** (`Switcher` in `app/health/page.tsx`), both plain state
-rather than routes since there is one page:
+**It has no tabs.** It had three, plus a row of person tabs above them, and that
+was the wrong shape for how the page is used: nearly every visit is one action —
+type this morning's weight — and the rest barely repeat. Two rows of navigation
+asking which of three pages you wanted, before a single figure appeared, was a
+question the reader answers the same way nine times in ten.
 
-- **Body · Weight · Fatloss** takes the width — it is the one being flipped
-  through.
-- **Who** rides beside it as a compact pill group, built from `loadUsers()` so the
-  tabs are the real accounts rather than two hardcoded names, labelled by first
-  name — a tab is a person, so it drops the `Ivan K. (Admin)` decoration owner
-  labels carry elsewhere. The reader's own tab sorts first, and the group hides
-  entirely when there is only one account.
+What replaced them:
 
-Each tab is **one card** of `Block`s divided by a rule, never a stack of cards,
-and no block repeats the tab's own name as a heading. Forms are collapsed
-(`Disclosure`) and readings are not: logging happens once a day, reading happens
-all day. A form does open by default while its data is still empty — height and
-date of birth show as fields until they are set, then fold behind a disclosure —
-because a page with nothing on it should say what to type, not hide it.
+- **The weigh-in is the page.** `TodayCard` is a number field with the keyboard
+  one tap away, and it is the first thing on screen. Enter saves. The card is
+  written by its own state: until today has a reading it is an input asking for
+  one; the moment it does, it becomes the reading with the change beside it. That
+  is also the answer to "have I weighed in yet?", so nothing has to say it.
+- **The trend is the row under it** — a sparkline and the 4-week rate — and that
+  row is a button into the full weight history.
+- **Two tiles, `Goal` and `Body`**, each opening its subject in full (`GoalDetail`,
+  `BodyDetail`, `WeightDetail`) with a back arrow to return. Charts, history,
+  deletes, height, birth date and the goal editor live in there, one deliberate
+  tap away, instead of competing with the daily job. Two tiles, not three: there
+  was no honest third.
+- **Everything rare is a sheet.** `＋` opens `LogSheet` — date, weight, body fat,
+  and the five tape measurements behind one more line — for the weekly measure or
+  a day caught up late.
+- **The person is context, not navigation.** An initial in the same row as `＋`.
+  With two accounts it simply swaps on tap, since a menu to choose between two
+  things is a tap spent on nothing; with three it opens a picker sheet. It is
+  gone entirely when there is only one account, and tinted when the readings on
+  screen are not the reader's own.
+
+So the whole overview is a card and a half, permanent navigation is zero rows,
+and the daily action is: open, tap, type, done.
 
 The data is one table, `health_entries`, one row per person per day — a morning
 weigh-in and an evening tape measure land on the same row rather than two
@@ -376,17 +414,6 @@ means "who logged this" and the totals are the household's; a body has an owner,
 so the column that says whose it is has a different name and `logged_by` keeps
 the attribution separately. RLS is still the shared-workspace policy: two people
 in one household, either able to type in the other's weigh-in.
-
-What each tab shows:
-
-- **Body** — height, age, BMI with its band, and the tape: chest, waist, hips,
-  arm, thigh, each against its own previous reading, since a waist comes in over
-  months the scale sits still, plus waist over time once there are two readings.
-- **Weight** — current, the 4-week trend, the 30-day change, a fitted line chart,
-  and the recent readings with delete.
-- **Fatloss** — goal weight and target date, the progress bar from the first
-  weigh-in to the goal, what the target date demands per week against the current
-  pace, and body composition (body fat %, fat mass, lean mass).
 
 Two things it deliberately does not do:
 
@@ -790,10 +817,12 @@ Cancel and delete:
 - `supabase/statement-import-schema.sql`: Import, row, and merchant-rule tables.
 - `app/health/page.tsx`: Health — person tabs, Body/Weight/Fatloss.
 - `lib/health.ts`: Health queries, and the trend/BMI/goal maths.
-- `components/health/primitives.tsx`: Stats, fields, and the fitted line chart.
-- `components/health/BodyPanel.tsx`: Height, age, BMI, and the tape measure.
-- `components/health/WeightPanel.tsx`: Weigh-ins and the trend.
-- `components/health/FatlossPanel.tsx`: The goal, the pace, and composition.
+- `components/health/TodayCard.tsx`: The weigh-in, the trend row, the person chip.
+- `components/health/LogSheet.tsx`: The full reading — tape, body fat, an older date.
+- `components/health/primitives.tsx`: Tiles, sheet, stats, sparkline, ring, chart.
+- `components/health/WeightDetail.tsx`: The history and the fitted line.
+- `components/health/BodyDetail.tsx`: BMI, the tape, height and birth date.
+- `components/health/GoalDetail.tsx`: The goal, the pace, and composition.
 - `supabase/health-schema.sql`: `health_profiles` and `health_entries`.
 - `app/clients/page.tsx`: Clients section.
 - `app/api/users/route.ts`: Everyone signed in, by display name.

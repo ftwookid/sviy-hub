@@ -3,94 +3,78 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
-import { BodyPanel } from "@/components/health/BodyPanel";
-import { FatlossPanel } from "@/components/health/FatlossPanel";
-import { WeightPanel } from "@/components/health/WeightPanel";
+import { BodyDetail } from "@/components/health/BodyDetail";
+import { GoalDetail } from "@/components/health/GoalDetail";
+import { LogSheet } from "@/components/health/LogSheet";
+import { DetailHeader, Card, Ring, Sheet, Tile } from "@/components/health/primitives";
+import { TodayCard } from "@/components/health/TodayCard";
+import { WeightDetail } from "@/components/health/WeightDetail";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
-import { isMissingTable, loadHealthEntries, loadHealthProfiles } from "@/lib/health";
+import { todayInputValue } from "@/lib/formatters";
+import {
+  bmi,
+  bmiBand,
+  first,
+  goalProgress,
+  isMissingTable,
+  latest,
+  loadHealthEntries,
+  loadHealthProfiles,
+  previous
+} from "@/lib/health";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import { loadUsers, type UserOption } from "@/lib/userLabels";
 import type { HealthEntry, HealthProfile } from "@/types/health";
 
-const SECTIONS = [
-  { key: "body", label: "Body" },
-  { key: "weight", label: "Weight" },
-  { key: "fatloss", label: "Fatloss" }
-] as const;
+type View = "overview" | "weight" | "body" | "goal";
 
-type SectionKey = (typeof SECTIONS)[number]["key"];
+const TITLES: Record<Exclude<View, "overview">, string> = {
+  weight: "Weight",
+  body: "Body",
+  goal: "Goal"
+};
 
 /**
  * Owner labels elsewhere carry the whole nickname — "Ivan K. (Admin)" — because
- * they answer "whose row is this" in a list. A tab is a person, so it gets the
- * name they are called by and nothing else.
+ * they answer "whose row is this" in a list. Here it names a person, so it is
+ * the name they are called by and nothing else.
  */
 function firstName(label: string) {
   return label.split(/[\s(]/)[0].replace(/[^A-Za-zÀ-ÿ0-9'-]/g, "") || label;
 }
 
 /**
- * One row of navigation, not two stacked.
+ * Health, arranged around what actually happens here.
  *
- * Health switches on two axes — whose body, and which question — and giving each
- * its own full-width segmented row spent about 90px of a phone screen before a
- * single number appeared. The question being flipped through takes the width;
- * whose body it is rarely changes, so it rides along as a compact pill group.
+ * Nearly every visit is one action — type this morning's weight — and almost
+ * none of the rest repeat. So the page is not a set of tabs to choose between
+ * before anything can be done; it is the weigh-in itself, the trend under it,
+ * and two tiles that open the long answers on demand:
+ *
+ *   overview  →  today's number, the 14-day line, Goal and Body
+ *   tap a tile →  that subject in full, back arrow to return
+ *   tap ＋     →  the whole reading (tape, body fat, an older date) in a sheet
+ *
+ * That leaves no permanent navigation on screen at all. The tabbed version
+ * spent two rows asking which of three pages you wanted before showing a single
+ * figure — a question the reader answers the same way nine times out of ten.
  */
-function Switcher<T extends string>({
-  options,
-  value,
-  onChange,
-  compact,
-  className
-}: {
-  options: { key: T; label: string }[];
-  value: T;
-  onChange: (key: T) => void;
-  compact?: boolean;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn("flex gap-0.5 rounded-xl border border-border bg-subtle p-0.5", className)}
-      role="tablist"
-    >
-      {options.map((option) => {
-        const active = option.key === value;
-        return (
-          <button
-            key={option.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(option.key)}
-            className={cn(
-              "focus-ring flex min-h-9 items-center justify-center rounded-[10px] font-medium transition duration-150 ease-out",
-              compact ? "px-2.5 text-[12px]" : "min-w-0 flex-1 px-2 text-[13px]",
-              active ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function HealthPage() {
   const { user, authLoading } = useAuthUser();
   const [people, setPeople] = useState<UserOption[]>([]);
   const [personId, setPersonId] = useState("");
-  const [section, setSection] = useState<SectionKey>("body");
+  const [view, setView] = useState<View>("overview");
   const [profiles, setProfiles] = useState<HealthProfile[]>([]);
   const [entries, setEntries] = useState<HealthEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [schemaError, setSchemaError] = useState("");
+  const [logOpen, setLogOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const today = todayInputValue();
 
   useEffect(() => {
     let active = true;
@@ -102,13 +86,10 @@ export default function HealthPage() {
     };
   }, []);
 
-  // Everyone who has signed in gets a tab, with the reader's own first: a body
-  // is read about far more often than it is compared.
+  // The reader's own body first: it is the one being logged, not compared.
   const orderedPeople = useMemo(() => {
     if (!user) return people;
-    const mine = people.filter((person) => person.id === user.id);
-    const others = people.filter((person) => person.id !== user.id);
-    return [...mine, ...others];
+    return [...people.filter((person) => person.id === user.id), ...people.filter((person) => person.id !== user.id)];
   }, [people, user]);
 
   useEffect(() => {
@@ -145,6 +126,8 @@ export default function HealthPage() {
     [profiles, personId]
   );
   const personEntries = useMemo(() => entries.filter((entry) => entry.person_id === personId), [entries, personId]);
+  const person = orderedPeople.find((candidate) => candidate.id === personId) ?? null;
+  const viewingOther = Boolean(person && user && person.id !== user.id);
 
   function flash(message: string) {
     setToast(message);
@@ -156,30 +139,34 @@ export default function HealthPage() {
     load();
   }
 
+  /**
+   * Two accounts is the whole household, so the avatar just swaps — a menu to
+   * choose between two things is a tap spent on nothing. A third account turns
+   * the same control into a picker.
+   */
+  function switchPerson() {
+    if (orderedPeople.length === 2) {
+      setPersonId((current) => orderedPeople.find((candidate) => candidate.id !== current)?.id ?? current);
+      return;
+    }
+    setPeopleOpen(true);
+  }
+
+  const currentWeight = latest(personEntries, "weight_lb");
+  const goal = personProfile?.goal_weight_lb ?? null;
+  const toGo = currentWeight && goal != null ? currentWeight.value - goal : null;
+  const progress = goalProgress(first(personEntries, "weight_lb")?.value ?? null, currentWeight?.value ?? null, goal);
+  const bmiValue = bmi(currentWeight?.value ?? null, personProfile?.height_in ?? null);
+  const waist = latest(personEntries, "waist_in");
+  const waistBefore = previous(personEntries, "waist_in");
+  const waistChange = waist && waistBefore ? waist.value - waistBefore.value : null;
+
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
   return (
     <AppShell user={user}>
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Switcher
-            options={SECTIONS.map((item) => ({ ...item }))}
-            value={section}
-            onChange={setSection}
-            className="min-w-0 flex-1"
-          />
-          {orderedPeople.length > 1 ? (
-            <Switcher
-              options={orderedPeople.map((person) => ({ key: person.id, label: firstName(person.label) }))}
-              value={personId}
-              onChange={setPersonId}
-              compact
-              className="shrink-0"
-            />
-          ) : null}
-        </div>
-
         {schemaError ? (
           <section className="rounded-[16px] border border-warning/20 bg-warning-soft p-3">
             <p className="text-[13px] text-text-secondary">
@@ -194,37 +181,121 @@ export default function HealthPage() {
             </p>
             <p className="mt-1.5 text-[11px] text-warning">{schemaError}</p>
           </section>
-        ) : loading ? (
+        ) : loading || !personId ? (
           <SkeletonRows />
-        ) : !personId ? (
-          <p className="text-[13px] text-text-secondary">No people to show yet.</p>
-        ) : section === "body" ? (
-          <BodyPanel
-            personId={personId}
-            loggedBy={user.id}
-            profile={personProfile}
-            entries={personEntries}
-            onSaved={onSaved}
-            onError={flash}
-          />
-        ) : section === "weight" ? (
-          <WeightPanel
-            personId={personId}
-            loggedBy={user.id}
-            entries={personEntries}
-            onSaved={onSaved}
-            onError={flash}
-          />
+        ) : view === "overview" ? (
+          <>
+            <TodayCard
+              personId={personId}
+              loggedBy={user.id}
+              today={today}
+              entries={personEntries}
+              person={person ? { label: firstName(person.label), isOther: viewingOther } : null}
+              canSwitchPerson={orderedPeople.length > 1}
+              onSwitchPerson={switchPerson}
+              onSaved={onSaved}
+              onError={flash}
+              onOpenHistory={() => setView("weight")}
+              onOpenLog={() => setLogOpen(true)}
+            />
+
+            {/* Two questions worth a glance, each opening its own full view.
+                No tile exists for its own sake — two honest ones beat three. */}
+            <Card className="grid grid-cols-2 divide-x divide-border">
+              <Tile
+                label="Goal"
+                value={toGo != null ? `${Math.max(0, toGo).toFixed(1)} lb` : "Set one"}
+                detail={
+                  progress != null
+                    ? `${Math.round(progress * 100)}% of the way`
+                    : goal != null
+                      ? `Goal ${goal} lb`
+                      : undefined
+                }
+                tone={toGo != null && toGo <= 0 ? "good" : undefined}
+                accessory={progress != null ? <Ring progress={progress} /> : undefined}
+                onClick={() => setView("goal")}
+              />
+              <Tile
+                label="Body"
+                value={bmiValue ? bmiValue.toFixed(1) : waist ? `${waist.value.toFixed(1)}"` : "Measure"}
+                detail={
+                  bmiValue
+                    ? waistChange != null
+                      ? `${bmiBand(bmiValue)} · waist ${waistChange < 0 ? "−" : "+"}${Math.abs(waistChange).toFixed(1)}"`
+                      : bmiBand(bmiValue)
+                    : waist
+                      ? "Waist"
+                      : undefined
+                }
+                onClick={() => setView("body")}
+              />
+            </Card>
+          </>
         ) : (
-          <FatlossPanel
-            personId={personId}
-            profile={personProfile}
-            entries={personEntries}
-            onSaved={onSaved}
-            onError={flash}
-          />
+          <>
+            <DetailHeader
+              title={viewingOther && person ? `${firstName(person.label)} · ${TITLES[view]}` : TITLES[view]}
+              onBack={() => setView("overview")}
+            />
+            {view === "weight" ? (
+              <WeightDetail entries={personEntries} onSaved={onSaved} onError={flash} />
+            ) : view === "body" ? (
+              <BodyDetail
+                personId={personId}
+                profile={personProfile}
+                entries={personEntries}
+                onSaved={onSaved}
+                onError={flash}
+              />
+            ) : (
+              <GoalDetail
+                personId={personId}
+                profile={personProfile}
+                entries={personEntries}
+                onSaved={onSaved}
+                onError={flash}
+              />
+            )}
+          </>
         )}
       </div>
+
+      {logOpen ? (
+        <LogSheet
+          personId={personId}
+          loggedBy={user.id}
+          onClose={() => setLogOpen(false)}
+          onSaved={onSaved}
+          onError={flash}
+        />
+      ) : null}
+
+      {peopleOpen ? (
+        <Sheet title="Whose readings" onClose={() => setPeopleOpen(false)}>
+          <ul className="pb-1 pt-1">
+            {orderedPeople.map((candidate) => (
+              <li key={candidate.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPersonId(candidate.id);
+                    setPeopleOpen(false);
+                  }}
+                  className={cn(
+                    "focus-ring flex min-h-12 w-full items-center rounded-xl px-3 text-left text-[15px] transition",
+                    candidate.id === personId
+                      ? "bg-accent-soft font-medium text-text-primary"
+                      : "text-text-secondary hover:bg-subtle"
+                  )}
+                >
+                  {firstName(candidate.label)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Sheet>
+      ) : null}
 
       {toast ? <Toast message={toast} /> : null}
     </AppShell>

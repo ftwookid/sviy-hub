@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatShortDate } from "@/lib/formatters";
 import type { Reading } from "@/lib/health";
@@ -30,7 +29,6 @@ export function Stat({
       >
         {value}
       </div>
-      {/* No reserved-but-empty line: a detail that has nothing to say takes no height. */}
       {detail ? <div className="mt-1 truncate text-[12px] text-text-tertiary">{detail}</div> : null}
     </div>
   );
@@ -40,55 +38,119 @@ export function StatStrip({ children, columns }: { children: ReactNode; columns:
   return <div className={cn("grid divide-x divide-border px-3 pt-1", columns)}>{children}</div>;
 }
 
-/**
- * One container per screen. Each tab's blocks are `Block`s divided by a rule
- * inside this, not separate cards — a card costs a border, a shadow, a title
- * and two lots of padding, and three of them stacked is most of a phone screen
- * spent on chrome.
- */
-export function Card({ children }: { children: ReactNode }) {
-  return <section className="rounded-[16px] border border-border bg-surface">{children}</section>;
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("rounded-[16px] border border-border bg-surface", className)}>{children}</section>;
 }
 
 export function Block({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <div className="border-t border-border first:border-t-0">
-      {title ? (
-        <h2 className="px-3 pt-3 text-[13px] font-medium leading-tight text-text-primary">{title}</h2>
-      ) : null}
+      {title ? <h2 className="px-3 pt-3 text-[13px] font-medium leading-tight text-text-primary">{title}</h2> : null}
       {children}
     </div>
   );
 }
 
 /**
- * Typing is rare, reading is constant, so every form on this page starts closed.
- * What the page exists to show is never behind a click; what it exists to
- * collect always is.
+ * A tile is a question, and tapping it is how you get the long answer.
+ *
+ * The overview carries one line per thing the reader might wonder about; the
+ * chart, the history and the form that belong to it live one tap away instead of
+ * competing for the same screen. Nothing here is decoration — every tile is a
+ * button.
  */
-export function Disclosure({
+export function Tile({
   label,
-  children,
-  defaultOpen = false
+  value,
+  detail,
+  tone,
+  accessory,
+  onClick
 }: {
   label: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
+  value: string;
+  detail?: string;
+  tone?: "good" | "bad";
+  accessory?: ReactNode;
+  onClick: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
-    <div className="border-t border-border">
+    <button
+      type="button"
+      onClick={onClick}
+      className="focus-ring group flex min-w-0 items-center gap-2 px-3 py-2.5 text-left transition active:scale-[0.99]"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "mt-1.5 block truncate text-[19px] font-medium leading-none tracking-[-0.01em]",
+            tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
+          )}
+        >
+          {value}
+        </span>
+        {detail ? <span className="mt-1 block truncate text-[12px] text-text-tertiary">{detail}</span> : null}
+      </span>
+      {accessory}
+    </button>
+  );
+}
+
+/** Stage two. The back arrow is the only navigation a detail view needs. */
+export function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <div className="flex items-center gap-1">
       <button
         type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="focus-ring flex min-h-10 w-full items-center gap-1.5 px-3 text-left text-[13px] font-medium text-text-secondary transition hover:text-text-primary"
+        onClick={onBack}
+        aria-label="Back"
+        className="focus-ring -ml-2 rounded-xl p-2 text-text-secondary transition hover:bg-subtle hover:text-text-primary"
       >
-        {label}
-        <ChevronDown size={15} strokeWidth={1.8} className={cn("transition", open ? "rotate-180" : "")} />
+        <ChevronLeft size={20} strokeWidth={1.8} />
       </button>
-      {open ? children : null}
+      <h1 className="text-[17px] font-medium leading-tight tracking-[-0.01em] text-text-primary">{title}</h1>
+    </div>
+  );
+}
+
+/**
+ * The house bottom sheet: everything rare goes in here rather than on the page.
+ * Rises from the bottom on a phone, where thumbs are, and centres on a desktop.
+ */
+export function Sheet({
+  title,
+  onClose,
+  children
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-[#1A1916]/25 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="sheet-panel flex max-h-[85vh] w-full flex-col overflow-y-auto rounded-t-[28px] border border-border bg-page shadow-[0_-8px_40px_rgba(48,38,24,0.18)] sm:max-w-[460px] sm:rounded-[24px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-4">
+          <h2 className="text-[16px] font-medium text-text-primary">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="focus-ring rounded-xl p-1.5 text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+          >
+            <X size={18} strokeWidth={1.7} />
+          </button>
+        </div>
+        <div className="px-4 pb-[calc(16px+env(safe-area-inset-bottom))]">{children}</div>
+      </div>
     </div>
   );
 }
@@ -133,14 +195,66 @@ export function Hint({ children }: { children: ReactNode }) {
   return <p className="px-3 py-2.5 text-[13px] text-text-secondary">{children}</p>;
 }
 
+/** A trend small enough to sit inside a row: shape only, no axis, no labels. */
+export function Sparkline({ points, className }: { points: Reading[]; className?: string }) {
+  if (points.length < 2) return null;
+
+  const width = 72;
+  const height = 22;
+  const values = points.map((point) => point.value);
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min || 1;
+  const line = points
+    .map((point, index) => {
+      const x = (index / (points.length - 1)) * width;
+      const y = 2 + (1 - (point.value - min) / span) * (height - 4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className={cn("h-6 w-[72px] shrink-0", className)} aria-hidden>
+      <polyline
+        points={line}
+        fill="none"
+        stroke="#C8A86E"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+/** Progress as a ring, because it fits in the corner of a tile a bar cannot. */
+export function Ring({ progress }: { progress: number }) {
+  const radius = 13;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0 -rotate-90" aria-hidden>
+      <circle cx="16" cy="16" r={radius} fill="none" stroke="#EDE7DC" strokeWidth="3.5" />
+      <circle
+        cx="16"
+        cy="16"
+        r={radius}
+        fill="none"
+        stroke="#C8A86E"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeDasharray={`${circumference * Math.min(1, Math.max(0, progress))} ${circumference}`}
+      />
+    </svg>
+  );
+}
+
 /**
  * Readings plotted as a line, not bars.
  *
  * A body weight bar chart from a zero baseline is five identical columns — the
  * whole story lives in the two pounds between them, so the scale is fitted to
- * the readings, and the axis line underneath says which range it covers so a
- * wobble is not read as a collapse. That axis doubles as the caption, which is
- * why the chart carries no separate title.
+ * the readings, and the axis line underneath says which range it covers. That
+ * axis doubles as the caption, which is why the chart carries no title.
  */
 export function TrendChart({
   points,
