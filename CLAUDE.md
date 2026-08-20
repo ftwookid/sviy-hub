@@ -807,10 +807,25 @@ Six blocks, in this order:
 
 Two kinds of number meet on the page and they behave differently:
 
-- **Standing figures** are typed into `finance_lines` (`supabase/finances-schema.sql`)
-  and stand in **every** month. Rent does not need retyping in March. One row per
-  line item, one monthly amount, amounts always positive — direction is a
+- **Standing figures** are typed once and carry forward. Each line owns a **dated
+  schedule** (`finance_line_rates`), not a single amount: one row per change,
+  `effective_from` inclusive. Amounts are always positive — direction is a
   property of the bucket, so a mistyped minus cannot turn rent into income.
+  - A single amount per line was the first design and it was wrong in the one way
+    that matters: entering a raise rewrote every month back to the beginning,
+    because the old figure had nowhere to live. Nothing about a past month moves
+    now when a later change is entered.
+  - **A change part-way through a month is blended across it by day.** $10,000
+    going to $12,000 on 20 July pays 19 days at the old rate and 12 at the new
+    one — $10,774.19 for a 31-day July — which is what lands in the account.
+    Taking whichever rate was in force on the 1st would hide the raise for a
+    month. `amountForMonth()` walks the days rather than doing interval
+    arithmetic: 31 iterations, no boundary to get wrong.
+  - **Ending a line is a change to 0, not a deletion.** The months it did run
+    still have to add up. Deleting the line is the one write on the Setup screen
+    that asks for confirmation, because it takes the whole history with it.
+  - Before the first rate's date a line contributes nothing and reads
+    "No amount set" — never a zero pretending to be a figure.
 - **Linked figures** are read from the tables that already record them and are
   not editable here. Regular clients, house sitting, business spending and miles
   each have one home; a second, editable copy on this page would be a figure that
@@ -833,11 +848,13 @@ Rules the arithmetic follows:
   loaded. The one thing this page must not get wrong is whether the family is up
   or down, and that is easiest to trust when no query can change the answer.
 
-Reading and editing sit together. The pencil on a typed block turns its rows into
-inputs with `+ Add line` under them; there is no settings screen elsewhere,
-because a household budget gets adjusted while you are looking at it and a
-separate screen would mean leaving the answer to change the question. Linked rows
-carry a source badge instead and have no pencil.
+Reading and writing are two tabs, `Month` and `Setup` (`FinanceTabs`). The month
+view is entirely read-only; every typed figure is written in Setup, where a line
+opens to show its whole history and takes a new change as a date plus an amount.
+They were one screen at first, with a pencil on each block — that stopped working
+the moment a figure became a schedule, because a pencil there has to answer
+"change it from when?", which is a question the month you are looking at cannot
+answer. Linked rows carry a source badge and appear only on the month.
 
 Below the blocks, **Left over by month** puts all twelve months on one centre
 line, surplus right in green and deficit left in red, and tapping a month selects
@@ -889,7 +906,11 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/MonthBalanceCard.tsx`: Left over, and where the income went.
 - `components/finances/BucketCard.tsx`: One block, its rows, and the editing for them.
 - `components/finances/CashflowStrip.tsx`: Twelve months either side of a centre line.
+- `app/finances/setup/page.tsx`: The standing figures, and when each changed.
+- `components/finances/SetupBucketCard.tsx`: One line, its history, and a dated change.
+- `components/finances/FinanceTabs.tsx`: Month and Setup.
 - `supabase/finances-schema.sql`: `finance_lines`.
+- `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1126,6 +1147,12 @@ This replaced the full 22-item Schedule C list. Rules:
 Run `supabase/health-schema.sql` in Supabase. It is re-runnable and creates
 `health_profiles` and `health_entries`. Until it runs, `/health` loads but shows
 a setup notice instead of the tabs.
+
+Then run `supabase/finance-rates-schema.sql` in Supabase. It is re-runnable. It
+creates `finance_line_rates` and carries each existing line's single amount over
+as its opening rate, dated 1 January of the year the line was created. Until it
+runs, `/finances` still reads every linked figure and the Setup tab still opens,
+but no typed figure loads and saving one reports the table missing.
 
 `supabase/finances-schema.sql` was applied on 19 August 2026. It creates
 `finance_lines` and seeds a single `Ivan W2` line so the first visit is not an

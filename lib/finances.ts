@@ -5,13 +5,14 @@ import type { MileageTrip } from "@/types/mileage";
 import type {
   FinanceBucket,
   FinanceLine,
+  FinanceRate,
   FinanceRow,
   FinanceSection,
   MonthFinances
 } from "@/types/finance";
 import { estimateClientMonthlyNet } from "@/lib/clients";
 import { addDays, activeBookings, estimateHouseSitting, nightsBetween } from "@/lib/houseSitting";
-import { parseLocalDate, toInputDate } from "@/lib/formatters";
+import { formatCurrency, formatShortDate, monthRange, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { dateFromTimestamp } from "@/lib/mileage";
 
 /**
@@ -115,17 +116,93 @@ export function mileageByMonth(trips: MileageTrip[], year: number) {
   return totals;
 }
 
-function manualRows(lines: FinanceLine[], bucket: FinanceBucket): FinanceRow[] {
+/** Rates oldest first. Every reader below assumes this order, so it is done once, on load. */
+export function sortRates(rates: FinanceRate[]) {
+  return [...rates].sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+}
+
+/** What a line is worth per month on one date, or 0 before its first rate starts. */
+export function rateOn(rates: FinanceRate[], dateValue: string) {
+  let amount = 0;
+  for (const rate of rates) {
+    if (rate.effective_from > dateValue) break;
+    amount = Number(rate.monthly_amount);
+  }
+  return amount;
+}
+
+/**
+ * What a line contributes to one month.
+ *
+ * A change part-way through a month is blended across it by day: a W2 that goes
+ * from $10,000 to $12,000 on 20 July pays 19 days at the old rate and 12 at the
+ * new one, which is what actually lands in the account. Taking whichever rate
+ * happened to be in force on the 1st would show July as a flat $10,000 and hide
+ * the raise for a month.
+ *
+ * Day by day rather than by interval arithmetic, deliberately: it is 31
+ * iterations, it cannot get a boundary wrong, and this is the number the whole
+ * page hangs off.
+ */
+export function amountForMonth(rates: FinanceRate[], year: number, monthIndex: number) {
+  if (rates.length === 0) return 0;
+
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  let total = 0;
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    total += rateOn(rates, toInputDate(new Date(year, monthIndex, day)));
+  }
+  return total / daysInMonth;
+}
+
+/** The amount in force today — what the setup screen shows as the line's current figure. */
+export function currentAmount(rates: FinanceRate[]) {
+  return rateOn(rates, todayInputValue());
+}
+
+/** Changes landing inside a month, ignoring one on the 1st — that starts the month rather than splitting it. */
+function midMonthChanges(rates: FinanceRate[], year: number, monthIndex: number) {
+  const { start, end } = monthRange(year, monthIndex);
+  return rates.filter(
+    (rate) =>
+      rate.effective_from > start &&
+      rate.effective_from <= end &&
+      // The very first rate starting mid-month is a line beginning, not a change
+      // to blend — it is described as "starts" instead.
+      rate !== rates[0]
+  );
+}
+
+function lineHint(line: FinanceLine, year: number, monthIndex: number) {
+  const rates = line.rates;
+  if (rates.length === 0) return "No amount set";
+
+  const { start, end } = monthRange(year, monthIndex);
+  const first = rates[0];
+  if (first.effective_from > end) return `Starts ${formatShortDate(first.effective_from)}`;
+  if (first.effective_from > start) return `From ${formatShortDate(first.effective_from)}`;
+
+  const changes = midMonthChanges(rates, year, monthIndex);
+  if (changes.length === 1) {
+    return `Blended · ${formatCurrency(rateOn(rates, start))} to ${formatCurrency(
+      Number(changes[0].monthly_amount)
+    )} on ${formatShortDate(changes[0].effective_from)}`;
+  }
+  if (changes.length > 1) return `Blended · ${changes.length} changes this month`;
+
+  return line.note ?? undefined;
+}
+
+function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, monthIndex: number): FinanceRow[] {
   return lines
     .filter((line) => line.bucket === bucket)
     .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label))
     .map((line) => ({
       key: line.id,
       label: line.label,
-      amount: Number(line.monthly_amount),
+      amount: amountForMonth(line.rates, year, monthIndex),
       source: "Manual" as const,
-      lineId: line.id,
-      hint: line.note ?? undefined
+      hint: lineHint(line, year, monthIndex)
     }));
 }
 
@@ -157,7 +234,7 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
   const mileageDeduction = mileage[monthIndex] ?? 0;
 
   const income = sectionOf("Gross Income", "in", [
-    ...manualRows(lines, "Gross Income"),
+    ...manualRows(lines, "Gross Income", year, monthIndex),
     {
       key: "clients",
       label: "Yana — Regular clients",
@@ -197,11 +274,11 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
 
   const sections = [
     income,
-    sectionOf("Tax Withheld", "out", manualRows(lines, "Tax Withheld")),
+    sectionOf("Tax Withheld", "out", manualRows(lines, "Tax Withheld", year, monthIndex)),
     deductions,
-    sectionOf("Needs", "out", manualRows(lines, "Needs")),
-    sectionOf("Debt", "out", manualRows(lines, "Debt")),
-    sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings"))
+    sectionOf("Needs", "out", manualRows(lines, "Needs", year, monthIndex)),
+    sectionOf("Debt", "out", manualRows(lines, "Debt", year, monthIndex)),
+    sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings", year, monthIndex))
   ];
 
   const moneyIn = sections

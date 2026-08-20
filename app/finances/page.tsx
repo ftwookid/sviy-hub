@@ -8,9 +8,9 @@ import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { BucketCard } from "@/components/finances/BucketCard";
 import { CashflowStrip } from "@/components/finances/CashflowStrip";
+import { FinanceTabs } from "@/components/finances/FinanceTabs";
 import { MonthBalanceCard } from "@/components/finances/MonthBalanceCard";
 import { SkeletonRows } from "@/components/ui/Skeleton";
-import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth, periodMonthLabel } from "@/lib/expenses";
 import {
   BUCKET_BLURBS,
@@ -20,13 +20,7 @@ import {
   mileageByMonth,
   spendByMonth
 } from "@/lib/finances";
-import {
-  FINANCES_SETUP_MESSAGE,
-  addFinanceLine,
-  deleteFinanceLine,
-  loadFinanceLines,
-  updateFinanceLine
-} from "@/lib/financeClient";
+import { loadFinanceLines } from "@/lib/financeClient";
 import { parseLocalDate } from "@/lib/formatters";
 import { dateFromTimestamp, loadMileageTrips, loadMileageUploads } from "@/lib/mileage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -35,7 +29,7 @@ import type { ClientWithPets } from "@/types/client";
 import type { Expense } from "@/types/expense";
 import type { HouseSittingBooking } from "@/types/houseSitting";
 import type { MileageTrip } from "@/types/mileage";
-import type { FinanceBucket, FinanceLine, FinanceSectionKey } from "@/types/finance";
+import type { FinanceLine, FinanceSectionKey } from "@/types/finance";
 
 /**
  * Finances — the household month.
@@ -69,22 +63,15 @@ export default function FinancesPage() {
   const { user, authLoading } = useAuthUser();
   const [periodMonth, setPeriodMonth] = useState(() => currentPeriodMonth());
   const [lines, setLines] = useState<FinanceLine[]>([]);
-  const [setupNeeded, setSetupNeeded] = useState(false);
-  const [loadError, setLoadError] = useState("");
+  const [notice, setNotice] = useState("");
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [trips, setTrips] = useState<MileageTrip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
   const monthIndex = useMemo(() => parseLocalDate(periodMonth).getMonth(), [periodMonth]);
-
-  function showToast(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2600);
-  }
 
   // The standing figures are the one thing here that can fail outright, and the
   // derived half of the page is still worth reading without them — so a failure
@@ -92,10 +79,9 @@ export default function FinancesPage() {
   // month stuck behind a skeleton.
   const refreshLines = useCallback(async () => {
     try {
-      const { lines: nextLines, setupNeeded: needsSetup } = await loadFinanceLines();
+      const { lines: nextLines, setupNeeded, setupMessage } = await loadFinanceLines();
       setLines(nextLines);
-      setSetupNeeded(needsSetup);
-      return "";
+      return setupNeeded ? setupMessage : "";
     } catch (error) {
       setLines([]);
       return error instanceof Error ? error.message : "Could not load your figures";
@@ -150,7 +136,7 @@ export default function FinancesPage() {
     );
     setTrips(nextTrips.filter((trip) => dateFromTimestamp(trip.start_at).getFullYear() === year));
 
-    setLoadError(await refreshLines());
+    setNotice(await refreshLines());
     setLoading(false);
   }, [refreshLines, user, year]);
 
@@ -173,40 +159,6 @@ export default function FinancesPage() {
 
   const month = months[monthIndex];
 
-  async function runLineChange(action: () => Promise<void>, message: string) {
-    try {
-      await action();
-      await refreshLines();
-      showToast(message);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Could not save that");
-    }
-  }
-
-  function handleAdd(input: { bucket: FinanceBucket; label: string; amount: number }) {
-    if (!user) return;
-    const existingCount = lines.filter((line) => line.bucket === input.bucket).length;
-    runLineChange(
-      () =>
-        addFinanceLine({
-          userId: user.id,
-          bucket: input.bucket,
-          label: input.label,
-          amount: input.amount,
-          existingCount
-        }),
-      `${input.label} added`
-    );
-  }
-
-  function handleUpdate(id: string, patch: { label: string; amount: number }) {
-    runLineChange(() => updateFinanceLine(id, patch), "Saved");
-  }
-
-  function handleDelete(id: string) {
-    runLineChange(() => deleteFinanceLine(id), "Line removed");
-  }
-
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
@@ -214,14 +166,16 @@ export default function FinancesPage() {
     <AppShell user={user}>
       <PageHeader title="Finances" />
       <div className="space-y-3">
+        <FinanceTabs />
+
         <div className="max-w-[280px]">
           <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
         </div>
 
-        {setupNeeded || loadError ? (
+        {notice ? (
           <div className="flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-[13px] text-text-primary">
             <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning" />
-            <span>{setupNeeded ? FINANCES_SETUP_MESSAGE : loadError}</span>
+            <span>{notice}</span>
           </div>
         ) : null}
 
@@ -238,10 +192,6 @@ export default function FinancesPage() {
                 title={SECTION_TITLES[section.key]}
                 blurb={section.key === "Deductions" ? DEDUCTIONS_BLURB : BUCKET_BLURBS[section.key]}
                 moneyIn={month.moneyIn}
-                editableBucket={section.key === "Deductions" ? undefined : section.key}
-                onAdd={handleAdd}
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
               />
             ))}
 
@@ -254,7 +204,6 @@ export default function FinancesPage() {
           </>
         )}
       </div>
-      {toast ? <Toast message={toast} /> : null}
     </AppShell>
   );
 }
