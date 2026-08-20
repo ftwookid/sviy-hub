@@ -5,9 +5,11 @@ import { AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
+import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { BucketRows } from "@/components/finances/BucketRows";
-import { MonthOverview } from "@/components/finances/MonthOverview";
+import { MonthSummary } from "@/components/finances/MonthSummary";
 import { SetupSheet } from "@/components/finances/SetupSheet";
+import { YearList } from "@/components/finances/YearList";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth } from "@/lib/expenses";
@@ -52,8 +54,12 @@ import type { FinanceBucket, FinanceLine } from "@/types/finance";
  * The mileage deduction is shown but never subtracted. It lowers a tax bill, not
  * a bank balance, and counting it as money out would invent a deficit.
  *
- * Two cards, and the month reads without scrolling on a phone: the overview
- * carries its own month navigation, and the six blocks are six rows that open.
+ * The layout answers three questions in the order they get asked: what did the
+ * month come to, what is it made of, and how does it compare with the rest of the
+ * year. The breakdown shows its lines rather than hiding them — you scan totals to
+ * find the odd one and then need the detail immediately — and the year keeps a
+ * figure against every month, because comparing months must not require tapping
+ * through them one at a time.
  */
 
 export default function FinancesPage() {
@@ -203,22 +209,34 @@ export default function FinancesPage() {
           </div>
         ) : null}
 
+        {/* The app's own month picker — arrows either side of the label, and the
+            label opens a year-and-month grid. A hand-rolled row of two arrows at
+            opposite edges of the screen looked like a picker and did nothing when
+            tapped, which is the worst thing a control can do. */}
+        <div className="max-w-[268px]">
+          <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
+        </div>
+
         {loading || !month ? (
           <SkeletonRows />
         ) : (
           <>
-            <MonthOverview
-              month={month}
-              months={months}
-              periodMonth={periodMonth}
-              monthIndex={monthIndex}
-              year={year}
-              onPeriodChange={setPeriodMonth}
-              onMonthIndexChange={(nextMonth) =>
-                setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
-              }
-            />
-            <BucketRows sections={month.sections} moneyIn={month.moneyIn} />
+            {/* Two columns where there is width for them: the month on the left,
+                the year alongside it rather than under it. */}
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
+              <div className="space-y-3">
+                <MonthSummary month={month} />
+                <BucketRows sections={month.sections} moneyIn={month.moneyIn} />
+              </div>
+              <YearList
+                months={months}
+                year={year}
+                selectedIndex={monthIndex}
+                onSelect={(nextMonth) =>
+                  setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
+                }
+              />
+            </div>
           </>
         )}
       </div>

@@ -875,30 +875,40 @@ Rules the arithmetic follows:
   loaded. The one thing this page must not get wrong is whether the family is up
   or down, and that is easiest to trust when no query can change the answer.
 
-**The whole month fits on one screen.** Two cards, no scroll on a 390x844 phone —
-content ends at 615px. It was three times that when every block was its own card,
-and that stack is what the layout rules at the top of this file exist to prevent.
+**Two columns where there is width, and nothing important behind a tap.** The
+layout answers three questions in the order they get asked — what did the month
+come to, what is it made of, how does it compare with the year:
 
-- `MonthOverview` is one container in four bands: month navigation, the three
-  figures as a **divided strip across the full width**, the composition bar, and
-  the year. Its own month arrows mean the picker costs no row of its own.
-- The year is **twelve columns from a centre line**, not twelve rows. It answers
-  "what shape is the year" — a run of green flipping to red is visible instantly
-  — and any month is one tap. But density is not a licence to strip the labels:
-  the first version used one-letter months (two Js, two Ms, two As) and carried
-  no figure at all, which made a chart you had to decode. Months are spelled out,
-  the selected month names itself and its amount above the chart, and the year
-  carries **its own stepper** — without which a different year had become
-  unreachable except twelve arrow taps at a time.
-- `BucketRows` is the six blocks as **six rows in one card**, each opening to its
-  lines. Six cards cost about 900px for what reads in 280px. The share bar sits
-  under the block name, in width the row already had.
-- Headline figures keep their **cents**. An intermediate version rounded them to
-  stop the three columns truncating to "$2,602...."; the column widths handle
-  that, and money on a money page is not the place to drop precision.
-- Bands and rows that have nothing to say are **not rendered**: no composition bar
-  before anything is allocated, no share bar on a block at zero, no "nothing here"
-  row per empty bucket.
+- `MonthPicker` (the app's own, shared with Taxes) at `max-w-[268px]`. Arrows sit
+  either side of the label and the label opens a year-and-month grid. Two
+  hand-rolled versions failed here and both failures are worth remembering: one
+  put the arrows at opposite edges of a full-width row, and one made the month
+  label look like a picker that did nothing when tapped. A control that looks
+  like a picker opens a picker.
+- `MonthSummary` is three **peer figures at one size** — net, in, out. An earlier
+  version set the net two steps larger, which made the reader ask why the type
+  kept changing. Emphasis is colour, per financial convention: **green in
+  surplus, red in deficit**, which is also the only cue the sign needs.
+- `BucketRows` shows **every line, always**. They were collapsed behind a tap for
+  a version on the reasoning that the total is what you read — backwards: you
+  scan totals to find the one that looks wrong and then need its lines
+  immediately, without losing the others from view. Each line keeps its hint,
+  which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
+  Aug 2", "3 nights booked", "Lowers the tax bill, not the bank balance").
+- `YearList` keeps **a figure against every month** — a right rail of twelve on a
+  desktop, two columns of six on a phone. It was briefly twelve bare columns, and
+  that is the mistake to not repeat: a column chart with no numbers cannot answer
+  "how much", so comparing two months meant tapping one, reading the headline,
+  tapping the other and holding the first in your head. Month-over-month
+  comparison is the whole job of the block. The only thing ever wrong with the
+  list was its width, and width is fixed by a column, not by deleting the figures.
+- Empty blocks are a header row and nothing else; the composition bar does not
+  render before anything is allocated.
+
+The month costs about 160px of scroll on a 390x844 phone with every line and every
+month on screen, against roughly 1600px when each block was its own card. Zero
+scroll is not the target — it was briefly reached by hiding the data, which is
+worse than scrolling for it.
 
 Setup is a **panel — not a tab, and not a route** (`SetupSheet`). A full-width
 segmented row for two tabs charges 48px to every visit for a screen opened a few
@@ -964,8 +974,9 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/finances/page.tsx`: Finances — the household month, in and out.
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
-- `components/finances/MonthOverview.tsx`: Month, the three figures, composition, the year.
-- `components/finances/BucketRows.tsx`: Six blocks as six rows that open.
+- `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
+- `components/finances/BucketRows.tsx`: The six blocks and every line in them.
+- `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
 - `supabase/finances-schema.sql`: `finance_lines`.
