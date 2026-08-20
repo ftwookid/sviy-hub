@@ -40,9 +40,11 @@ export function YearList({
         </h2>
       </div>
 
-      {/* Two columns of six on a phone, one column of twelve in the desktop
-          rail. Either way no month is a tap away from being read. */}
-      <div className="grid grid-cols-2 gap-x-2 gap-y-px lg:grid-cols-1">
+      {/* Two columns of six on a phone, one wide column in the desktop rail.
+          With real width the bar earns its own column between the month and the
+          figure, which is the version that reads across; squeezed into a phone
+          it drops under the row instead of shrinking to a stub. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-px lg:grid-cols-1">
         {months.map((month, index) => {
           const width = (Math.abs(month.leftOver) / scale) * 100;
           const short = month.leftOver < 0;
@@ -52,7 +54,7 @@ export function YearList({
             <button
               key={MONTHS[index]}
               className={cn(
-                "focus-ring rounded-lg px-1.5 py-1 text-left transition-colors duration-200 ease-out",
+                "focus-ring rounded-lg px-1.5 py-1 text-left transition-colors duration-200 ease-out lg:grid lg:grid-cols-[32px_minmax(0,1fr)_86px] lg:items-center lg:gap-2.5 lg:py-1.5",
                 selected ? "bg-accent-soft" : "hover:bg-subtle"
               )}
               type="button"
@@ -62,7 +64,18 @@ export function YearList({
               )}`}
               onClick={() => onSelect(index)}
             >
-              <span className="flex items-baseline justify-between gap-1.5">
+              <span
+                className={cn(
+                  "hidden text-[12px] lg:block",
+                  selected ? "font-semibold text-text-primary" : "text-text-secondary"
+                )}
+              >
+                {MONTHS[index].slice(0, 3)}
+              </span>
+
+              {/* One line carrying both on a phone, where a middle column would
+                  leave the bar about 40px wide. */}
+              <span className="flex items-baseline justify-between gap-1.5 lg:hidden">
                 <span
                   className={cn(
                     "text-[11.5px]",
@@ -77,13 +90,12 @@ export function YearList({
                     short ? "text-danger" : "text-text-primary"
                   )}
                 >
-                  {short ? "−" : ""}
+                  {short ? "\u2212" : ""}
                   {formatCurrency(Math.abs(month.leftOver))}
                 </span>
               </span>
-              {/* Magnitude under the figure rather than in a column of its own,
-                  so the bar costs 3px of height instead of 84px of width. */}
-              <span className="mt-0.5 block h-[3px] w-full overflow-hidden rounded-full bg-subtle">
+
+              <span className="mt-0.5 block h-[3px] w-full overflow-hidden rounded-full bg-subtle lg:mt-0 lg:h-2">
                 <span
                   className={cn(
                     "block h-full rounded-full transition-all duration-200 ease-out",
@@ -91,6 +103,16 @@ export function YearList({
                   )}
                   style={{ width: `${width}%` }}
                 />
+              </span>
+
+              <span
+                className={cn(
+                  "hidden text-right text-[12px] font-medium tabular-nums lg:block",
+                  short ? "text-danger" : "text-text-primary"
+                )}
+              >
+                {short ? "\u2212" : ""}
+                {formatCurrency(Math.abs(month.leftOver))}
               </span>
             </button>
           );

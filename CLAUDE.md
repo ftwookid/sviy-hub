@@ -879,12 +879,15 @@ Rules the arithmetic follows:
 layout answers three questions in the order they get asked — what did the month
 come to, what is it made of, how does it compare with the year:
 
-- `MonthPicker` (the app's own, shared with Taxes) at `max-w-[268px]`. Arrows sit
-  either side of the label and the label opens a year-and-month grid. Two
-  hand-rolled versions failed here and both failures are worth remembering: one
-  put the arrows at opposite edges of a full-width row, and one made the month
-  label look like a picker that did nothing when tapped. A control that looks
-  like a picker opens a picker.
+- `MonthPicker` (the app's own, shared with Taxes), capped at 300px and sitting
+  **at the top of the right column** — the header row already carries the title
+  and Setup, so a picker on a row of its own left the whole top right of the page
+  blank. Arrows sit either side of the label and the label opens a year-and-month
+  grid. Three versions failed here and all three failures are worth remembering:
+  arrows at opposite edges of a full-width row; a month label that looked like a
+  picker and did nothing when tapped; and letting the capped picker fill its
+  column, which put the two arrows 500px apart again. A control that looks like a
+  picker opens a picker, and its parts stay within reach of each other.
 - `MonthSummary` is three **peer figures at one size** — net, in, out. An earlier
   version set the net two steps larger, which made the reader ask why the type
   kept changing. Emphasis is colour, per financial convention: **green in
@@ -895,8 +898,15 @@ come to, what is it made of, how does it compare with the year:
   immediately, without losing the others from view. Each line keeps its hint,
   which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
   Aug 2", "3 nights booked", "Lowers the tax bill, not the bank balance").
-- `YearList` keeps **a figure against every month** — a right rail of twelve on a
-  desktop, two columns of six on a phone. It was briefly twelve bare columns, and
+- **The columns are sized to their content, not split down the middle.** The
+  breakdown is capped at 460px, which is what its rows need — label left, amount
+  right, and past that the middle is only gap — so `YearList` gets the remaining
+  ~440px, where the extra width buys a bar you can actually read across. Widths
+  went the wrong way round first: the breakdown had ~700px of mostly gap and the
+  year was squeezed into a 240px rail.
+- `YearList` keeps **a figure against every month** — a wide rail of twelve on a
+  desktop (month, bar, figure in three columns), two columns of six on a phone,
+  where a middle bar column would leave the bar about 40px wide. It was briefly twelve bare columns, and
   that is the mistake to not repeat: a column chart with no numbers cannot answer
   "how much", so comparing two months meant tapping one, reading the headline,
   tapping the other and holding the first in your head. Month-over-month

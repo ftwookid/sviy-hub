@@ -209,33 +209,42 @@ export default function FinancesPage() {
           </div>
         ) : null}
 
-        {/* The app's own month picker — arrows either side of the label, and the
-            label opens a year-and-month grid. A hand-rolled row of two arrows at
-            opposite edges of the screen looked like a picker and did nothing when
-            tapped, which is the worst thing a control can do. */}
-        <div className="max-w-[268px]">
-          <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
-        </div>
-
         {loading || !month ? (
           <SkeletonRows />
         ) : (
           <>
-            {/* Two columns where there is width for them: the month on the left,
-                the year alongside it rather than under it. */}
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
-              <div className="space-y-3">
+            {/* Two columns, and every region of them used. The breakdown is
+                capped at the width its rows actually need — label on the left,
+                amount on the right, and past ~460px the middle is just a gap —
+                so the leftover-by-month block gets the rest, where the extra
+                width turns its bars into something you can read across.
+
+                The picker sits at the top of the right column because that is
+                where the empty space was: the header row already carries the
+                title and Setup, and a control on a row of its own left the whole
+                top right of the page blank. Placement is explicit per cell so
+                the phone still reads picker, month, breakdown, year. */}
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] lg:items-start">
+              {/* Capped and centred in its column. Letting it fill the column
+                  put its two arrows 500px apart, which is the same mistake as a
+                  full-width picker wearing a different layout. */}
+              <div className="w-full max-w-[300px] lg:col-start-2 lg:row-start-1 lg:mx-auto">
+                <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
+              </div>
+              <div className="space-y-3 lg:col-start-1 lg:row-span-2 lg:row-start-1">
                 <MonthSummary month={month} />
                 <BucketRows sections={month.sections} moneyIn={month.moneyIn} />
               </div>
-              <YearList
-                months={months}
-                year={year}
-                selectedIndex={monthIndex}
-                onSelect={(nextMonth) =>
-                  setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
-                }
-              />
+              <div className="lg:col-start-2 lg:row-start-2 lg:self-start">
+                <YearList
+                  months={months}
+                  year={year}
+                  selectedIndex={monthIndex}
+                  onSelect={(nextMonth) =>
+                    setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
+                  }
+                />
+              </div>
             </div>
           </>
         )}
