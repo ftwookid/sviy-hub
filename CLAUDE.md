@@ -787,6 +787,72 @@ Cancel and delete:
 - Inserts and updates never send `status`, so the database default and the cancel/restore action stay the only writers.
 - If the `status` column is missing, cancel/restore surfaces a message telling the user to run `supabase/house-sitting-schema.sql`.
 
+### Finances Section
+
+Every other section answers a question about the business. **Finances**
+(`/finances`, its own nav item) asks the one the family actually asks at the end
+of a month: did more come in than went out. It is a household view, not a tax
+view — the year's deductible total lives in Reports and is not repeated here.
+
+Six blocks, in this order:
+
+| Block | Where the figures come from |
+| --- | --- |
+| Gross income | Typed lines (Ivan W2) + regular clients + house sitting |
+| Tax withheld | Typed |
+| Deductions | Read from Transactions, plus the mileage deduction for context |
+| Needs | Typed |
+| Debt | Typed |
+| Investments & savings | Typed |
+
+Two kinds of number meet on the page and they behave differently:
+
+- **Standing figures** are typed into `finance_lines` (`supabase/finances-schema.sql`)
+  and stand in **every** month. Rent does not need retyping in March. One row per
+  line item, one monthly amount, amounts always positive — direction is a
+  property of the bucket, so a mistyped minus cannot turn rent into income.
+- **Linked figures** are read from the tables that already record them and are
+  not editable here. Regular clients, house sitting, business spending and miles
+  each have one home; a second, editable copy on this page would be a figure that
+  silently goes stale.
+
+Rules the arithmetic follows:
+
+- **The mileage deduction is shown but never subtracted.** It lowers a tax bill,
+  not a bank balance. Counting it as money out would invent a deficit out of
+  nothing. It renders as an `informational` row, which `sectionOf()` excludes
+  from the section total.
+- Business spending **is** subtracted: unlike the miles, it left an account.
+- House sitting is spread over the nights it was slept in, not filed under its
+  start date, so a stay from the 28th to the 3rd pays into both months. Cancelled
+  stays earn nothing.
+- Regular clients contribute one figure to every month, because a client record
+  says what the arrangement is *now* and carries no history of months worked.
+  Paused clients are excluded.
+- Everything in `lib/finances.ts` is a pure function of rows somebody else
+  loaded. The one thing this page must not get wrong is whether the family is up
+  or down, and that is easiest to trust when no query can change the answer.
+
+Reading and editing sit together. The pencil on a typed block turns its rows into
+inputs with `+ Add line` under them; there is no settings screen elsewhere,
+because a household budget gets adjusted while you are looking at it and a
+separate screen would mean leaving the answer to change the question. Linked rows
+carry a source badge instead and have no pencil.
+
+Below the blocks, **Left over by month** puts all twelve months on one centre
+line, surplus right in green and deficit left in red, and tapping a month selects
+it. One month cannot tell you whether a deficit is the shape of the household or
+the shape of one bad August. Rows rather than columns, like the Reports
+breakdown — twelve labelled columns on a phone are unreadable.
+
+**No prose verdicts**, same as Mileage. The headline says "Left over" or "Short",
+and nothing on the page tells the reader what to conclude about it.
+
+An unrun migration is a notice, not a broken page: `finance_lines` failing to
+load reports itself and the linked half still renders. PostgREST answers a table
+it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
+`isMissingTable()` checks both.
+
 ### Profile Section
 
 - Added `/profile`.
@@ -817,6 +883,14 @@ Cancel and delete:
 
 ## Important Files
 
+- `app/finances/page.tsx`: Finances — the household month, in and out.
+- `lib/finances.ts`: The month's arithmetic. Pure; no queries.
+- `lib/financeClient.ts`: Reads and writes for the standing figures.
+- `components/finances/MonthBalanceCard.tsx`: Left over, and where the income went.
+- `components/finances/BucketCard.tsx`: One block, its rows, and the editing for them.
+- `components/finances/CashflowStrip.tsx`: Twelve months either side of a centre line.
+- `supabase/finances-schema.sql`: `finance_lines`.
+- `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
 - `app/mileage/page.tsx`: Mileage — miles, month-over-month, deduction against car spend.
@@ -1052,6 +1126,13 @@ This replaced the full 22-item Schedule C list. Rules:
 Run `supabase/health-schema.sql` in Supabase. It is re-runnable and creates
 `health_profiles` and `health_entries`. Until it runs, `/health` loads but shows
 a setup notice instead of the tabs.
+
+`supabase/finances-schema.sql` was applied on 19 August 2026. It creates
+`finance_lines` and seeds a single `Ivan W2` line so the first visit is not an
+empty page. It is re-runnable, and re-running never resurrects a line somebody
+deleted. Before it ran, `/finances` loaded and every linked figure read
+correctly, but the typed blocks showed a notice and saving a line reported the
+table missing.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
