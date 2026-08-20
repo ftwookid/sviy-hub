@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { currentPeriodMonth, periodMonthLabel, shiftPeriodMonth } from "@/lib/expenses";
-import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
+import { formatCurrency } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
 import type { MonthFinances } from "@/types/finance";
 
@@ -11,18 +11,19 @@ import type { MonthFinances } from "@/types/finance";
  * The month at a glance: which month, what it came to, where it went, and how it
  * sits against the other eleven.
  *
- * One container, four bands divided by a rule — not four cards. The three
- * figures run across the full width as a divided strip rather than stacking in
- * the left tenth of the screen, and the year is a twelve-column chart rather
- * than twelve rows, because the question it answers is "what shape is the year",
- * not "what was March". March is one tap away, and its figure then appears in
- * the strip above where the eye already is.
+ * One container, four bands divided by a rule. The three figures run across the
+ * full width as a divided strip rather than stacking in the left tenth of the
+ * screen, and the year is twelve columns rather than twelve rows — a run of
+ * surplus turning into a run of deficit is the thing you actually look for, and
+ * it is visible instantly here where twelve labelled numbers only ever read one
+ * at a time.
  *
- * The whole month therefore fits above the fold on a phone, which is the only
- * measure that matters here.
+ * What the columns must not do is hide the figures. Month names are spelled out,
+ * the year carries its own stepper, and the month under the cursor names itself
+ * and its amount above the chart — so nothing needs a tap to be identified, only
+ * to be made the subject of the rest of the card.
  */
 
-const MONTH_INITIALS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function Stat({
@@ -33,19 +34,19 @@ function Stat({
 }: {
   label: string;
   value: string;
-  tone?: "plain" | "good" | "bad";
+  tone?: "plain" | "bad";
   lead?: boolean;
 }) {
   return (
-    <div className="min-w-0 px-3 py-2.5 first:pl-0 last:pr-0">
+    <div className="min-w-0 px-2.5 py-2.5 first:pl-0 last:pr-0">
       <div className="truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
         {label}
       </div>
       <div
         className={cn(
           "mt-1 truncate font-medium leading-none tracking-[-0.01em] tabular-nums",
-          lead ? "text-[25px]" : "text-[15px]",
-          tone === "bad" ? "text-danger" : tone === "good" ? "text-success" : "text-text-primary"
+          lead ? "text-[20px] sm:text-[24px]" : "text-[13.5px] sm:text-[15px]",
+          tone === "bad" ? "text-danger" : "text-text-primary"
         )}
       >
         {value}
@@ -99,7 +100,15 @@ export function MonthOverview({
             <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-medium text-accent">
               Now
             </span>
-          ) : null}
+          ) : (
+            <button
+              className="focus-ring shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary"
+              type="button"
+              onClick={() => onPeriodChange(currentPeriodMonth())}
+            >
+              Today
+            </button>
+          )}
         </div>
         <button
           className="focus-ring grid h-10 w-9 shrink-0 place-items-center rounded-[10px] text-text-secondary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-primary"
@@ -112,21 +121,23 @@ export function MonthOverview({
       </div>
 
       {/* Three figures across the row, divided. The answer leads; the two it is
-          made of sit beside it at a smaller size. */}
+          made of sit beside it at a smaller size. All three keep their cents —
+          they are money, and an earlier pass rounded them only to stop the
+          columns truncating, which the widths here handle instead. */}
       <div
         className={cn(
-          "grid grid-cols-[1.35fr_1fr_1fr] divide-x divide-border/70 border-t border-border/70 px-3.5",
+          "grid grid-cols-[1.5fr_1fr_1fr] divide-x divide-border/70 border-t border-border/70 px-3.5",
           short ? "bg-[#FBEFEF]" : "bg-[#F7F2E8]"
         )}
       >
         <Stat
           lead
           label={short ? "Short" : "Left over"}
-          value={formatCurrencyRounded(Math.abs(month.leftOver))}
+          value={formatCurrency(Math.abs(month.leftOver))}
           tone={short ? "bad" : "plain"}
         />
-        <Stat label="Money in" value={formatCurrencyRounded(month.moneyIn)} />
-        <Stat label="Money out" value={formatCurrencyRounded(month.moneyOut)} />
+        <Stat label="Money in" value={formatCurrency(month.moneyIn)} />
+        <Stat label="Money out" value={formatCurrency(month.moneyOut)} />
       </div>
 
       {month.moneyIn > 0 && spokenFor > 0 ? (
@@ -163,8 +174,38 @@ export function MonthOverview({
         </div>
       ) : null}
 
-      {/* The year, in the height twelve rows used to spend on their labels. */}
-      <div className="border-t border-border/70 px-2 pb-1.5 pt-2">
+      <div className="border-t border-border/70 px-2.5 pb-1.5 pt-2">
+        {/* The year owns its own stepper, so a month in a different year is two
+            taps rather than twelve, and the chart says which year it is drawing. */}
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-0.5">
+            <button
+              className="focus-ring grid h-6 w-6 place-items-center rounded-md text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-primary"
+              type="button"
+              aria-label={`Show ${year - 1}`}
+              onClick={() => onPeriodChange(shiftPeriodMonth(periodMonth, -12))}
+            >
+              <ChevronLeft size={13} strokeWidth={2} />
+            </button>
+            <span className="text-[11px] font-medium tabular-nums text-text-secondary">{year}</span>
+            <button
+              className="focus-ring grid h-6 w-6 place-items-center rounded-md text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-primary"
+              type="button"
+              aria-label={`Show ${year + 1}`}
+              onClick={() => onPeriodChange(shiftPeriodMonth(periodMonth, 12))}
+            >
+              <ChevronRight size={13} strokeWidth={2} />
+            </button>
+          </div>
+          <span className="truncate text-[11px] text-text-tertiary">
+            {MONTH_SHORT[monthIndex]}{" "}
+            <span className={cn("font-medium tabular-nums", short ? "text-danger" : "text-text-secondary")}>
+              {short ? "−" : "+"}
+              {formatCurrency(Math.abs(month.leftOver))}
+            </span>
+          </span>
+        </div>
+
         <div className="grid grid-cols-12 gap-[3px]">
           {months.map((entry, index) => {
             const height = (Math.abs(entry.leftOver) / scale) * 50;
@@ -175,7 +216,7 @@ export function MonthOverview({
               <button
                 key={index}
                 className={cn(
-                  "focus-ring rounded-[8px] px-0.5 pb-0.5 pt-1 transition-colors duration-200 ease-out",
+                  "focus-ring rounded-[7px] px-0.5 pb-0.5 pt-1 transition-colors duration-200 ease-out",
                   selected ? "bg-accent-soft" : "hover:bg-subtle"
                 )}
                 type="button"
@@ -185,7 +226,7 @@ export function MonthOverview({
                 aria-current={selected ? "true" : undefined}
                 onClick={() => onMonthIndexChange(index)}
               >
-                <span className="relative block h-9 w-full">
+                <span className="relative block h-8 w-full">
                   <span aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-border" />
                   <span
                     aria-hidden
@@ -196,13 +237,15 @@ export function MonthOverview({
                     style={{ height: `${Math.max(height, entry.leftOver === 0 ? 0 : 2)}%` }}
                   />
                 </span>
+                {/* Spelled out, not initialled. Twelve single letters with two Js,
+                    two Ms and two As is a puzzle, not a label. */}
                 <span
                   className={cn(
-                    "mt-1 block text-center text-[9.5px] leading-none",
+                    "mt-1 block text-center text-[9px] leading-none",
                     selected ? "font-semibold text-text-primary" : "text-text-tertiary"
                   )}
                 >
-                  {MONTH_INITIALS[index]}
+                  {MONTH_SHORT[index]}
                 </span>
               </button>
             );

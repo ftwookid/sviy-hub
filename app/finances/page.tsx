@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { BucketRows } from "@/components/finances/BucketRows";
 import { MonthOverview } from "@/components/finances/MonthOverview";
+import { SetupSheet } from "@/components/finances/SetupSheet";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth } from "@/lib/expenses";
 import {
   buildYear,
@@ -17,7 +18,14 @@ import {
   mileageByMonth,
   spendByMonth
 } from "@/lib/finances";
-import { loadFinanceLines } from "@/lib/financeClient";
+import {
+  addFinanceLine,
+  deleteFinanceLine,
+  deleteFinanceRate,
+  loadFinanceLines,
+  renameFinanceLine,
+  setFinanceRate
+} from "@/lib/financeClient";
 import { parseLocalDate } from "@/lib/formatters";
 import { dateFromTimestamp, loadMileageTrips, loadMileageUploads } from "@/lib/mileage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -26,7 +34,7 @@ import type { ClientWithPets } from "@/types/client";
 import type { Expense } from "@/types/expense";
 import type { HouseSittingBooking } from "@/types/houseSitting";
 import type { MileageTrip } from "@/types/mileage";
-import type { FinanceLine } from "@/types/finance";
+import type { FinanceBucket, FinanceLine } from "@/types/finance";
 
 /**
  * Finances — the household month.
@@ -58,6 +66,8 @@ export default function FinancesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [trips, setTrips] = useState<MileageTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
   const monthIndex = useMemo(() => parseLocalDate(periodMonth).getMonth(), [periodMonth]);
@@ -148,6 +158,23 @@ export default function FinancesPage() {
 
   const month = months[monthIndex];
 
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2600);
+  }
+
+  // Setup edits in place over the month, so a save refreshes the figures behind
+  // it rather than navigating anywhere.
+  async function runLineChange(action: () => Promise<void>, message: string) {
+    try {
+      await action();
+      setNotice(await refreshLines());
+      showToast(message);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save that");
+    }
+  }
+
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
@@ -158,13 +185,14 @@ export default function FinancesPage() {
       <PageHeader
         title="Finances"
         action={
-          <Link
-            href="/finances/setup"
+          <button
+            type="button"
+            onClick={() => setSetupOpen(true)}
             className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
           >
             <SlidersHorizontal size={16} strokeWidth={1.8} />
             Setup
-          </Link>
+          </button>
         }
       />
       <div className="space-y-3">
@@ -194,6 +222,36 @@ export default function FinancesPage() {
           </>
         )}
       </div>
+
+      {setupOpen ? (
+        <SetupSheet
+          lines={lines}
+          notice={notice}
+          onClose={() => setSetupOpen(false)}
+          onAddLine={(input) =>
+            runLineChange(
+              () =>
+                addFinanceLine({
+                  userId: user.id,
+                  bucket: input.bucket as FinanceBucket,
+                  label: input.label,
+                  amount: input.amount,
+                  effectiveFrom: input.effectiveFrom,
+                  existingCount: lines.filter((line) => line.bucket === input.bucket).length
+                }),
+              `${input.label} added`
+            )
+          }
+          onRename={(lineId, label) => runLineChange(() => renameFinanceLine(lineId, label), "Renamed")}
+          onSetRate={(lineId, effectiveFrom, amount) =>
+            runLineChange(() => setFinanceRate({ userId: user.id, lineId, effectiveFrom, amount }), "Change saved")
+          }
+          onDeleteRate={(rateId) => runLineChange(() => deleteFinanceRate(rateId), "Change removed")}
+          onDeleteLine={(lineId) => runLineChange(() => deleteFinanceLine(lineId), "Line deleted")}
+        />
+      ) : null}
+
+      {toast ? <Toast message={toast} /> : null}
     </AppShell>
   );
 }

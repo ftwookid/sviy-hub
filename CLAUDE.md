@@ -884,22 +884,31 @@ and that stack is what the layout rules at the top of this file exist to prevent
   the year. Its own month arrows mean the picker costs no row of its own.
 - The year is **twelve columns from a centre line**, not twelve rows. It answers
   "what shape is the year" — a run of green flipping to red is visible instantly
-  — and any month is one tap, after which its figure appears in the strip above.
-  Twelve rows spent 350px to say the same thing in numbers already shown.
+  — and any month is one tap. But density is not a licence to strip the labels:
+  the first version used one-letter months (two Js, two Ms, two As) and carried
+  no figure at all, which made a chart you had to decode. Months are spelled out,
+  the selected month names itself and its amount above the chart, and the year
+  carries **its own stepper** — without which a different year had become
+  unreachable except twelve arrow taps at a time.
 - `BucketRows` is the six blocks as **six rows in one card**, each opening to its
   lines. Six cards cost about 900px for what reads in 280px. The share bar sits
   under the block name, in width the row already had.
-- Headline figures are **whole dollars** (`formatCurrencyRounded`). Three exact
-  figures across a phone truncated to "$2,602...." — a rounded number beats a
-  truncated one, and the cents are still on every detail row.
+- Headline figures keep their **cents**. An intermediate version rounded them to
+  stop the three columns truncating to "$2,602...."; the column widths handle
+  that, and money on a money page is not the place to drop precision.
 - Bands and rows that have nothing to say are **not rendered**: no composition bar
   before anything is allocated, no share bar on a block at zero, no "nothing here"
   row per empty bucket.
 
-Setup is a **stage, not a tab** — reached from a control in the header slot that
-already exists, and left by a back arrow. A full-width segmented row for two tabs
-is 48px charged to every visit for a screen opened a few times a year. Inside, the
-five buckets are 32px strips in one card, each with its total and a `+`.
+Setup is a **panel — not a tab, and not a route** (`SetupSheet`). A full-width
+segmented row for two tabs charges 48px to every visit for a screen opened a few
+times a year; but the route that replaced it was worse and more irritating, since
+it meant a page load and a fresh set of queries to show figures the month behind
+it had already loaded, then another load coming back. As a slide-over it opens
+instantly on data already in memory, and a saved change lands on the month
+underneath while the panel is still open — which is the whole reason you opened
+it. Inside, the five buckets are strips in one card, each with its total, its
+blurb ("Needs" alone does not say what belongs in it) and a `+`.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It
@@ -957,7 +966,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthOverview.tsx`: Month, the three figures, composition, the year.
 - `components/finances/BucketRows.tsx`: Six blocks as six rows that open.
-- `app/finances/setup/page.tsx`: The standing figures, and when each changed.
+- `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
