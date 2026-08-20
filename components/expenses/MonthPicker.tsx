@@ -20,10 +20,18 @@ const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
  */
 export function MonthPicker({
   periodMonth,
-  onChange
+  onChange,
+  variant = "control"
 }: {
   periodMonth: string;
   onChange: (next: string) => void;
+  /**
+   * `control` sits in a row of controls next to buttons, and takes the width it
+   * is given. `panel` stands as a card in its own right, above or beside other
+   * cards — so it wears their radius and shadow, and keeps its arrows next to
+   * the label instead of pushing them out to the edges of whatever it is in.
+   */
+  variant?: "control" | "panel";
 }) {
   const [open, setOpen] = useState(false);
   // Browsing a year in the panel does not change the selected month until a
@@ -69,10 +77,19 @@ export function MonthPicker({
   }
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className={cn("relative", variant === "panel" && "h-full")} ref={containerRef}>
       {/* One 44px row. The old two-line card spent a third of its height telling
           the user they could tap it, which the chevron already says. */}
-      <div className="flex h-11 items-center gap-0.5 rounded-xl border border-border bg-surface p-0.5 shadow-sm">
+      <div
+        className={cn(
+          "flex items-center gap-0.5 border border-border bg-surface p-0.5",
+          // A panel fills the height it is given, so it can sit in a grid row
+          // beside a card and end level with it instead of 10px short.
+          variant === "panel"
+            ? "h-full min-h-[60px] justify-center rounded-[20px] shadow-card"
+            : "h-11 rounded-xl shadow-sm"
+        )}
+      >
         <button
           className="focus-ring grid h-10 w-9 shrink-0 place-items-center rounded-[10px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
           type="button"
@@ -83,7 +100,13 @@ export function MonthPicker({
         </button>
 
         <button
-          className="focus-ring flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2 transition hover:bg-subtle"
+          className={cn(
+            "focus-ring flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 transition hover:bg-subtle",
+            // A fixed box, so the arrows do not creep inwards on "May 2026" and
+            // outwards on "September 2026". The label re-centres inside it; the
+            // controls either side of it never move.
+            variant === "panel" ? "w-[196px] shrink-0" : "flex-1"
+          )}
           type="button"
           aria-expanded={open}
           aria-haspopup="dialog"

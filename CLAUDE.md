@@ -6,6 +6,33 @@ Sviy Hub is a private, single-user family CRM and business tracker for a small p
 
 The app should feel calm, premium, warm, and consumer-grade. The design direction is soft off-white backgrounds, warm gold accents, generous whitespace, rounded corners, subtle shadows, and comfortable mobile-first tap targets.
 
+## Before you ship any screen — the gate
+
+The rule below has been written down for a long time and has still been broken on
+almost every new screen, so it is now a checklist rather than a principle. Ivan has
+asked for this roughly twenty-five times. Reading the rule is not applying it.
+
+Answer these before writing layout, and again before committing:
+
+1. **Did I stack cards?** More than two top-level cards on a screen is a failure.
+   Related blocks go in **one** container split by `border-t`. Six sections means
+   six rows in one card that expand, not six cards.
+2. **Is every row using its full width?** A card spanning the screen with its
+   content in the left 10% is the single most-named failure. Numbers go where the
+   space is — a divided strip across the row, not a left-hugging block.
+3. **Did I spend a permanent row on navigation?** A full-width segmented bar for
+   two tabs is not navigation, it is 48px of tax on every visit. Rare
+   destinations are a small control in the header, or a stage you drill into.
+4. **Can the answer be read without scrolling?** If the screen's whole point is
+   below the fold on a 390×700 phone, the layout is wrong however tidy it looks.
+5. **Is anything collapsed that should be, or expanded that should not?** Entry
+   forms, history and setup collapse. What the page exists to show never does.
+6. **Did I measure it at 390px?** Not "does it compile" — the rendered geometry,
+   with a screenshot read back.
+
+If a screen fails any of these, it is not finished, and shipping it and offering
+to polish later is not an option.
+
 ## Space and Navigation — the standing rule
 
 This comes up on almost every task, so it is written here rather than repeated
@@ -807,10 +834,25 @@ Six blocks, in this order:
 
 Two kinds of number meet on the page and they behave differently:
 
-- **Standing figures** are typed into `finance_lines` (`supabase/finances-schema.sql`)
-  and stand in **every** month. Rent does not need retyping in March. One row per
-  line item, one monthly amount, amounts always positive — direction is a
+- **Standing figures** are typed once and carry forward. Each line owns a **dated
+  schedule** (`finance_line_rates`), not a single amount: one row per change,
+  `effective_from` inclusive. Amounts are always positive — direction is a
   property of the bucket, so a mistyped minus cannot turn rent into income.
+  - A single amount per line was the first design and it was wrong in the one way
+    that matters: entering a raise rewrote every month back to the beginning,
+    because the old figure had nowhere to live. Nothing about a past month moves
+    now when a later change is entered.
+  - **A change part-way through a month is blended across it by day.** $10,000
+    going to $12,000 on 20 July pays 19 days at the old rate and 12 at the new
+    one — $10,774.19 for a 31-day July — which is what lands in the account.
+    Taking whichever rate was in force on the 1st would hide the raise for a
+    month. `amountForMonth()` walks the days rather than doing interval
+    arithmetic: 31 iterations, no boundary to get wrong.
+  - **Ending a line is a change to 0, not a deletion.** The months it did run
+    still have to add up. Deleting the line is the one write on the Setup screen
+    that asks for confirmation, because it takes the whole history with it.
+  - Before the first rate's date a line contributes nothing and reads
+    "No amount set" — never a zero pretending to be a figure.
 - **Linked figures** are read from the tables that already record them and are
   not editable here. Regular clients, house sitting, business spending and miles
   each have one home; a second, editable copy on this page would be a figure that
@@ -833,11 +875,89 @@ Rules the arithmetic follows:
   loaded. The one thing this page must not get wrong is whether the family is up
   or down, and that is easiest to trust when no query can change the answer.
 
-Reading and editing sit together. The pencil on a typed block turns its rows into
-inputs with `+ Add line` under them; there is no settings screen elsewhere,
-because a household budget gets adjusted while you are looking at it and a
-separate screen would mean leaving the answer to change the question. Linked rows
-carry a source badge instead and have no pencil.
+**Two columns where there is width, and nothing important behind a tap.** The
+layout answers three questions in the order they get asked — what did the month
+come to, what is it made of, how does it compare with the year:
+
+- `MonthPicker` (the app's own, shared with Taxes) sits **at the top of the right
+  column** — the header row already carries the title and Setup, so a picker on a
+  row of its own left the whole top right of the page blank. The label opens a
+  year-and-month grid. It takes a `variant`: `control` (the default, and what
+  Taxes uses) stretches inside a row of controls; `panel` makes it a **card** —
+  the same 20px radius, `shadow-card` and column width as the cards it stacks
+  with — and keeps the arrows beside the label rather than at the box's edges.
+  Four versions failed here and every failure is worth remembering: arrows at
+  opposite edges of a full-width row; a month label that looked like a picker and
+  did nothing when tapped; a capped picker filling its column, which put the
+  arrows 500px apart again; and a 300px pill sitting above a 444px card, lining up
+  with neither of its edges. A control that looks like a picker opens a picker, it
+  keeps its parts within reach of each other, and it matches whatever it is
+  stacked with.
+- `MonthSummary` is three **peer figures at one size** — net, in, out. An earlier
+  version set the net two steps larger, which made the reader ask why the type
+  kept changing. Emphasis is colour, per financial convention: **green in
+  surplus, red in deficit**, which is also the only cue the sign needs.
+- `BucketRows` shows **every line, always**. They were collapsed behind a tap for
+  a version on the reasoning that the total is what you read — backwards: you
+  scan totals to find the one that looks wrong and then need its lines
+  immediately, without losing the others from view. Each line keeps its hint,
+  which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
+  Aug 2", "3 nights booked", "Lowers the tax bill, not the bank balance").
+- **The grid is two real rows, so cards that sit side by side end level.** Row one
+  is the month picker and the month's total; row two is the breakdown and the
+  year. The picker was floating above a column that spanned both rows, which left
+  it 14px shorter than the summary beside it — close enough to look like a
+  mistake rather than a choice. In a shared row it stretches to match, and the
+  `panel` variant fills the height it is given. `YearList` keeps `self-start` so
+  it ends where its content ends instead of stretching to the breakdown.
+- **The columns are sized to their content, not split down the middle.** The
+  breakdown is capped at 460px, which is what its rows need — label left, amount
+  right, and past that the middle is only gap — so `YearList` gets the remaining
+  ~440px, where the extra width buys a bar you can actually read across. Widths
+  went the wrong way round first: the breakdown had ~700px of mostly gap and the
+  year was squeezed into a 240px rail.
+- `YearList` keeps **a figure against every month** — a wide rail of twelve on a
+  desktop (month, bar, figure in three columns), two columns of six on a phone,
+  where a middle bar column would leave the bar about 40px wide. It was briefly twelve bare columns, and
+  that is the mistake to not repeat: a column chart with no numbers cannot answer
+  "how much", so comparing two months meant tapping one, reading the headline,
+  tapping the other and holding the first in your head. Month-over-month
+  comparison is the whole job of the block. The only thing ever wrong with the
+  list was its width, and width is fixed by a column, not by deleting the figures.
+- **The header pair is a fixed 60px each, always.** `MonthSummary` and the picker
+  share grid row one, so anything that changes one's height moves the other. A
+  composition bar used to sit under the figures and render only once something
+  had been allocated, which made the picker beside it jump by 50px between
+  months; it is gone, and the share each block takes is on that block's row in the
+  breakdown, where you are already looking when you want it. Both cards are pinned
+  to `h-[60px]` rather than left to their content.
+- **The picker's arrows never move.** Its label sits in a fixed 196px box, so
+  "May 2026", "September 2026" and the `Now` chip all re-centre inside it while
+  the controls either side stay put. Centring a variable-width group was the
+  version that crept.
+- Empty blocks are a header row and nothing else.
+
+The month costs about 160px of scroll on a 390x844 phone with every line and every
+month on screen, against roughly 1600px when each block was its own card. Zero
+scroll is not the target — it was briefly reached by hiding the data, which is
+worse than scrolling for it.
+
+Setup is a **panel — not a tab, and not a route** (`SetupSheet`). A full-width
+segmented row for two tabs charges 48px to every visit for a screen opened a few
+times a year; but the route that replaced it was worse and more irritating, since
+it meant a page load and a fresh set of queries to show figures the month behind
+it had already loaded, then another load coming back. As a slide-over it opens
+instantly on data already in memory, and a saved change lands on the month
+underneath while the panel is still open — which is the whole reason you opened
+it. Inside, the five buckets are strips in one card, each with its total, its
+blurb ("Needs" alone does not say what belongs in it) and a `+`.
+
+The month is read-only throughout; every typed figure is written in Setup, where a
+line opens to its whole history and takes a change as a date plus an amount. It
+was one screen at first, with a pencil on each block — that stopped working the
+moment a figure became a schedule, because a pencil there has to answer "change it
+from when?", which the month you are looking at cannot answer. Linked rows carry a
+source badge and appear only on the month.
 
 Below the blocks, **Left over by month** puts all twelve months on one centre
 line, surplus right in green and deficit left in red, and tapping a month selects
@@ -886,10 +1006,13 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/finances/page.tsx`: Finances — the household month, in and out.
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
-- `components/finances/MonthBalanceCard.tsx`: Left over, and where the income went.
-- `components/finances/BucketCard.tsx`: One block, its rows, and the editing for them.
-- `components/finances/CashflowStrip.tsx`: Twelve months either side of a centre line.
+- `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
+- `components/finances/BucketRows.tsx`: The six blocks and every line in them.
+- `components/finances/YearList.tsx`: Twelve months, twelve figures.
+- `components/finances/SetupSheet.tsx`: The standing figures, over the month.
+- `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
 - `supabase/finances-schema.sql`: `finance_lines`.
+- `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1126,6 +1249,12 @@ This replaced the full 22-item Schedule C list. Rules:
 Run `supabase/health-schema.sql` in Supabase. It is re-runnable and creates
 `health_profiles` and `health_entries`. Until it runs, `/health` loads but shows
 a setup notice instead of the tabs.
+
+Then run `supabase/finance-rates-schema.sql` in Supabase. It is re-runnable. It
+creates `finance_line_rates` and carries each existing line's single amount over
+as its opening rate, dated 1 January of the year the line was created. Until it
+runs, `/finances` still reads every linked figure and the Setup tab still opens,
+but no typed figure loads and saving one reports the table missing.
 
 `supabase/finances-schema.sql` was applied on 19 August 2026. It creates
 `finance_lines` and seeds a single `Ivan W2` line so the first visit is not an

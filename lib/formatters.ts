@@ -19,6 +19,7 @@ export function formatCurrency(value: number | string) {
   return currencyFormatter.format(Number(value || 0));
 }
 
+
 export function formatMonth(date: Date) {
   return monthFormatter.format(date);
 }
