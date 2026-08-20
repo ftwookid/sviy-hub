@@ -6,6 +6,7 @@ import type {
   FinanceBucket,
   FinanceLine,
   FinanceRate,
+  PayCadence,
   FinanceRow,
   FinanceSection,
   FinanceSectionKey,
@@ -142,9 +143,77 @@ export function mileageByMonth(trips: MileageTrip[], year: number) {
   return totals;
 }
 
+/**
+ * How many times a cadence pays in a month, on average across a year.
+ *
+ * Bi-weekly is 26 paydays a year, not 24 — two months in every year carry a
+ * third paycheck. Spreading 26/12 across the months is the honest average and
+ * the only reading a monthly figure can carry; it is not a claim about any one
+ * month's bank statement. Semi-monthly, which is genuinely twice a month, is a
+ * separate option for exactly that reason.
+ */
+export const CADENCE_PER_MONTH: Record<PayCadence, number> = {
+  Weekly: 52 / 12,
+  "Bi-weekly": 26 / 12,
+  "Semi-monthly": 2,
+  Monthly: 1,
+  Quarterly: 1 / 3,
+  Annual: 1 / 12
+};
+
+/** How a cadence reads after an amount: "$1,200.00 every 2 weeks". */
+export const CADENCE_SUFFIX: Record<PayCadence, string> = {
+  Weekly: "a week",
+  "Bi-weekly": "every 2 weeks",
+  "Semi-monthly": "twice a month",
+  Monthly: "a month",
+  Quarterly: "every 3 months",
+  Annual: "a year"
+};
+
+/** Short enough to sit above a 96px amount field as its label. */
+export const CADENCE_TAG: Record<PayCadence, string> = {
+  Weekly: "A week",
+  "Bi-weekly": "2 weeks",
+  "Semi-monthly": "2x month",
+  Monthly: "A month",
+  Quarterly: "Quarter",
+  Annual: "A year"
+};
+
+export function monthlyFromCadence(amount: number, cadence: PayCadence) {
+  // To the cent, and rounded here rather than left to the column, so what the
+  // page adds up is exactly what was stored.
+  return Math.round(amount * CADENCE_PER_MONTH[cadence] * 100) / 100;
+}
+
+/**
+ * A rate as the app expects it, whatever the row actually holds.
+ *
+ * Rows written before the cadence migration have neither column; they were all
+ * monthly figures by definition, so that is what they read as.
+ */
+export function normalizeRate(rate: FinanceRate): FinanceRate {
+  const monthly = Number(rate.monthly_amount) || 0;
+  const cadence: PayCadence = rate.cadence ?? "Monthly";
+  const entered = rate.entered_amount === null || rate.entered_amount === undefined
+    ? cadence === "Monthly"
+      ? monthly
+      : Math.round((monthly / CADENCE_PER_MONTH[cadence]) * 100) / 100
+    : Number(rate.entered_amount);
+
+  return { ...rate, monthly_amount: monthly, entered_amount: entered, cadence };
+}
+
 /** Rates oldest first. Every reader below assumes this order, so it is done once, on load. */
 export function sortRates(rates: FinanceRate[]) {
-  return [...rates].sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+  return rates.map(normalizeRate).sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+}
+
+/** The cadence in force today — what a new change to this line most likely is too. */
+export function currentCadence(rates: FinanceRate[]): PayCadence {
+  const inForce = [...rates].reverse().find((rate) => rate.effective_from <= todayInputValue());
+  return (inForce ?? rates[rates.length - 1])?.cadence ?? "Monthly";
 }
 
 /** What a line is worth per month on one date, or 0 before its first rate starts. */
@@ -215,6 +284,13 @@ function lineHint(line: FinanceLine, year: number, monthIndex: number) {
     )} on ${formatShortDate(changes[0].effective_from)}`;
   }
   if (changes.length > 1) return `Blended · ${changes.length} changes this month`;
+
+  // A figure that is not paid monthly has to say what it is, or the row reads as
+  // a number nobody recognises against their own payslip.
+  const inForce = [...rates].reverse().find((rate) => rate.effective_from <= end);
+  if (inForce && inForce.cadence !== "Monthly") {
+    return `${formatCurrency(inForce.entered_amount)} ${CADENCE_SUFFIX[inForce.cadence]}`;
+  }
 
   return line.note ?? undefined;
 }

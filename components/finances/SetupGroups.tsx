@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { DateField } from "@/components/ui/DateField";
-import { BUCKET_BLURBS, EDITABLE_BUCKETS, SECTION_STYLE, currentAmount } from "@/lib/finances";
+import { CadencePicker } from "@/components/finances/CadencePicker";
+import {
+  BUCKET_BLURBS,
+  CADENCE_SUFFIX,
+  EDITABLE_BUCKETS,
+  SECTION_STYLE,
+  currentAmount,
+  currentCadence,
+  monthlyFromCadence
+} from "@/lib/finances";
 import { formatCurrency, formatShortDate, parseLocalDate, todayInputValue } from "@/lib/formatters";
-import type { FinanceBucket, FinanceLine } from "@/types/finance";
+import type { FinanceBucket, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
 
 /**
  * Every standing figure, and the dated history behind each one — in one card.
@@ -25,6 +34,24 @@ function parseAmount(value: string) {
   const parsed = Number(value.replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
+
+/**
+ * What a non-monthly figure comes to a month, said before it is saved.
+ *
+ * The conversion is the whole point of the setting, so it is shown while the
+ * amount is still being typed rather than only afterwards in the history — a
+ * bi-weekly paycheck reaching the month at 2.17x is the number worth checking.
+ */
+function monthlyLine(amountValue: string, cadence: PayCadence) {
+  const typed = parseAmount(amountValue);
+  if (!typed) return `Paid ${CADENCE_SUFFIX[cadence]}, spread evenly across the months.`;
+  return `${formatCurrency(typed)} ${CADENCE_SUFFIX[cadence]} is ${formatCurrency(
+    monthlyFromCadence(typed, cadence)
+  )} a month.`;
+}
+
+/** A change being corrected: which row, and the three things it holds. */
+type EditingRate = { id: string; date: string; amount: string; cadence: PayCadence };
 
 function longDate(dateValue: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
@@ -100,23 +127,44 @@ function LineDetail({
   line,
   onRename,
   onSetRate,
+  onUpdateRate,
   onDeleteRate,
   onDeleteLine
 }: {
   line: FinanceLine;
   onRename: (label: string) => void;
-  onSetRate: (effectiveFrom: string, amount: number) => void;
+  onSetRate: (effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: () => void;
 }) {
   const [label, setLabel] = useState(line.label);
   const [changeDate, setChangeDate] = useState(todayInputValue());
   const [changeAmount, setChangeAmount] = useState("");
+  const [editing, setEditing] = useState<EditingRate | null>(null);
+  // A line paid every second week is still paid every second week after a
+  // raise, so the change being typed inherits the cadence already in force.
+  const [cadence, setCadence] = useState<PayCadence>(() => currentCadence(line.rates));
 
   function saveChange() {
     if (!changeAmount.trim()) return;
-    onSetRate(changeDate, parseAmount(changeAmount));
+    onSetRate(changeDate, parseAmount(changeAmount), cadence);
     setChangeAmount("");
+  }
+
+  function startEditing(rate: FinanceRate) {
+    setEditing({
+      id: rate.id,
+      date: rate.effective_from,
+      amount: String(rate.entered_amount),
+      cadence: rate.cadence
+    });
+  }
+
+  function saveEditing() {
+    if (!editing || !editing.amount.trim()) return;
+    onUpdateRate(editing.id, editing.date, parseAmount(editing.amount), editing.cadence);
+    setEditing(null);
   }
 
   function commitLabel() {
@@ -134,41 +182,116 @@ function LineDetail({
         <div className="mb-2.5 divide-y divide-border/50">
           {/* Newest first: the change most likely being corrected is the last one
               made. */}
-          {[...line.rates].reverse().map((rate) => (
-            <div key={rate.id} className="flex items-center gap-2 py-0.5">
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-secondary">
-                From {longDate(rate.effective_from)}
-              </span>
-              <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
-                {formatCurrency(rate.monthly_amount)}
-              </span>
+          {[...line.rates].reverse().map((rate) =>
+            editing?.id === rate.id ? (
+              /* The row becomes the form, in place. Editing a change somewhere
+                 else on the card would leave the reader checking which of two
+                 identical forms belonged to the figure they tapped. */
+              <div key={rate.id} className="py-2">
+                <div className="flex items-end gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <DateField
+                      label="From"
+                      value={editing.date}
+                      dimFutureDates={false}
+                      onChange={(date) => setEditing({ ...editing, date })}
+                    />
+                  </div>
+                  <div className="shrink-0">
+                    <CadencePicker
+                      value={editing.cadence}
+                      onChange={(next) => setEditing({ ...editing, cadence: next })}
+                    />
+                    <AmountInput
+                      className="w-[96px]"
+                      label={`Amount ${CADENCE_SUFFIX[editing.cadence]} from this date`}
+                      value={editing.amount}
+                      onChange={(amount) => setEditing({ ...editing, amount })}
+                      onEnter={saveEditing}
+                    />
+                  </div>
+                </div>
+                {editing.cadence !== "Monthly" ? (
+                  <p className="mt-1.5 text-[11px] text-text-tertiary">
+                    {monthlyLine(editing.amount, editing.cadence)}
+                  </p>
+                ) : null}
+                {/* Delete sits at the other end of the row from Save, and only
+                    while a change is open: a trash icon on every history row is
+                    a mis-tap away from losing a figure somebody typed months
+                    ago, and it was the only thing those rows offered. */}
+                <div className="mt-1.5 flex items-center justify-between">
+                  <IconButton
+                    label={`Remove the change from ${longDate(rate.effective_from)}`}
+                    tone="danger"
+                    onClick={() => {
+                      onDeleteRate(rate.id);
+                      setEditing(null);
+                    }}
+                  >
+                    <Trash2 size={16} strokeWidth={1.8} />
+                  </IconButton>
+                  <div className="flex items-center gap-1.5">
+                    <IconButton label="Stop editing this change" onClick={() => setEditing(null)}>
+                      <X size={16} strokeWidth={1.8} />
+                    </IconButton>
+                    <IconButton
+                      label="Save this change"
+                      tone="accent"
+                      disabled={!editing.amount.trim()}
+                      onClick={saveEditing}
+                    >
+                      <Check size={17} strokeWidth={2} />
+                    </IconButton>
+                  </div>
+                </div>
+              </div>
+            ) : (
               <button
-                className="focus-ring grid h-8 w-7 shrink-0 place-items-center rounded-lg text-text-tertiary transition-colors duration-200 ease-out hover:bg-danger-soft hover:text-danger"
+                key={rate.id}
+                className="focus-ring -mx-1.5 flex w-[calc(100%+12px)] items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors duration-200 ease-out hover:bg-surface"
                 type="button"
-                aria-label={`Remove the change from ${longDate(rate.effective_from)}`}
-                onClick={() => onDeleteRate(rate.id)}
+                aria-label={`Edit the change from ${longDate(rate.effective_from)}`}
+                onClick={() => startEditing(rate)}
               >
-                <Trash2 size={14} strokeWidth={1.7} />
+                <span className="min-w-0 flex-1 text-[12.5px] text-text-secondary">
+                  <span className="block truncate">From {longDate(rate.effective_from)}</span>
+                  {/* Only where it says something: a monthly line's typed figure
+                      and its monthly figure are the same number. */}
+                  {rate.cadence !== "Monthly" ? (
+                    <span className="block truncate text-[11.5px] text-text-tertiary">
+                      {formatCurrency(rate.entered_amount)} {CADENCE_SUFFIX[rate.cadence]}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
+                  {formatCurrency(rate.monthly_amount)}
+                </span>
+                <Pencil size={13} strokeWidth={1.7} className="shrink-0 text-text-tertiary" />
               </button>
-            </div>
-          ))}
+            )
+          )}
         </div>
       ) : null}
 
       {/* Date, amount, save — one row. The date field is flexible and the amount
           fixed and narrow, which is what keeps the date on a single line at
-          390px; it wrapped when both were fighting for the same width. */}
+          390px; it wrapped when both were fighting for the same width.
+
+          Hidden while a change is being corrected: two identical forms on one
+          card, one adding and one editing, is a way to type a raise into the
+          wrong one. */}
+      {editing ? null : (
+        <>
       <div className="flex items-end gap-1.5">
         <div className="min-w-0 flex-1">
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
         <div className="shrink-0">
-          <span className="mb-2 block text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
-            A month
-          </span>
+          <CadencePicker value={cadence} onChange={setCadence} />
           <AmountInput
             className="w-[96px]"
-            label="Monthly amount from this date"
+            label={`Amount ${CADENCE_SUFFIX[cadence]} from this date`}
             value={changeAmount}
             onChange={setChangeAmount}
             onEnter={saveChange}
@@ -179,8 +302,16 @@ function LineDetail({
         </IconButton>
       </div>
       <p className="mt-1.5 text-[11px] text-text-tertiary">
-        A month the date lands inside is split across both amounts. To stop a line, change it to 0.
+        {cadence === "Monthly" ? (
+          "A month the date lands inside is split across both amounts. To stop a line, change it to 0."
+        ) : (
+          <>
+            {monthlyLine(changeAmount, cadence)} A month the date lands inside is split across both amounts.
+          </>
+        )}
       </p>
+        </>
+      )}
 
       <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         <input
@@ -206,13 +337,21 @@ export function SetupGroups({
   onAddLine,
   onRename,
   onSetRate,
+  onUpdateRate,
   onDeleteRate,
   onDeleteLine
 }: {
   lines: FinanceLine[];
-  onAddLine: (input: { bucket: FinanceBucket; label: string; amount: number; effectiveFrom: string }) => void;
+  onAddLine: (input: {
+    bucket: FinanceBucket;
+    label: string;
+    amount: number;
+    cadence: PayCadence;
+    effectiveFrom: string;
+  }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number) => void;
+  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (line: FinanceLine) => void;
 }) {
@@ -221,6 +360,7 @@ export function SetupGroups({
   const [newLabel, setNewLabel] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newFrom, setNewFrom] = useState(todayInputValue());
+  const [newCadence, setNewCadence] = useState<PayCadence>("Monthly");
 
   function startAdding(bucket: FinanceBucket) {
     setAddingBucket(bucket);
@@ -228,12 +368,13 @@ export function SetupGroups({
     setNewLabel("");
     setNewAmount("");
     setNewFrom(todayInputValue());
+    setNewCadence("Monthly");
   }
 
   function submitNew(bucket: FinanceBucket) {
     const label = newLabel.trim();
     if (!label) return;
-    onAddLine({ bucket, label, amount: parseAmount(newAmount), effectiveFrom: newFrom });
+    onAddLine({ bucket, label, amount: parseAmount(newAmount), cadence: newCadence, effectiveFrom: newFrom });
     setAddingBucket(null);
   }
 
@@ -272,7 +413,7 @@ export function SetupGroups({
 
             {addingBucket === bucket ? (
               <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-end gap-1.5">
                   <input
                     className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary"
                     value={newLabel}
@@ -285,13 +426,16 @@ export function SetupGroups({
                       if (event.key === "Escape") setAddingBucket(null);
                     }}
                   />
-                  <AmountInput
-                    className="w-[96px] shrink-0"
-                    label="New line monthly amount"
-                    value={newAmount}
-                    onChange={setNewAmount}
-                    onEnter={() => submitNew(bucket)}
-                  />
+                  <div className="shrink-0">
+                    <CadencePicker value={newCadence} onChange={setNewCadence} />
+                    <AmountInput
+                      className="w-[96px]"
+                      label={`New line amount ${CADENCE_SUFFIX[newCadence]}`}
+                      value={newAmount}
+                      onChange={setNewAmount}
+                      onEnter={() => submitNew(bucket)}
+                    />
+                  </div>
                 </div>
                 <div className="mt-2 flex items-end gap-1.5">
                   <div className="min-w-0 flex-1">
@@ -309,6 +453,9 @@ export function SetupGroups({
                     <X size={16} strokeWidth={1.8} />
                   </IconButton>
                 </div>
+                {newCadence !== "Monthly" ? (
+                  <p className="mt-1.5 text-[11px] text-text-tertiary">{monthlyLine(newAmount, newCadence)}</p>
+                ) : null}
               </div>
             ) : null}
 
@@ -364,7 +511,8 @@ export function SetupGroups({
                       <LineDetail
                         line={line}
                         onRename={(label) => onRename(line.id, label)}
-                        onSetRate={(effectiveFrom, amount) => onSetRate(line.id, effectiveFrom, amount)}
+                        onSetRate={(effectiveFrom, amount, cadence) => onSetRate(line.id, effectiveFrom, amount, cadence)}
+                        onUpdateRate={onUpdateRate}
                         onDeleteRate={onDeleteRate}
                         onDeleteLine={() => onDeleteLine(line)}
                       />

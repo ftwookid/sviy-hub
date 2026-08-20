@@ -26,7 +26,8 @@ import {
   deleteFinanceRate,
   loadFinanceLines,
   renameFinanceLine,
-  setFinanceRate
+  setFinanceRate,
+  updateFinanceRate
 } from "@/lib/financeClient";
 import { parseLocalDate } from "@/lib/formatters";
 import { dateFromTimestamp, loadMileageTrips, loadMileageUploads } from "@/lib/mileage";
@@ -265,6 +266,7 @@ export default function FinancesPage() {
                   bucket: input.bucket as FinanceBucket,
                   label: input.label,
                   amount: input.amount,
+                  cadence: input.cadence,
                   effectiveFrom: input.effectiveFrom,
                   existingCount: lines.filter((line) => line.bucket === input.bucket).length
                 }),
@@ -272,8 +274,17 @@ export default function FinancesPage() {
             )
           }
           onRename={(lineId, label) => runLineChange(() => renameFinanceLine(lineId, label), "Renamed")}
-          onSetRate={(lineId, effectiveFrom, amount) =>
-            runLineChange(() => setFinanceRate({ userId: user.id, lineId, effectiveFrom, amount }), "Change saved")
+          onSetRate={(lineId, effectiveFrom, amount, cadence) =>
+            runLineChange(
+              () => setFinanceRate({ userId: user.id, lineId, effectiveFrom, amount, cadence }),
+              "Change saved"
+            )
+          }
+          onUpdateRate={(rateId, effectiveFrom, amount, cadence) =>
+            runLineChange(
+              () => updateFinanceRate({ id: rateId, effectiveFrom, amount, cadence }),
+              "Change updated"
+            )
           }
           onDeleteRate={(rateId) => runLineChange(() => deleteFinanceRate(rateId), "Change removed")}
           onDeleteLine={(lineId) => runLineChange(() => deleteFinanceLine(lineId), "Line deleted")}

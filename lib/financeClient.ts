@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import { sortRates } from "@/lib/finances";
-import type { FinanceBucket, FinanceLine, FinanceRate } from "@/types/finance";
+import { monthlyFromCadence, sortRates } from "@/lib/finances";
+import type { FinanceBucket, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
 
 /**
  * Browser-side reads and writes for the standing household figures.
@@ -22,6 +22,18 @@ const MIGRATIONS: Array<[table: string, file: string]> = [
   ["finance_line_rates", "supabase/finance-rates-schema.sql"],
   ["finance_lines", "supabase/finances-schema.sql"]
 ];
+
+const CADENCE_MIGRATION = "The pay cadence needs its column. Run supabase/finance-cadence-schema.sql in Supabase.";
+
+/** PostgREST rejects an unknown column with PGRST204 before the request reaches Postgres. */
+function isMissingCadenceColumn(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  const message = error.message ?? "";
+  return (
+    (error.code === "PGRST204" || error.code === "42703" || /column/i.test(message)) &&
+    /cadence|entered_amount/.test(message)
+  );
+}
 
 function setupMessageFor(error: { message?: string } | null) {
   const message = error?.message ?? "";
@@ -85,6 +97,7 @@ export async function addFinanceLine(input: {
   bucket: FinanceBucket;
   label: string;
   amount: number;
+  cadence: PayCadence;
   effectiveFrom: string;
   existingCount: number;
 }) {
@@ -109,7 +122,8 @@ export async function addFinanceLine(input: {
     userId: input.userId,
     lineId: data.id as string,
     effectiveFrom: input.effectiveFrom,
-    amount: input.amount
+    amount: input.amount,
+    cadence: input.cadence
   });
 }
 
@@ -141,19 +155,73 @@ export async function setFinanceRate(input: {
   userId: string;
   lineId: string;
   effectiveFrom: string;
+  /** What was typed, at `cadence` — not the monthly figure, which is derived here. */
   amount: number;
+  cadence: PayCadence;
 }) {
   if (!supabase) return;
 
-  const { error } = await supabase.from("finance_line_rates").upsert(
-    {
-      line_id: input.lineId,
-      user_id: input.userId,
-      effective_from: input.effectiveFrom,
-      monthly_amount: input.amount
-    },
-    { onConflict: "line_id,effective_from" }
-  );
+  const row = {
+    line_id: input.lineId,
+    user_id: input.userId,
+    effective_from: input.effectiveFrom,
+    monthly_amount: monthlyFromCadence(input.amount, input.cadence)
+  };
+
+  const { error } = await supabase
+    .from("finance_line_rates")
+    .upsert({ ...row, entered_amount: input.amount, cadence: input.cadence }, { onConflict: "line_id,effective_from" });
+
+  if (isMissingCadenceColumn(error)) {
+    // Before the cadence migration there is nowhere to record one, but a monthly
+    // figure loses nothing by being written to the old shape — so a monthly
+    // amount still saves, and only a cadence that would be silently dropped is
+    // refused.
+    if (input.cadence !== "Monthly") throw new Error(CADENCE_MIGRATION);
+    const retry = await supabase
+      .from("finance_line_rates")
+      .upsert(row, { onConflict: "line_id,effective_from" });
+    const retryFailure = reportable(retry.error);
+    if (retryFailure) throw retryFailure;
+    return;
+  }
+
+  const failure = reportable(error);
+  if (failure) throw failure;
+}
+
+/**
+ * Correct a change that is already there — its date, its amount, its cadence.
+ *
+ * Separate from `setFinanceRate` because that one is keyed on the date: entering
+ * the same date twice corrects it, but a typo *in* the date could only ever be
+ * fixed by deleting the row and retyping it, which is a strange thing to ask of
+ * somebody who can see the wrong figure in front of them.
+ */
+export async function updateFinanceRate(input: {
+  id: string;
+  effectiveFrom: string;
+  amount: number;
+  cadence: PayCadence;
+}) {
+  if (!supabase) return;
+
+  const patch = {
+    effective_from: input.effectiveFrom,
+    monthly_amount: monthlyFromCadence(input.amount, input.cadence),
+    entered_amount: input.amount,
+    cadence: input.cadence
+  };
+
+  const { error } = await supabase.from("finance_line_rates").update(patch).eq("id", input.id);
+
+  // One change per line per date, so moving a change onto a date that already
+  // has one is a collision worth naming rather than a failed save.
+  if (error?.code === "23505") {
+    throw new Error("This line already has a change on that date. Edit that one instead.");
+  }
+  if (isMissingCadenceColumn(error)) throw new Error(CADENCE_MIGRATION);
+
   const failure = reportable(error);
   if (failure) throw failure;
 }
