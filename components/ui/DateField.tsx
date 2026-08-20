@@ -1,7 +1,8 @@
 "use client";
 
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 import { parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { FieldShell } from "@/components/ui/Field";
@@ -48,6 +49,41 @@ function nearbyYears(date: Date) {
   return Array.from({ length: 12 }, (_, index) => start + index);
 }
 
+/** Enough for seven 36px columns plus the panel's own padding. */
+const PANEL_WIDTH = 296;
+const PANEL_HEIGHT = 340;
+const VIEWPORT_MARGIN = 8;
+
+type PanelPosition = { left: number; top: number; width: number };
+
+/**
+ * The panel is portalled to the body and positioned in viewport coordinates.
+ *
+ * It used to be `absolute` inside the field, which works right up until the
+ * field sits in something that clips — and most of the places this field is
+ * used do: the Finances setup card is `overflow-hidden` for its 20px corners,
+ * and every slide-over is `overflow-y-auto`. Either one cuts the calendar in
+ * half. Nothing an ancestor does can clip a fixed element in a body portal.
+ */
+function panelPosition(trigger: DOMRect): PanelPosition {
+  const width = Math.min(PANEL_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
+  const left = Math.min(
+    Math.max(VIEWPORT_MARGIN, trigger.left),
+    window.innerWidth - width - VIEWPORT_MARGIN
+  );
+
+  const below = trigger.bottom + 8;
+  const roomBelow = window.innerHeight - below;
+  // Flip above only when there is genuinely more room up there, so a field near
+  // the bottom of a sheet opens upwards instead of running off the screen.
+  const top =
+    roomBelow < PANEL_HEIGHT && trigger.top - 8 > roomBelow
+      ? Math.max(VIEWPORT_MARGIN, trigger.top - 8 - PANEL_HEIGHT)
+      : Math.min(below, Math.max(VIEWPORT_MARGIN, window.innerHeight - PANEL_HEIGHT - VIEWPORT_MARGIN));
+
+  return { left, top, width };
+}
+
 export function DateField({
   label,
   value,
@@ -64,19 +100,44 @@ export function DateField({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"days" | "monthYear">("days");
   const [calendarMonth, setCalendarMonth] = useState(() => parseLocalDate(value || todayInputValue()));
+  const [position, setPosition] = useState<PanelPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const reposition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    setPosition(panelPosition(trigger.getBoundingClientRect()));
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-        setMode("days");
-      }
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
+      setMode("days");
     }
 
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    reposition();
+  }, [open, mode, reposition]);
+
+  // The field can be inside a scrolling sheet, so the panel has to follow it.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open, reposition]);
 
   useEffect(() => {
     if (value) setCalendarMonth(parseLocalDate(value));
@@ -113,6 +174,7 @@ export function DateField({
     <FieldShell label={label} error={error}>
       <div ref={rootRef} className="relative">
         <button
+          ref={triggerRef}
           className={cn(
             "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
             error ? "border-danger" : "border-border"
@@ -124,8 +186,13 @@ export function DateField({
           <CalendarDays size={17} strokeWidth={1.6} className="shrink-0 text-text-tertiary" />
         </button>
 
-        {open ? (
-          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-2xl border border-border bg-surface p-3 shadow-[0_18px_48px_rgba(80,66,44,0.14)]">
+        {open && position && typeof document !== "undefined" ? (
+          createPortal(
+          <div
+            ref={panelRef}
+            className="fixed z-[200] rounded-2xl border border-border bg-surface p-3 shadow-[0_18px_48px_rgba(80,66,44,0.14)]"
+            style={{ left: position.left, top: position.top, width: position.width }}
+          >
             <div className="flex min-h-10 items-center justify-between gap-3">
               <button
                 className="focus-ring inline-grid h-9 w-9 place-items-center rounded-xl text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
@@ -243,7 +310,9 @@ export function DateField({
                 </div>
               </div>
             )}
-          </div>
+          </div>,
+          document.body
+          )
         ) : null}
       </div>
     </FieldShell>
