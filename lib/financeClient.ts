@@ -190,6 +190,42 @@ export async function setFinanceRate(input: {
   if (failure) throw failure;
 }
 
+/**
+ * Correct a change that is already there — its date, its amount, its cadence.
+ *
+ * Separate from `setFinanceRate` because that one is keyed on the date: entering
+ * the same date twice corrects it, but a typo *in* the date could only ever be
+ * fixed by deleting the row and retyping it, which is a strange thing to ask of
+ * somebody who can see the wrong figure in front of them.
+ */
+export async function updateFinanceRate(input: {
+  id: string;
+  effectiveFrom: string;
+  amount: number;
+  cadence: PayCadence;
+}) {
+  if (!supabase) return;
+
+  const patch = {
+    effective_from: input.effectiveFrom,
+    monthly_amount: monthlyFromCadence(input.amount, input.cadence),
+    entered_amount: input.amount,
+    cadence: input.cadence
+  };
+
+  const { error } = await supabase.from("finance_line_rates").update(patch).eq("id", input.id);
+
+  // One change per line per date, so moving a change onto a date that already
+  // has one is a collision worth naming rather than a failed save.
+  if (error?.code === "23505") {
+    throw new Error("This line already has a change on that date. Edit that one instead.");
+  }
+  if (isMissingCadenceColumn(error)) throw new Error(CADENCE_MIGRATION);
+
+  const failure = reportable(error);
+  if (failure) throw failure;
+}
+
 export async function deleteFinanceRate(id: string) {
   if (!supabase) return;
   const { error } = await supabase.from("finance_line_rates").delete().eq("id", id);

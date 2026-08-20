@@ -24,6 +24,7 @@ export function SetupSheet({
   onAddLine,
   onRename,
   onSetRate,
+  onUpdateRate,
   onDeleteRate,
   onDeleteLine,
   notice
@@ -39,6 +40,7 @@ export function SetupSheet({
   }) => void;
   onRename: (lineId: string, label: string) => void;
   onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (lineId: string) => void;
   notice?: string;
@@ -80,6 +82,7 @@ export function SetupSheet({
           onAddLine={onAddLine}
           onRename={onRename}
           onSetRate={onSetRate}
+          onUpdateRate={onUpdateRate}
           onDeleteRate={onDeleteRate}
           onDeleteLine={setDeleting}
         />

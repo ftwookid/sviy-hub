@@ -854,6 +854,20 @@ Two kinds of number meet on the page and they behave differently:
   - A non-monthly figure explains itself wherever it appears: the month row
     reads "$2,600.00 every 2 weeks" under the $5,633.33, the history row carries
     the typed figure under its date, and the entry row converts while you type.
+- **A change already logged is edited in place.** Every row in a line's history
+  is a button: tapping it turns that row into the same date + cadence + amount
+  form, with Save, Cancel and Delete. Correcting one used to mean re-entering it
+  on the same date and hoping you remembered the upsert rule, and a typo *in* a
+  date could only be fixed by deleting the row — `updateFinanceRate` patches by
+  id, so the date is editable like anything else, and moving a change onto a date
+  that already has one is named rather than swallowed.
+  - **Delete lives inside the edit state, not on the read row.** A trash icon on
+    every history row was one mis-tap from losing a figure typed months ago, and
+    it was the only thing those rows offered — so the row now offers editing and
+    deleting is the deliberate second step.
+  - The add-a-change form is hidden while a row is being edited. Two identical
+    forms on one card, one adding and one correcting, is how a raise gets typed
+    into the wrong one.
   - A single amount per line was the first design and it was wrong in the one way
     that matters: entering a raise rewrote every month back to the beginning,
     because the old figure had nowhere to live. Nothing about a past month moves
@@ -1282,19 +1296,17 @@ deleted. Before it ran, `/finances` loaded and every linked figure read
 correctly, but the typed blocks showed a notice and saving a line reported the
 table missing.
 
-Then run `supabase/finance-cadence-schema.sql` in Supabase. It is re-runnable. It
-adds `cadence` and `entered_amount` to `finance_line_rates` and backfills every
-existing row as Monthly, which is what the single column meant. Until it runs,
-Finances reads and saves monthly figures exactly as before, and choosing any
-other cadence reports that this migration is needed rather than silently
-dropping it.
+`supabase/finance-cadence-schema.sql` was applied on 19 August 2026. It adds
+`cadence` and `entered_amount` to `finance_line_rates` and backfilled every
+existing row as Monthly, which is what the single column meant. It is
+re-runnable. Before it ran, Finances read and saved monthly figures exactly as
+before, and choosing any other cadence reported the missing migration rather
+than silently dropping it.
 
-**After it runs, Ivan's W2 line still needs correcting by hand**: it holds a
-bi-weekly paycheck in a field that meant a month, and no migration can know
-which lines those are. Open Setup → Ivan W2, set the caption above the amount to
-Bi-weekly, and re-enter the paycheck **from the same date as the existing
-change** — same date is an upsert, so it corrects that change instead of adding
-a second one and blending the month.
+**Ivan's W2 line still needs correcting by hand**: it holds a bi-weekly paycheck
+in a column that meant a month, and no migration can know which lines those are.
+Open Setup → Ivan W2 → tap the change in its history, set the caption above the
+amount to Bi-weekly, and Save.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
