@@ -224,16 +224,18 @@ export default function FinancesPage() {
                 title and Setup, and a control on a row of its own left the whole
                 top right of the page blank. Placement is explicit per cell so
                 the phone still reads picker, month, breakdown, year. */}
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] lg:items-start">
-              {/* A card, like everything else in this column. Capping its width
-                  instead left a 300px pill sitting above a 444px card, lining up
-                  with neither edge — so it takes the column's full width and
-                  keeps its arrows beside the label rather than at the edges. */}
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+              {/* A card, like everything else in this column, and — because it
+                  shares a grid row with the summary rather than floating above
+                  the column — exactly as tall as it. Row one is the month and the
+                  month's total; row two is the detail and the year. */}
               <div className="lg:col-start-2 lg:row-start-1">
                 <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} variant="panel" />
               </div>
-              <div className="space-y-3 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+              <div className="lg:col-start-1 lg:row-start-1">
                 <MonthSummary month={month} />
+              </div>
+              <div className="lg:col-start-1 lg:row-start-2">
                 <BucketRows sections={month.sections} moneyIn={month.moneyIn} />
               </div>
               <div className="lg:col-start-2 lg:row-start-2 lg:self-start">

@@ -903,6 +903,13 @@ come to, what is it made of, how does it compare with the year:
   immediately, without losing the others from view. Each line keeps its hint,
   which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
   Aug 2", "3 nights booked", "Lowers the tax bill, not the bank balance").
+- **The grid is two real rows, so cards that sit side by side end level.** Row one
+  is the month picker and the month's total; row two is the breakdown and the
+  year. The picker was floating above a column that spanned both rows, which left
+  it 14px shorter than the summary beside it — close enough to look like a
+  mistake rather than a choice. In a shared row it stretches to match, and the
+  `panel` variant fills the height it is given. `YearList` keeps `self-start` so
+  it ends where its content ends instead of stretching to the breakdown.
 - **The columns are sized to their content, not split down the middle.** The
   breakdown is capped at 460px, which is what its rows need — label left, amount
   right, and past that the middle is only gap — so `YearList` gets the remaining

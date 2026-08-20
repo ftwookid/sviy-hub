@@ -77,13 +77,17 @@ export function MonthPicker({
   }
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className={cn("relative", variant === "panel" && "h-full")} ref={containerRef}>
       {/* One 44px row. The old two-line card spent a third of its height telling
           the user they could tap it, which the chevron already says. */}
       <div
         className={cn(
-          "flex h-11 items-center gap-0.5 border border-border bg-surface p-0.5",
-          variant === "panel" ? "justify-center rounded-[20px] shadow-card" : "rounded-xl shadow-sm"
+          "flex items-center gap-0.5 border border-border bg-surface p-0.5",
+          // A panel fills the height it is given, so it can sit in a grid row
+          // beside a card and end level with it instead of 10px short.
+          variant === "panel"
+            ? "h-full min-h-11 justify-center rounded-[20px] shadow-card"
+            : "h-11 rounded-xl shadow-sm"
         )}
       >
         <button
