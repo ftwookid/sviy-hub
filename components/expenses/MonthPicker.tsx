@@ -86,7 +86,7 @@ export function MonthPicker({
           // A panel fills the height it is given, so it can sit in a grid row
           // beside a card and end level with it instead of 10px short.
           variant === "panel"
-            ? "h-full min-h-11 justify-center rounded-[20px] shadow-card"
+            ? "h-full min-h-[60px] justify-center rounded-[20px] shadow-card"
             : "h-11 rounded-xl shadow-sm"
         )}
       >
@@ -102,7 +102,10 @@ export function MonthPicker({
         <button
           className={cn(
             "focus-ring flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 transition hover:bg-subtle",
-            variant === "panel" ? "max-w-full" : "flex-1"
+            // A fixed box, so the arrows do not creep inwards on "May 2026" and
+            // outwards on "September 2026". The label re-centres inside it; the
+            // controls either side of it never move.
+            variant === "panel" ? "w-[196px] shrink-0" : "flex-1"
           )}
           type="button"
           aria-expanded={open}

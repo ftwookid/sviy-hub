@@ -924,8 +924,18 @@ come to, what is it made of, how does it compare with the year:
   tapping the other and holding the first in your head. Month-over-month
   comparison is the whole job of the block. The only thing ever wrong with the
   list was its width, and width is fixed by a column, not by deleting the figures.
-- Empty blocks are a header row and nothing else; the composition bar does not
-  render before anything is allocated.
+- **The header pair is a fixed 60px each, always.** `MonthSummary` and the picker
+  share grid row one, so anything that changes one's height moves the other. A
+  composition bar used to sit under the figures and render only once something
+  had been allocated, which made the picker beside it jump by 50px between
+  months; it is gone, and the share each block takes is on that block's row in the
+  breakdown, where you are already looking when you want it. Both cards are pinned
+  to `h-[60px]` rather than left to their content.
+- **The picker's arrows never move.** Its label sits in a fixed 196px box, so
+  "May 2026", "September 2026" and the `Now` chip all re-centre inside it while
+  the controls either side stay put. Centring a variable-width group was the
+  version that crept.
+- Empty blocks are a header row and nothing else.
 
 The month costs about 160px of scroll on a 390x844 phone with every line and every
 month on screen, against roughly 1600px when each block was its own card. Zero

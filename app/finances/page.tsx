@@ -225,10 +225,9 @@ export default function FinancesPage() {
                 top right of the page blank. Placement is explicit per cell so
                 the phone still reads picker, month, breakdown, year. */}
             <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
-              {/* A card, like everything else in this column, and — because it
-                  shares a grid row with the summary rather than floating above
-                  the column — exactly as tall as it. Row one is the month and the
-                  month's total; row two is the detail and the year. */}
+              {/* The header pair: the month, and what the month came to. Both are
+                  a fixed 60px whatever is in them, and they share a grid row, so
+                  neither can move the other. Row two is the detail and the year. */}
               <div className="lg:col-start-2 lg:row-start-1">
                 <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} variant="panel" />
               </div>
