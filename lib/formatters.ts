@@ -5,6 +5,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2
 });
 
+const wholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0
+});
+
 const monthFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
   year: "numeric"
@@ -17,6 +24,17 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 
 export function formatCurrency(value: number | string) {
   return currencyFormatter.format(Number(value || 0));
+}
+
+/**
+ * Whole dollars, for figures read at a glance rather than reconciled.
+ *
+ * The headline strip on Finances puts three numbers across a phone's width, and
+ * at that size the cents are what pushed "$2,602.00" into "$2,602...." — a
+ * truncated number is worse than a rounded one. Detail rows keep their cents.
+ */
+export function formatCurrencyRounded(value: number | string) {
+  return wholeCurrencyFormatter.format(Number(value || 0));
 }
 
 export function formatMonth(date: Date) {

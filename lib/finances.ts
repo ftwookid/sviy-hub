@@ -8,6 +8,7 @@ import type {
   FinanceRate,
   FinanceRow,
   FinanceSection,
+  FinanceSectionKey,
   MonthFinances
 } from "@/types/finance";
 import { estimateClientMonthlyNet } from "@/lib/clients";
@@ -39,6 +40,31 @@ export const BUCKET_BLURBS: Record<FinanceBucket, string> = {
   Needs: "Rent, food, utilities, insurance",
   Debt: "What the loans and cards take",
   "Investments & Savings": "Put away rather than spent"
+};
+
+/**
+ * How each block is named and coloured, in one place.
+ *
+ * The colour is shared between the composition bar and the block's own row, so a
+ * segment can be traced to its row by eye. Two components disagreeing about
+ * either the name or the colour would make the bar unreadable, which is the only
+ * reason it exists.
+ */
+export const SECTION_STYLE: Record<
+  FinanceSectionKey,
+  { title: string; short: string; color: string; text: string }
+> = {
+  "Gross Income": { title: "Gross income", short: "In", color: "bg-[#5F8C74]", text: "text-[#4A8C6F]" },
+  "Tax Withheld": { title: "Tax withheld", short: "Tax", color: "bg-[#8C8579]", text: "text-text-secondary" },
+  Deductions: { title: "Deductions", short: "Business", color: "bg-accent", text: "text-text-secondary" },
+  Needs: { title: "Needs", short: "Needs", color: "bg-[#D8C7A5]", text: "text-text-secondary" },
+  Debt: { title: "Debt", short: "Debt", color: "bg-[#B87B6B]", text: "text-text-secondary" },
+  "Investments & Savings": {
+    title: "Investments & savings",
+    short: "Saved",
+    color: "bg-[#7FA890]",
+    text: "text-text-secondary"
+  }
 };
 
 function emptyYear() {

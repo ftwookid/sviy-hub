@@ -1,19 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
-import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
-import { BucketCard } from "@/components/finances/BucketCard";
-import { CashflowStrip } from "@/components/finances/CashflowStrip";
-import { FinanceTabs } from "@/components/finances/FinanceTabs";
-import { MonthBalanceCard } from "@/components/finances/MonthBalanceCard";
+import { BucketRows } from "@/components/finances/BucketRows";
+import { MonthOverview } from "@/components/finances/MonthOverview";
 import { SkeletonRows } from "@/components/ui/Skeleton";
-import { currentPeriodMonth, periodMonthLabel } from "@/lib/expenses";
+import { currentPeriodMonth } from "@/lib/expenses";
 import {
-  BUCKET_BLURBS,
   buildYear,
   clientMonthlyIncome,
   houseSittingByMonth,
@@ -29,7 +26,7 @@ import type { ClientWithPets } from "@/types/client";
 import type { Expense } from "@/types/expense";
 import type { HouseSittingBooking } from "@/types/houseSitting";
 import type { MileageTrip } from "@/types/mileage";
-import type { FinanceLine, FinanceSectionKey } from "@/types/finance";
+import type { FinanceLine } from "@/types/finance";
 
 /**
  * Finances — the household month.
@@ -39,25 +36,17 @@ import type { FinanceLine, FinanceSectionKey } from "@/types/finance";
  * the business spent, what the household owes, and what was put away.
  *
  * Two kinds of number meet here. The standing ones — the W2, rent, the car
- * payment — are typed in once and stand in every month. The ones the app already
- * records — regular clients, house sitting, business spending, miles — are read
- * from their own tables and are not editable here, so there is never a second,
- * staler copy of a figure the books already hold.
+ * payment — carry a dated schedule and are written in Setup. The ones the app
+ * already records — regular clients, house sitting, business spending, miles —
+ * are read from their own tables, so there is never a second, staler copy of a
+ * figure the books already hold.
  *
  * The mileage deduction is shown but never subtracted. It lowers a tax bill, not
  * a bank balance, and counting it as money out would invent a deficit.
+ *
+ * Two cards, and the month reads without scrolling on a phone: the overview
+ * carries its own month navigation, and the six blocks are six rows that open.
  */
-
-const SECTION_TITLES: Record<FinanceSectionKey, string> = {
-  "Gross Income": "Gross income",
-  "Tax Withheld": "Tax withheld",
-  Deductions: "Deductions",
-  Needs: "Needs",
-  Debt: "Debt",
-  "Investments & Savings": "Investments & savings"
-};
-
-const DEDUCTIONS_BLURB = "What the business spent, from your books";
 
 export default function FinancesPage() {
   const { user, authLoading } = useAuthUser();
@@ -164,14 +153,21 @@ export default function FinancesPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Finances" />
+      {/* Setup is visited a few times a year, so it is a control on a row that
+          already exists rather than a tab holding half the width on every visit. */}
+      <PageHeader
+        title="Finances"
+        action={
+          <Link
+            href="/finances/setup"
+            className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
+          >
+            <SlidersHorizontal size={16} strokeWidth={1.8} />
+            Setup
+          </Link>
+        }
+      />
       <div className="space-y-3">
-        <FinanceTabs />
-
-        <div className="max-w-[280px]">
-          <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
-        </div>
-
         {notice ? (
           <div className="flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-[13px] text-text-primary">
             <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning" />
@@ -183,24 +179,18 @@ export default function FinancesPage() {
           <SkeletonRows />
         ) : (
           <>
-            <MonthBalanceCard month={month} monthLabel={periodMonthLabel(periodMonth)} />
-
-            {month.sections.map((section) => (
-              <BucketCard
-                key={section.key}
-                section={section}
-                title={SECTION_TITLES[section.key]}
-                blurb={section.key === "Deductions" ? DEDUCTIONS_BLURB : BUCKET_BLURBS[section.key]}
-                moneyIn={month.moneyIn}
-              />
-            ))}
-
-            <CashflowStrip
+            <MonthOverview
+              month={month}
               months={months}
+              periodMonth={periodMonth}
+              monthIndex={monthIndex}
               year={year}
-              selectedIndex={monthIndex}
-              onSelect={(nextMonth) => setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)}
+              onPeriodChange={setPeriodMonth}
+              onMonthIndexChange={(nextMonth) =>
+                setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
+              }
             />
+            <BucketRows sections={month.sections} moneyIn={month.moneyIn} />
           </>
         )}
       </div>

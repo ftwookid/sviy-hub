@@ -6,6 +6,33 @@ Sviy Hub is a private, single-user family CRM and business tracker for a small p
 
 The app should feel calm, premium, warm, and consumer-grade. The design direction is soft off-white backgrounds, warm gold accents, generous whitespace, rounded corners, subtle shadows, and comfortable mobile-first tap targets.
 
+## Before you ship any screen — the gate
+
+The rule below has been written down for a long time and has still been broken on
+almost every new screen, so it is now a checklist rather than a principle. Ivan has
+asked for this roughly twenty-five times. Reading the rule is not applying it.
+
+Answer these before writing layout, and again before committing:
+
+1. **Did I stack cards?** More than two top-level cards on a screen is a failure.
+   Related blocks go in **one** container split by `border-t`. Six sections means
+   six rows in one card that expand, not six cards.
+2. **Is every row using its full width?** A card spanning the screen with its
+   content in the left 10% is the single most-named failure. Numbers go where the
+   space is — a divided strip across the row, not a left-hugging block.
+3. **Did I spend a permanent row on navigation?** A full-width segmented bar for
+   two tabs is not navigation, it is 48px of tax on every visit. Rare
+   destinations are a small control in the header, or a stage you drill into.
+4. **Can the answer be read without scrolling?** If the screen's whole point is
+   below the fold on a 390×700 phone, the layout is wrong however tidy it looks.
+5. **Is anything collapsed that should be, or expanded that should not?** Entry
+   forms, history and setup collapse. What the page exists to show never does.
+6. **Did I measure it at 390px?** Not "does it compile" — the rendered geometry,
+   with a screenshot read back.
+
+If a screen fails any of these, it is not finished, and shipping it and offering
+to polish later is not an option.
+
 ## Space and Navigation — the standing rule
 
 This comes up on almost every task, so it is written here rather than repeated
@@ -848,13 +875,38 @@ Rules the arithmetic follows:
   loaded. The one thing this page must not get wrong is whether the family is up
   or down, and that is easiest to trust when no query can change the answer.
 
-Reading and writing are two tabs, `Month` and `Setup` (`FinanceTabs`). The month
-view is entirely read-only; every typed figure is written in Setup, where a line
-opens to show its whole history and takes a new change as a date plus an amount.
-They were one screen at first, with a pencil on each block — that stopped working
-the moment a figure became a schedule, because a pencil there has to answer
-"change it from when?", which is a question the month you are looking at cannot
-answer. Linked rows carry a source badge and appear only on the month.
+**The whole month fits on one screen.** Two cards, no scroll on a 390x844 phone —
+content ends at 615px. It was three times that when every block was its own card,
+and that stack is what the layout rules at the top of this file exist to prevent.
+
+- `MonthOverview` is one container in four bands: month navigation, the three
+  figures as a **divided strip across the full width**, the composition bar, and
+  the year. Its own month arrows mean the picker costs no row of its own.
+- The year is **twelve columns from a centre line**, not twelve rows. It answers
+  "what shape is the year" — a run of green flipping to red is visible instantly
+  — and any month is one tap, after which its figure appears in the strip above.
+  Twelve rows spent 350px to say the same thing in numbers already shown.
+- `BucketRows` is the six blocks as **six rows in one card**, each opening to its
+  lines. Six cards cost about 900px for what reads in 280px. The share bar sits
+  under the block name, in width the row already had.
+- Headline figures are **whole dollars** (`formatCurrencyRounded`). Three exact
+  figures across a phone truncated to "$2,602...." — a rounded number beats a
+  truncated one, and the cents are still on every detail row.
+- Bands and rows that have nothing to say are **not rendered**: no composition bar
+  before anything is allocated, no share bar on a block at zero, no "nothing here"
+  row per empty bucket.
+
+Setup is a **stage, not a tab** — reached from a control in the header slot that
+already exists, and left by a back arrow. A full-width segmented row for two tabs
+is 48px charged to every visit for a screen opened a few times a year. Inside, the
+five buckets are 32px strips in one card, each with its total and a `+`.
+
+The month is read-only throughout; every typed figure is written in Setup, where a
+line opens to its whole history and takes a change as a date plus an amount. It
+was one screen at first, with a pencil on each block — that stopped working the
+moment a figure became a schedule, because a pencil there has to answer "change it
+from when?", which the month you are looking at cannot answer. Linked rows carry a
+source badge and appear only on the month.
 
 Below the blocks, **Left over by month** puts all twelve months on one centre
 line, surplus right in green and deficit left in red, and tapping a month selects
@@ -903,12 +955,10 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/finances/page.tsx`: Finances — the household month, in and out.
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
-- `components/finances/MonthBalanceCard.tsx`: Left over, and where the income went.
-- `components/finances/BucketCard.tsx`: One block, its rows, and the editing for them.
-- `components/finances/CashflowStrip.tsx`: Twelve months either side of a centre line.
+- `components/finances/MonthOverview.tsx`: Month, the three figures, composition, the year.
+- `components/finances/BucketRows.tsx`: Six blocks as six rows that open.
 - `app/finances/setup/page.tsx`: The standing figures, and when each changed.
-- `components/finances/SetupBucketCard.tsx`: One line, its history, and a dated change.
-- `components/finances/FinanceTabs.tsx`: Month and Setup.
+- `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
