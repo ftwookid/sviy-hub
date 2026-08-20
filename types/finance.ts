@@ -21,6 +21,27 @@ export const FINANCE_BUCKETS: FinanceBucket[] = [
 ];
 
 /**
+ * How often a figure actually arrives or is paid.
+ *
+ * Every rate is stored as a monthly amount, because that is what a month is
+ * built out of — but almost nothing is genuinely paid monthly. A W2 lands every
+ * second week, insurance goes out quarterly. Typing the paycheck into a field
+ * that means "a month" understates the year by 2.17x and nothing on the page
+ * says so, so the cadence is recorded next to the figure that was typed and the
+ * monthly equivalent is derived from the pair.
+ */
+export type PayCadence = "Weekly" | "Bi-weekly" | "Semi-monthly" | "Monthly" | "Quarterly" | "Annual";
+
+export const PAY_CADENCES: PayCadence[] = [
+  "Weekly",
+  "Bi-weekly",
+  "Semi-monthly",
+  "Monthly",
+  "Quarterly",
+  "Annual"
+];
+
+/**
  * One change to a line: from this date, it is this much a month.
  *
  * `effective_from` is inclusive — the new amount applies on its own date. A line
@@ -32,7 +53,17 @@ export type FinanceRate = {
   line_id: string;
   user_id: string;
   effective_from: string;
+  /**
+   * The monthly figure, derived — what every reader on the page spends.
+   *
+   * Derived rather than looked up so the whole existing month build, the year
+   * rail and the reports keep working off one number, and a cadence can never
+   * be half-applied by a reader that forgot to convert.
+   */
   monthly_amount: number;
+  /** What was actually typed: the paycheck, the quarterly bill. */
+  entered_amount: number;
+  cadence: PayCadence;
 };
 
 export type FinanceLine = {

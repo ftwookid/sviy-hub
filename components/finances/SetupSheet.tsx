@@ -6,7 +6,7 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SetupGroups } from "@/components/finances/SetupGroups";
 import { useEscapeKey } from "@/lib/useEscapeKey";
-import type { FinanceBucket, FinanceLine } from "@/types/finance";
+import type { FinanceBucket, FinanceLine, PayCadence } from "@/types/finance";
 
 /**
  * The standing figures, over the month rather than instead of it.
@@ -30,9 +30,15 @@ export function SetupSheet({
 }: {
   lines: FinanceLine[];
   onClose: () => void;
-  onAddLine: (input: { bucket: FinanceBucket; label: string; amount: number; effectiveFrom: string }) => void;
+  onAddLine: (input: {
+    bucket: FinanceBucket;
+    label: string;
+    amount: number;
+    cadence: PayCadence;
+    effectiveFrom: string;
+  }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number) => void;
+  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (lineId: string) => void;
   notice?: string;

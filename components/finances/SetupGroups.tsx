@@ -4,9 +4,18 @@ import { useState } from "react";
 import { Check, ChevronDown, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { DateField } from "@/components/ui/DateField";
-import { BUCKET_BLURBS, EDITABLE_BUCKETS, SECTION_STYLE, currentAmount } from "@/lib/finances";
+import { CadencePicker } from "@/components/finances/CadencePicker";
+import {
+  BUCKET_BLURBS,
+  CADENCE_SUFFIX,
+  EDITABLE_BUCKETS,
+  SECTION_STYLE,
+  currentAmount,
+  currentCadence,
+  monthlyFromCadence
+} from "@/lib/finances";
 import { formatCurrency, formatShortDate, parseLocalDate, todayInputValue } from "@/lib/formatters";
-import type { FinanceBucket, FinanceLine } from "@/types/finance";
+import type { FinanceBucket, FinanceLine, PayCadence } from "@/types/finance";
 
 /**
  * Every standing figure, and the dated history behind each one — in one card.
@@ -24,6 +33,21 @@ import type { FinanceBucket, FinanceLine } from "@/types/finance";
 function parseAmount(value: string) {
   const parsed = Number(value.replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+/**
+ * What a non-monthly figure comes to a month, said before it is saved.
+ *
+ * The conversion is the whole point of the setting, so it is shown while the
+ * amount is still being typed rather than only afterwards in the history — a
+ * bi-weekly paycheck reaching the month at 2.17x is the number worth checking.
+ */
+function monthlyLine(amountValue: string, cadence: PayCadence) {
+  const typed = parseAmount(amountValue);
+  if (!typed) return `Paid ${CADENCE_SUFFIX[cadence]}, spread evenly across the months.`;
+  return `${formatCurrency(typed)} ${CADENCE_SUFFIX[cadence]} is ${formatCurrency(
+    monthlyFromCadence(typed, cadence)
+  )} a month.`;
 }
 
 function longDate(dateValue: string) {
@@ -105,17 +129,20 @@ function LineDetail({
 }: {
   line: FinanceLine;
   onRename: (label: string) => void;
-  onSetRate: (effectiveFrom: string, amount: number) => void;
+  onSetRate: (effectiveFrom: string, amount: number, cadence: PayCadence) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: () => void;
 }) {
   const [label, setLabel] = useState(line.label);
   const [changeDate, setChangeDate] = useState(todayInputValue());
   const [changeAmount, setChangeAmount] = useState("");
+  // A line paid every second week is still paid every second week after a
+  // raise, so the change being typed inherits the cadence already in force.
+  const [cadence, setCadence] = useState<PayCadence>(() => currentCadence(line.rates));
 
   function saveChange() {
     if (!changeAmount.trim()) return;
-    onSetRate(changeDate, parseAmount(changeAmount));
+    onSetRate(changeDate, parseAmount(changeAmount), cadence);
     setChangeAmount("");
   }
 
@@ -136,8 +163,15 @@ function LineDetail({
               made. */}
           {[...line.rates].reverse().map((rate) => (
             <div key={rate.id} className="flex items-center gap-2 py-0.5">
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-secondary">
-                From {longDate(rate.effective_from)}
+              <span className="min-w-0 flex-1 text-[12.5px] text-text-secondary">
+                <span className="block truncate">From {longDate(rate.effective_from)}</span>
+                {/* Only where it says something: a monthly line's typed figure
+                    and its monthly figure are the same number. */}
+                {rate.cadence !== "Monthly" ? (
+                  <span className="block truncate text-[11.5px] text-text-tertiary">
+                    {formatCurrency(rate.entered_amount)} {CADENCE_SUFFIX[rate.cadence]}
+                  </span>
+                ) : null}
               </span>
               <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
                 {formatCurrency(rate.monthly_amount)}
@@ -163,12 +197,10 @@ function LineDetail({
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
         <div className="shrink-0">
-          <span className="mb-2 block text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
-            A month
-          </span>
+          <CadencePicker value={cadence} onChange={setCadence} />
           <AmountInput
             className="w-[96px]"
-            label="Monthly amount from this date"
+            label={`Amount ${CADENCE_SUFFIX[cadence]} from this date`}
             value={changeAmount}
             onChange={setChangeAmount}
             onEnter={saveChange}
@@ -179,7 +211,13 @@ function LineDetail({
         </IconButton>
       </div>
       <p className="mt-1.5 text-[11px] text-text-tertiary">
-        A month the date lands inside is split across both amounts. To stop a line, change it to 0.
+        {cadence === "Monthly" ? (
+          "A month the date lands inside is split across both amounts. To stop a line, change it to 0."
+        ) : (
+          <>
+            {monthlyLine(changeAmount, cadence)} A month the date lands inside is split across both amounts.
+          </>
+        )}
       </p>
 
       <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
@@ -210,9 +248,15 @@ export function SetupGroups({
   onDeleteLine
 }: {
   lines: FinanceLine[];
-  onAddLine: (input: { bucket: FinanceBucket; label: string; amount: number; effectiveFrom: string }) => void;
+  onAddLine: (input: {
+    bucket: FinanceBucket;
+    label: string;
+    amount: number;
+    cadence: PayCadence;
+    effectiveFrom: string;
+  }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number) => void;
+  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (line: FinanceLine) => void;
 }) {
@@ -221,6 +265,7 @@ export function SetupGroups({
   const [newLabel, setNewLabel] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newFrom, setNewFrom] = useState(todayInputValue());
+  const [newCadence, setNewCadence] = useState<PayCadence>("Monthly");
 
   function startAdding(bucket: FinanceBucket) {
     setAddingBucket(bucket);
@@ -228,12 +273,13 @@ export function SetupGroups({
     setNewLabel("");
     setNewAmount("");
     setNewFrom(todayInputValue());
+    setNewCadence("Monthly");
   }
 
   function submitNew(bucket: FinanceBucket) {
     const label = newLabel.trim();
     if (!label) return;
-    onAddLine({ bucket, label, amount: parseAmount(newAmount), effectiveFrom: newFrom });
+    onAddLine({ bucket, label, amount: parseAmount(newAmount), cadence: newCadence, effectiveFrom: newFrom });
     setAddingBucket(null);
   }
 
@@ -272,7 +318,7 @@ export function SetupGroups({
 
             {addingBucket === bucket ? (
               <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-end gap-1.5">
                   <input
                     className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary"
                     value={newLabel}
@@ -285,13 +331,16 @@ export function SetupGroups({
                       if (event.key === "Escape") setAddingBucket(null);
                     }}
                   />
-                  <AmountInput
-                    className="w-[96px] shrink-0"
-                    label="New line monthly amount"
-                    value={newAmount}
-                    onChange={setNewAmount}
-                    onEnter={() => submitNew(bucket)}
-                  />
+                  <div className="shrink-0">
+                    <CadencePicker value={newCadence} onChange={setNewCadence} />
+                    <AmountInput
+                      className="w-[96px]"
+                      label={`New line amount ${CADENCE_SUFFIX[newCadence]}`}
+                      value={newAmount}
+                      onChange={setNewAmount}
+                      onEnter={() => submitNew(bucket)}
+                    />
+                  </div>
                 </div>
                 <div className="mt-2 flex items-end gap-1.5">
                   <div className="min-w-0 flex-1">
@@ -309,6 +358,9 @@ export function SetupGroups({
                     <X size={16} strokeWidth={1.8} />
                   </IconButton>
                 </div>
+                {newCadence !== "Monthly" ? (
+                  <p className="mt-1.5 text-[11px] text-text-tertiary">{monthlyLine(newAmount, newCadence)}</p>
+                ) : null}
               </div>
             ) : null}
 
@@ -364,7 +416,7 @@ export function SetupGroups({
                       <LineDetail
                         line={line}
                         onRename={(label) => onRename(line.id, label)}
-                        onSetRate={(effectiveFrom, amount) => onSetRate(line.id, effectiveFrom, amount)}
+                        onSetRate={(effectiveFrom, amount, cadence) => onSetRate(line.id, effectiveFrom, amount, cadence)}
                         onDeleteRate={onDeleteRate}
                         onDeleteLine={() => onDeleteLine(line)}
                       />

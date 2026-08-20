@@ -838,6 +838,22 @@ Two kinds of number meet on the page and they behave differently:
   schedule** (`finance_line_rates`), not a single amount: one row per change,
   `effective_from` inclusive. Amounts are always positive — direction is a
   property of the bucket, so a mistyped minus cannot turn rent into income.
+  - **Each change records how often it arrives.** Almost nothing is genuinely
+    paid monthly: a W2 lands every second week, insurance goes out quarterly.
+    A rate therefore stores three things — `entered_amount` (what was typed),
+    `cadence`, and `monthly_amount` **derived** from the pair. The derived
+    column is the one every reader spends, so the month build, the year rail and
+    the reports never convert anything and a cadence cannot be half-applied by a
+    reader that forgot. Bi-weekly is 26 paydays a year spread evenly across the
+    months, not 24 — `Semi-monthly` exists separately for figures that really do
+    arrive twice a month.
+  - The cadence is set from the **caption above the amount field** — the slot
+    that used to read a dead "A MONTH". A setting most lines never touch costs
+    no height that way, and tapping it shows the whole list with a tick rather
+    than cycling. A new change inherits the cadence already in force on the line.
+  - A non-monthly figure explains itself wherever it appears: the month row
+    reads "$2,600.00 every 2 weeks" under the $5,633.33, the history row carries
+    the typed figure under its date, and the entry row converts while you type.
   - A single amount per line was the first design and it was wrong in the one way
     that matters: entering a raise rewrote every month back to the beginning,
     because the old figure had nowhere to live. Nothing about a past month moves
@@ -1011,8 +1027,11 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
+- `components/finances/CadencePicker.tsx`: How often a figure arrives, as the amount's caption.
+- `components/ui/AnchoredPanel.tsx`: A panel pinned to a control, portalled clear of anything that clips.
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
+- `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1262,6 +1281,20 @@ empty page. It is re-runnable, and re-running never resurrects a line somebody
 deleted. Before it ran, `/finances` loaded and every linked figure read
 correctly, but the typed blocks showed a notice and saving a line reported the
 table missing.
+
+Then run `supabase/finance-cadence-schema.sql` in Supabase. It is re-runnable. It
+adds `cadence` and `entered_amount` to `finance_line_rates` and backfills every
+existing row as Monthly, which is what the single column meant. Until it runs,
+Finances reads and saves monthly figures exactly as before, and choosing any
+other cadence reports that this migration is needed rather than silently
+dropping it.
+
+**After it runs, Ivan's W2 line still needs correcting by hand**: it holds a
+bi-weekly paycheck in a field that meant a month, and no migration can know
+which lines those are. Open Setup → Ivan W2, set the caption above the amount to
+Bi-weekly, and re-enter the paycheck **from the same date as the existing
+change** — same date is an upsert, so it corrects that change instead of adding
+a second one and blending the month.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
