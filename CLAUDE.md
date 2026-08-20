@@ -879,15 +879,20 @@ Rules the arithmetic follows:
 layout answers three questions in the order they get asked — what did the month
 come to, what is it made of, how does it compare with the year:
 
-- `MonthPicker` (the app's own, shared with Taxes), capped at 300px and sitting
-  **at the top of the right column** — the header row already carries the title
-  and Setup, so a picker on a row of its own left the whole top right of the page
-  blank. Arrows sit either side of the label and the label opens a year-and-month
-  grid. Three versions failed here and all three failures are worth remembering:
-  arrows at opposite edges of a full-width row; a month label that looked like a
-  picker and did nothing when tapped; and letting the capped picker fill its
-  column, which put the two arrows 500px apart again. A control that looks like a
-  picker opens a picker, and its parts stay within reach of each other.
+- `MonthPicker` (the app's own, shared with Taxes) sits **at the top of the right
+  column** — the header row already carries the title and Setup, so a picker on a
+  row of its own left the whole top right of the page blank. The label opens a
+  year-and-month grid. It takes a `variant`: `control` (the default, and what
+  Taxes uses) stretches inside a row of controls; `panel` makes it a **card** —
+  the same 20px radius, `shadow-card` and column width as the cards it stacks
+  with — and keeps the arrows beside the label rather than at the box's edges.
+  Four versions failed here and every failure is worth remembering: arrows at
+  opposite edges of a full-width row; a month label that looked like a picker and
+  did nothing when tapped; a capped picker filling its column, which put the
+  arrows 500px apart again; and a 300px pill sitting above a 444px card, lining up
+  with neither of its edges. A control that looks like a picker opens a picker, it
+  keeps its parts within reach of each other, and it matches whatever it is
+  stacked with.
 - `MonthSummary` is three **peer figures at one size** — net, in, out. An earlier
   version set the net two steps larger, which made the reader ask why the type
   kept changing. Emphasis is colour, per financial convention: **green in

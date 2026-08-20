@@ -225,11 +225,12 @@ export default function FinancesPage() {
                 top right of the page blank. Placement is explicit per cell so
                 the phone still reads picker, month, breakdown, year. */}
             <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] lg:items-start">
-              {/* Capped and centred in its column. Letting it fill the column
-                  put its two arrows 500px apart, which is the same mistake as a
-                  full-width picker wearing a different layout. */}
-              <div className="w-full max-w-[300px] lg:col-start-2 lg:row-start-1 lg:mx-auto">
-                <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
+              {/* A card, like everything else in this column. Capping its width
+                  instead left a 300px pill sitting above a 444px card, lining up
+                  with neither edge — so it takes the column's full width and
+                  keeps its arrows beside the label rather than at the edges. */}
+              <div className="lg:col-start-2 lg:row-start-1">
+                <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} variant="panel" />
               </div>
               <div className="space-y-3 lg:col-start-1 lg:row-span-2 lg:row-start-1">
                 <MonthSummary month={month} />

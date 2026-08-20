@@ -20,10 +20,18 @@ const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
  */
 export function MonthPicker({
   periodMonth,
-  onChange
+  onChange,
+  variant = "control"
 }: {
   periodMonth: string;
   onChange: (next: string) => void;
+  /**
+   * `control` sits in a row of controls next to buttons, and takes the width it
+   * is given. `panel` stands as a card in its own right, above or beside other
+   * cards — so it wears their radius and shadow, and keeps its arrows next to
+   * the label instead of pushing them out to the edges of whatever it is in.
+   */
+  variant?: "control" | "panel";
 }) {
   const [open, setOpen] = useState(false);
   // Browsing a year in the panel does not change the selected month until a
@@ -72,7 +80,12 @@ export function MonthPicker({
     <div className="relative" ref={containerRef}>
       {/* One 44px row. The old two-line card spent a third of its height telling
           the user they could tap it, which the chevron already says. */}
-      <div className="flex h-11 items-center gap-0.5 rounded-xl border border-border bg-surface p-0.5 shadow-sm">
+      <div
+        className={cn(
+          "flex h-11 items-center gap-0.5 border border-border bg-surface p-0.5",
+          variant === "panel" ? "justify-center rounded-[20px] shadow-card" : "rounded-xl shadow-sm"
+        )}
+      >
         <button
           className="focus-ring grid h-10 w-9 shrink-0 place-items-center rounded-[10px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
           type="button"
@@ -83,7 +96,10 @@ export function MonthPicker({
         </button>
 
         <button
-          className="focus-ring flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2 transition hover:bg-subtle"
+          className={cn(
+            "focus-ring flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 transition hover:bg-subtle",
+            variant === "panel" ? "max-w-full" : "flex-1"
+          )}
           type="button"
           aria-expanded={open}
           aria-haspopup="dialog"
