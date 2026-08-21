@@ -230,6 +230,51 @@ function dateValue(year: number, monthIndex: number, day: number) {
 }
 
 /**
+ * Lines that are paid on a fixed weekday, whatever date gets typed for them.
+ *
+ * Ivan's W2 lands on a **Thursday**, always, and he does not always remember the
+ * exact date the schedule started — he may type the Monday of that week. While
+ * months were averaged that cost nothing; now the anchor generates every payday,
+ * and four days of error moves the year's two extra paychecks between months
+ * (a Sunday anchor put them in March and August, the real Thursday one puts them
+ * in April and October). So a date given for this line is read as *the week it
+ * falls in*, and the payday is that week's Thursday.
+ *
+ * Keyed by label, and deliberately narrow: this is one household fact about one
+ * paycheck, not a feature. Nothing else in the app has a fixed weekday, and
+ * renaming the line turns the rule off — which is the right failure, because the
+ * app would then have no reason to believe anything about when it is paid.
+ */
+const PAYDAY_WEEKDAY: Record<string, number> = {
+  // 4 = Thursday, in a week that starts on Sunday.
+  "ivan w2": 4
+};
+
+export function paydayWeekdayFor(label: string): number | null {
+  return PAYDAY_WEEKDAY[label.trim().toLowerCase()] ?? null;
+}
+
+/**
+ * The line's payday in the week the given date falls in.
+ *
+ * The week runs Sunday to Saturday, which is what makes 21 December 2025 — a
+ * Sunday — mean the Thursday **after** it rather than the one before. A date
+ * already on the right weekday is returned untouched.
+ */
+export function snapToPayday(dateValue: string, weekday: number | null) {
+  if (weekday === null) return dateValue;
+  const date = parseLocalDate(dateValue);
+  const shift = weekday - date.getDay();
+  return shift === 0 ? dateValue : toInputDate(addDays(date, shift));
+}
+
+/** A line's schedule as its paydays, for lines that have a fixed one. */
+function onPaydays(rates: FinanceRate[], weekday: number | null) {
+  if (weekday === null) return rates;
+  return rates.map((rate) => ({ ...rate, effective_from: snapToPayday(rate.effective_from, weekday) }));
+}
+
+/**
  * The date a line's cycle counts from.
  *
  * A raise does **not** restart the cycle — payday is payday whatever the figure
@@ -377,6 +422,10 @@ function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, m
   return lines
     .filter((line) => line.bucket === bucket)
     .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label))
+    // A fixed-weekday line is read on its paydays. Setup already writes the
+    // snapped date, so this is normally a no-op — it is here so that a row
+    // written any other way still cannot put the paycheck on a Sunday.
+    .map((line) => ({ ...line, rates: onPaydays(line.rates, paydayWeekdayFor(line.label)) }))
     .map((line) => ({
       key: line.id,
       label: line.label,

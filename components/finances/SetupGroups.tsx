@@ -11,7 +11,9 @@ import {
   SECTION_STYLE,
   currentAmount,
   currentCadence,
-  monthlyFromCadence
+  monthlyFromCadence,
+  paydayWeekdayFor,
+  snapToPayday
 } from "@/lib/finances";
 import { formatCurrency, formatShortDate, parseLocalDate, todayInputValue } from "@/lib/formatters";
 import type { FinanceBucket, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
@@ -155,18 +157,34 @@ function LineDetail({
   // raise, so the change being typed inherits the cadence already in force.
   const [cadence, setCadence] = useState<PayCadence>(() => currentCadence(line.rates));
 
+  // A line with a fixed payday is saved on that payday, whatever date was picked
+  // — Ivan may type the Monday of the week his paycheck lands on. Snapping on
+  // save rather than only on read means the date shown in the history, the date
+  // stored, and the date the month counts are all the same one.
+  const payday = paydayWeekdayFor(line.label);
+  const paydayNote =
+    payday === null
+      ? null
+      : "Paid on Thursdays. A date anywhere in that week is saved as its Thursday.";
+
   // Payments from this date on are worth the new amount; the ones before it keep
   // the old one. That is not the same as the old wording, which said the month
   // was "split across both amounts" — months are no longer averaged, they are a
   // count of the payments that landed in them.
-  const changeHint =
+  const changeHint = [
     cadence === "Monthly"
       ? "Payments from this date on use the new amount. To stop a line, change it to 0."
-      : `${monthlyLine(changeAmount, cadence)} Payments from this date on use the new amount.`;
+      : `${monthlyLine(changeAmount, cadence)} Payments from this date on use the new amount.`,
+    // Said where the date is being picked, not afterwards in a toast: the point
+    // is that Ivan does not have to know which Thursday it was.
+    paydayNote
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   function saveChange() {
     if (!changeAmount.trim()) return;
-    onSetRate(changeDate, parseAmount(changeAmount), cadence);
+    onSetRate(snapToPayday(changeDate, payday), parseAmount(changeAmount), cadence);
     setChangeAmount("");
   }
 
@@ -181,7 +199,7 @@ function LineDetail({
 
   function saveEditing() {
     if (!editing || !editing.amount.trim()) return;
-    onUpdateRate(editing.id, editing.date, parseAmount(editing.amount), editing.cadence);
+    onUpdateRate(editing.id, snapToPayday(editing.date, payday), parseAmount(editing.amount), editing.cadence);
     setEditing(null);
   }
 

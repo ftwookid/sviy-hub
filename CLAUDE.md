@@ -1452,6 +1452,19 @@ re-runnable. Before it ran, Finances read and saved monthly figures exactly as
 before, and choosing any other cadence reported the missing migration rather
 than silently dropping it.
 
+**`Ivan W2` is paid on Thursdays, and the app enforces it.** `PAYDAY_WEEKDAY` in
+`lib/finances.ts` maps that one label to Thursday; `snapToPayday()` moves any
+date to the Thursday of the week it falls in (weeks run Sunday to Saturday, which
+is what makes Sunday 21 December mean the Thursday *after* it), and a date
+already on a Thursday is left exactly as it is. Setup snaps on save, so the date
+stored, the date shown in the history and the date the month counts are the same
+one, and the entry form says so under the field. `manualRows` snaps again on read
+as a backstop, so a row written any other way still cannot put the paycheck on a
+Sunday. The rule is keyed by label and deliberately applies to **nothing else** —
+not Rent, not the withholding lines. Renaming the line turns it off, which is the
+right failure: the app would then have no reason to believe anything about when
+it is paid.
+
 **The date on a line's first change is now its payday, so it has to be right.**
 It was only a "from when" while months were averaged; it is the anchor of the
 whole cycle now, and a wrong weekday is a wrong answer rather than a rounding
