@@ -827,10 +827,22 @@ Six blocks, in this order:
 | --- | --- |
 | Gross income | Typed lines (Ivan W2) + regular clients + house sitting |
 | Tax withheld | Typed |
-| Deductions | Read from Transactions, plus the mileage deduction for context |
+| Deductions | Typed — insurance, repayments, anything withheld that is not tax |
 | Needs | Typed |
 | Debt | Typed |
 | Investments & savings | Typed |
+
+**Deductions here is not the business deduction.** It was, for a version: the
+block read business spending and the mileage deduction off the books, which put a
+*tax* total in the middle of a cash-flow page — the miles are not cash and could
+never be subtracted, and the spending answers a Taxes question that Reports
+already totals. It also left the money that genuinely comes out of a paycheck
+before it lands — health insurance, a repayment, a garnishment — with nowhere to
+be typed. So Deductions is the sixth typed bucket, with dated amounts and a
+cadence like every other standing figure, and nothing about the business's
+deduction appears on Finances at all. Business spending is not subtracted here
+either, so a month with business purchases reads higher than the bank does; the
+figure has one home, and it is Reports.
 
 Two kinds of number meet on the page and they behave differently:
 
@@ -890,11 +902,9 @@ Two kinds of number meet on the page and they behave differently:
 
 Rules the arithmetic follows:
 
-- **The mileage deduction is shown but never subtracted.** It lowers a tax bill,
-  not a bank balance. Counting it as money out would invent a deficit out of
-  nothing. It renders as an `informational` row, which `sectionOf()` excludes
-  from the section total.
-- Business spending **is** subtracted: unlike the miles, it left an account.
+- **No business figure is on the page.** Neither the mileage deduction (never
+  cash) nor business spending (Taxes' question, totalled on Reports) is read into
+  the month, so nothing here can be a tax total pretending to be a bank balance.
 - House sitting is spread over the nights it was slept in, not filed under its
   start date, so a stay from the 28th to the 3rd pays into both months. Cancelled
   stays earn nothing.
@@ -1046,6 +1056,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
+- `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1295,6 +1306,12 @@ empty page. It is re-runnable, and re-running never resurrects a line somebody
 deleted. Before it ran, `/finances` loaded and every linked figure read
 correctly, but the typed blocks showed a notice and saving a line reported the
 table missing.
+
+Then run `supabase/finance-deductions-bucket-schema.sql` in Supabase. It is
+re-runnable and one statement: it widens the `finance_lines` bucket check
+constraint to allow `Deductions`. Until it runs, the Deductions block and its
+Setup strip are both there, and adding a line to it reports the missing migration
+rather than failing silently.
 
 `supabase/finance-cadence-schema.sql` was applied on 19 August 2026. It adds
 `cadence` and `entered_amount` to `finance_line_rates` and backfilled every

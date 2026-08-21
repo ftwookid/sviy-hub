@@ -9,12 +9,28 @@
  * already keeps, and is never stored here.
  */
 
-/** Buckets that hold typed-in lines. `Deductions` is absent on purpose: it is read from the books. */
-export type FinanceBucket = "Gross Income" | "Tax Withheld" | "Needs" | "Debt" | "Investments & Savings";
+/**
+ * Buckets that hold typed-in lines — which is now all of them.
+ *
+ * `Deductions` here means what comes out of pay before it lands: health
+ * insurance, a repayment, anything withheld that is not tax. It is **not** the
+ * business deduction that lowers a tax bill — that question is Taxes' and is
+ * answered on Reports, off the transactions and the miles. Finances used to show
+ * that figure under this name, which put a tax total in the middle of a cash-flow
+ * page and left nowhere to type the deductions that really do leave the paycheck.
+ */
+export type FinanceBucket =
+  | "Gross Income"
+  | "Tax Withheld"
+  | "Deductions"
+  | "Needs"
+  | "Debt"
+  | "Investments & Savings";
 
 export const FINANCE_BUCKETS: FinanceBucket[] = [
   "Gross Income",
   "Tax Withheld",
+  "Deductions",
   "Needs",
   "Debt",
   "Investments & Savings"
@@ -80,7 +96,7 @@ export type FinanceLine = {
 };
 
 /** Where a figure on the page came from. Shown on the row, because a linked number is not editable. */
-export type FinanceRowSource = "Manual" | "Clients" | "House Sitting" | "Transactions" | "Mileage";
+export type FinanceRowSource = "Manual" | "Clients" | "House Sitting";
 
 export type FinanceRow = {
   key: string;
@@ -88,12 +104,10 @@ export type FinanceRow = {
   amount: number;
   source: FinanceRowSource;
   hint?: string;
-  /** True for figures shown for context that must not be added into the total — the mileage deduction. */
-  informational?: boolean;
 };
 
-/** Buckets as displayed, including the one that is read rather than typed. */
-export type FinanceSectionKey = FinanceBucket | "Deductions";
+/** Buckets as displayed. Every one of them is a bucket now. */
+export type FinanceSectionKey = FinanceBucket;
 
 export type FinanceSection = {
   key: FinanceSectionKey;
@@ -109,6 +123,4 @@ export type MonthFinances = {
   moneyIn: number;
   moneyOut: number;
   leftOver: number;
-  /** The mileage deduction for the month. Never cash, so never in `moneyOut`. */
-  mileageDeduction: number;
 };

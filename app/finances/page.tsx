@@ -13,13 +13,7 @@ import { YearList } from "@/components/finances/YearList";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth } from "@/lib/expenses";
-import {
-  buildYear,
-  clientMonthlyIncome,
-  houseSittingByMonth,
-  mileageByMonth,
-  spendByMonth
-} from "@/lib/finances";
+import { buildYear, clientMonthlyIncome, houseSittingByMonth } from "@/lib/finances";
 import {
   addFinanceLine,
   deleteFinanceLine,
@@ -30,13 +24,10 @@ import {
   updateFinanceRate
 } from "@/lib/financeClient";
 import { parseLocalDate } from "@/lib/formatters";
-import { dateFromTimestamp, loadMileageTrips, loadMileageUploads } from "@/lib/mileage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientWithPets } from "@/types/client";
-import type { Expense } from "@/types/expense";
 import type { HouseSittingBooking } from "@/types/houseSitting";
-import type { MileageTrip } from "@/types/mileage";
 import type { FinanceBucket, FinanceLine } from "@/types/finance";
 
 /**
@@ -44,16 +35,17 @@ import type { FinanceBucket, FinanceLine } from "@/types/finance";
  *
  * Every other section answers a question about the business. This one asks
  * whether the family came out ahead: what arrived, what the taxman took, what
- * the business spent, what the household owes, and what was put away.
+ * is deducted from pay, what the household owes, and what was put away.
  *
  * Two kinds of number meet here. The standing ones — the W2, rent, the car
- * payment — carry a dated schedule and are written in Setup. The ones the app
- * already records — regular clients, house sitting, business spending, miles —
- * are read from their own tables, so there is never a second, staler copy of a
- * figure the books already hold.
+ * payment, the insurance taken out of a paycheck — carry a dated schedule and
+ * are written in Setup. The ones the app already records — regular clients,
+ * house sitting — are read from their own tables, so there is never a second,
+ * staler copy of a figure the books already hold.
  *
- * The mileage deduction is shown but never subtracted. It lowers a tax bill, not
- * a bank balance, and counting it as money out would invent a deficit.
+ * Nothing about the business's tax deduction is on this page. Spending and miles
+ * answer a Taxes question and are totalled on Reports; shown here they read as
+ * cash the household never handled.
  *
  * The layout answers three questions in the order they get asked: what did the
  * month come to, what is it made of, and how does it compare with the rest of the
@@ -70,8 +62,6 @@ export default function FinancesPage() {
   const [notice, setNotice] = useState("");
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [trips, setTrips] = useState<MileageTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [setupOpen, setSetupOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -106,17 +96,7 @@ export default function FinancesPage() {
       .select("*")
       .lte("start_date", `${year}-12-31`)
       .gte("end_date", `${year}-01-01`);
-    const expenseQuery = supabase
-      .from("expenses")
-      .select("*")
-      .gte("date", `${year}-01-01`)
-      .lte("date", `${year}-12-31`);
-
-    const [clientResult, bookingResult, expenseResult] = await Promise.all([
-      clientQuery,
-      bookingQuery,
-      expenseQuery
-    ]);
+    const [clientResult, bookingResult] = await Promise.all([clientQuery, bookingQuery]);
 
     setClients(
       ((clientResult.data ?? []) as Array<ClientWithPets & { price_history: ClientWithPets["price_history"] }>).map(
@@ -132,16 +112,6 @@ export default function FinancesPage() {
         status: booking.status === "Cancelled" ? "Cancelled" : "Planned"
       }))
     );
-    setExpenses((expenseResult.data ?? []) as Expense[]);
-
-    const scope = { ownerId: "all" };
-    const { uploads } = await loadMileageUploads(scope);
-    const { trips: nextTrips } = await loadMileageTrips(
-      scope,
-      uploads.filter((upload) => upload.is_active).map((upload) => upload.id)
-    );
-    setTrips(nextTrips.filter((trip) => dateFromTimestamp(trip.start_at).getFullYear() === year));
-
     setNotice(await refreshLines());
     setLoading(false);
   }, [refreshLines, user, year]);
@@ -156,11 +126,9 @@ export default function FinancesPage() {
         year,
         lines,
         clientIncome: clientMonthlyIncome(clients),
-        houseSitting: houseSittingByMonth(bookings, year),
-        spend: spendByMonth(expenses, year),
-        mileage: mileageByMonth(trips, year)
+        houseSitting: houseSittingByMonth(bookings, year)
       }),
-    [bookings, clients, expenses, lines, trips, year]
+    [bookings, clients, lines, year]
   );
 
   const month = months[monthIndex];

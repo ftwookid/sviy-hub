@@ -69,19 +69,12 @@ export function BucketRows({ sections, moneyIn }: { sections: FinanceSection[]; 
                     <div key={row.key} className="flex items-start gap-2.5 px-3 py-1.5">
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline gap-1.5">
-                          <span
-                            className={cn(
-                              "truncate text-[12.5px]",
-                              row.informational ? "text-text-tertiary" : "text-text-secondary"
-                            )}
-                          >
-                            {row.label}
-                          </span>
+                          <span className="truncate text-[12.5px] text-text-secondary">{row.label}</span>
                           <SourceBadge source={row.source} />
                         </span>
                         {/* The hint is where a figure explains itself — that a
                             month is blended across a raise, that a stay was three
-                            nights, that the miles are not cash. It is the reason
+                            nights, that a premium is quarterly. It is the reason
                             to look at a breakdown at all, so it stays on screen. */}
                         {row.hint ? (
                           <span className="mt-px block truncate text-[10.5px] leading-tight text-text-tertiary">
@@ -89,12 +82,7 @@ export function BucketRows({ sections, moneyIn }: { sections: FinanceSection[]; 
                           </span>
                         ) : null}
                       </span>
-                      <span
-                        className={cn(
-                          "shrink-0 text-[12.5px] tabular-nums",
-                          row.informational ? "text-text-tertiary" : "text-text-primary"
-                        )}
-                      >
+                      <span className="shrink-0 text-[12.5px] tabular-nums text-text-primary">
                         {formatCurrency(row.amount)}
                       </span>
                     </div>

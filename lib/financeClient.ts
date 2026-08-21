@@ -25,6 +25,19 @@ const MIGRATIONS: Array<[table: string, file: string]> = [
 
 const CADENCE_MIGRATION = "The pay cadence needs its column. Run supabase/finance-cadence-schema.sql in Supabase.";
 
+const BUCKET_MIGRATION =
+  "Deductions is not a bucket in the database yet. Run supabase/finance-deductions-bucket-schema.sql in Supabase.";
+
+/**
+ * The bucket list lives in a check constraint, so a bucket the app knows about
+ * and the database does not fails as a constraint violation — which reads as
+ * "violates check constraint finance_lines_bucket_check" and names no fix.
+ */
+function isUnknownBucket(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return error.code === "23514" && /finance_lines_bucket_check/.test(error.message ?? "");
+}
+
 /** PostgREST rejects an unknown column with PGRST204 before the request reaches Postgres. */
 function isMissingCadenceColumn(error: { code?: string; message?: string } | null) {
   if (!error) return false;
@@ -113,6 +126,8 @@ export async function addFinanceLine(input: {
     })
     .select("id")
     .single();
+
+  if (isUnknownBucket(error)) throw new Error(BUCKET_MIGRATION);
 
   const insertError = reportable(error);
   if (insertError) throw insertError;
