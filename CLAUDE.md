@@ -989,8 +989,10 @@ it meant a page load and a fresh set of queries to show figures the month behind
 it had already loaded, then another load coming back. As a slide-over it opens
 instantly on data already in memory, and a saved change lands on the month
 underneath while the panel is still open — which is the whole reason you opened
-it. Inside, the five buckets are strips in one card, each with its total, its
-blurb ("Needs" alone does not say what belongs in it) and a `+`.
+it. Inside, the six buckets are strips in one card, each with its total and a
+`+`. **No blurb under the name** — "Before anything is taken out" under Gross
+income tells whoever typed those figures nothing they did not know, and six of
+them cost about 96px on a phone for nothing.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It

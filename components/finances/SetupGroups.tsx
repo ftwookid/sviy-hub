@@ -6,7 +6,6 @@ import { cn } from "@/lib/cn";
 import { DateField } from "@/components/ui/DateField";
 import { CadencePicker } from "@/components/finances/CadencePicker";
 import {
-  BUCKET_BLURBS,
   CADENCE_SUFFIX,
   EDITABLE_BUCKETS,
   SECTION_STYLE,
@@ -390,14 +389,12 @@ export function SetupGroups({
             {/* A 32px strip, not a card header. */}
             <div className="flex items-center gap-2 bg-[#FAFAF7] px-3.5 py-2">
               <span aria-hidden className={cn("h-3 w-1 shrink-0 rounded-full", style.color)} />
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
-                  {style.title}
-                </h2>
-                {/* What belongs in a bucket is a setup-time question, so the
-                    hint lives here rather than on the month. */}
-                <p className="truncate text-[11px] text-text-tertiary">{BUCKET_BLURBS[bucket]}</p>
-              </div>
+              {/* No blurb under the name. "Before anything is taken out" under
+                  Gross income tells whoever typed these figures nothing they do
+                  not know, and six of them cost 96px on a phone. */}
+              <h2 className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                {style.title}
+              </h2>
               <span className="shrink-0 text-[12px] font-medium tabular-nums text-text-secondary">
                 {formatCurrency(inEffect)}
               </span>

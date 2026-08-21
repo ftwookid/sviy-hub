@@ -33,15 +33,6 @@ export const EDITABLE_BUCKETS: FinanceBucket[] = [
   "Investments & Savings"
 ];
 
-export const BUCKET_BLURBS: Record<FinanceBucket, string> = {
-  "Gross Income": "Before anything is taken out",
-  "Tax Withheld": "Already gone before payday",
-  Deductions: "Insurance and repayments taken from pay",
-  Needs: "Rent, food, utilities, bills",
-  Debt: "What the loans and cards take",
-  "Investments & Savings": "Put away rather than spent"
-};
-
 /**
  * How each block is named and coloured, in one place.
  *
