@@ -193,7 +193,12 @@ export default function FinancesPage() {
                 title and Setup, and a control on a row of its own left the whole
                 top right of the page blank. Placement is explicit per cell so
                 the phone still reads picker, month, breakdown, year. */}
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+            {/* minmax(0,…) on the phone's single column too, not just the
+                desktop pair: an auto grid track sizes to its widest item's
+                min-content, so one long line name inside the breakdown pushed
+                the whole page 81px wider than the screen and everything scrolled
+                sideways. */}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
               {/* The header pair: the month, and what the month came to. Both are
                   a fixed 60px whatever is in them, and they share a grid row, so
                   neither can move the other. Row two is the detail and the year. */}

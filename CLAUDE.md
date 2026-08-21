@@ -942,7 +942,39 @@ come to, what is it made of, how does it compare with the year:
   scan totals to find the one that looks wrong and then need its lines
   immediately, without losing the others from view. Each line keeps its hint,
   which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
-  Aug 2", "3 nights booked", "Lowers the tax bill, not the bank balance").
+  Aug 2", "3 nights booked", "$302.30 every 2 weeks").
+- **But nineteen figures only read if the eye is given something to travel
+  along**, and the first version gave it nothing: every number within a point of
+  the same size, section totals barely heavier than their lines, each amount
+  ending wherever its own row ended, and the lines in the order somebody typed
+  them. It read as a list of numbers rather than an answer. Three things fix
+  that, and none of them is hiding data:
+  1. **One column for every figure.** Totals and line amounts share a fixed
+     right-hand column, so all nineteen sit on one edge and the eye runs down
+     them instead of hunting left and right.
+  2. **A heading outranks its lines** — 15px primary over 13px secondary, with
+     the block's colour and a tinted strip, so a block is findable without
+     reading a word of it.
+  3. **A bar against every line**, sized against the biggest line in its own
+     block, on the row's second line beside the hint — so the proportion costs no
+     height. Which line dominates a block is a question about proportion, and a
+     length answers it faster than comparing digits. `sectionOf` therefore sorts
+     **biggest first**, so the bars step down and the two lines that matter are
+     always the top two. Setup keeps `sort_order` instead: that screen is for
+     editing a named line, and a list that reshuffles as amounts change is no way
+     to find one.
+  Two placements for that bar were tried and rejected. A **column of its own**
+  needed 58px to be readable and took them off the label, turning "OR Statewide
+  Transit Tax (Ivan)" into "OR Statewide Transit Tax (I…" at 390px — a label you
+  cannot read is worse than a proportion you cannot see. **Filling the row's
+  background** was worse again: a 16% tint of olive on off-white is not a length
+  anyone can measure, and a fill stopping halfway across a row reads as a
+  rendering fault rather than a quantity.
+- **`minmax(0, …)` on the phone's single grid column, not just the desktop
+  pair.** An `auto` grid track sizes to its widest item's min-content, and
+  min-width:0 inside a flex row does not cap that contribution — so one long line
+  name in the breakdown pushed the whole page 81px wider than the screen and
+  every card, the summary included, scrolled sideways.
 - **The grid is two real rows, so cards that sit side by side end level.** Row one
   is the month picker and the month's total; row two is the breakdown and the
   year. The picker was floating above a column that spanned both rows, which left

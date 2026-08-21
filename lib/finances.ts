@@ -276,6 +276,16 @@ function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, m
     }));
 }
 
+/**
+ * A block, with its lines biggest first.
+ *
+ * Not in the order they were typed. A block is read to find out where the money
+ * went, and the answer is almost always the top one or two lines — putting them
+ * in insertion order means scanning thirteen near-identical figures to find the
+ * $654 among the $1.56s. Setup keeps `sort_order`, because that screen is for
+ * editing a named line and a list that reshuffles as amounts change is no way to
+ * find it.
+ */
 function sectionOf(
   key: FinanceSection["key"],
   direction: FinanceSection["direction"],
@@ -284,7 +294,7 @@ function sectionOf(
   return {
     key,
     direction,
-    rows,
+    rows: [...rows].sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label)),
     total: rows.reduce((sum, row) => sum + row.amount, 0)
   };
 }
