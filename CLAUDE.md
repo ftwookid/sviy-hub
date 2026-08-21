@@ -821,16 +821,35 @@ Every other section answers a question about the business. **Finances**
 of a month: did more come in than went out. It is a household view, not a tax
 view — the year's deductible total lives in Reports and is not repeated here.
 
-Six blocks, in this order:
+**It tracks recurring commitments, not spending.** This is the scope decision the
+whole page hangs off, so it is written here first: a line belongs in Finances only
+if it repeats whether anybody thinks about it or not — a paycheck, rent, payroll
+tax, an insurance premium, a loan, a subscription, a standing transfer into
+savings. Restaurants, an occasional trip, a one-off purchase are **not** typed
+here and there is deliberately nowhere to put them. So the questions the page
+exists to answer are: how much of the month is already promised before it starts,
+and which commitment is worth killing. Anything that reframes it as a
+list-every-transaction budget app is out of scope, and any layout that cannot
+answer those two questions is the wrong layout however tidy it is.
+
+Seven blocks, in this order:
 
 | Block | Where the figures come from |
 | --- | --- |
 | Gross income | Typed lines (Ivan W2) + regular clients + house sitting |
 | Tax withheld | Typed |
 | Deductions | Typed — insurance, repayments, anything withheld that is not tax |
-| Needs | Typed |
+| Needs | Typed — rent, utilities, groceries as a standing figure |
+| Subscriptions | Typed — the recurring services worth cancelling |
 | Debt | Typed |
 | Investments & savings | Typed |
+
+**Subscriptions has its own block on purpose.** Filed under Needs they were
+invisible: one $2,395 rent line drowns nine small ones, and "what am I paying for
+every month that I no longer use" cannot be read off a total. Its own block means
+its own total, its own share of income, and its own yearly run rate — and of
+everything on this page, it is the one part a household can actually cut. Tax and
+rent are not arguable; a pile of $15-a-month services is.
 
 **Deductions here is not the business deduction.** It was, for a version: the
 block read business spending and the mileage deduction off the books, which put a
@@ -943,39 +962,46 @@ come to, what is it made of, how does it compare with the year:
   immediately, without losing the others from view. Each line keeps its hint,
   which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
   Aug 2", "3 nights booked", "$302.30 every 2 weeks").
-- **The card exists to answer one question — what is taking the money, and what
-  is worth going after first.** Three versions answered a different one, and the
-  mistakes are worth keeping written down because each looked tidy:
-  1. **Money in and money out looked identical** — same type, same rows, tinted
-     strips a shade apart. A reader landing on a line could not tell whether the
-     figure was a good thing or a bad thing, which is the first thing a number
-     here has to say. Income reads in green and closes with a green total;
-     everything that leaves is neutral.
-  2. **The block total sat above its lines.** People read a group of items and
-     then its conclusion — a receipt, an invoice and a bank statement all work
-     that way, and a total on top is a claim you have to hold in your head while
-     checking the lines under it. The total is now the block's **last** row,
-     heavier and tinted, and it is the only place the block's name appears.
-  3. **The bars measured the wrong thing.** Scaled against the biggest line
-     inside each block, a $2.10 line looked enormous in a block holding nothing
-     else and no two blocks were comparable — a picture that has to be decoded is
-     worse than no picture. Every percentage and every bar on the card is now one
-     thing: **share of the month's money in**, named once at the top of the card,
-     on one scale, so Needs at 20% is visibly a fifth of everything earned and
-     visibly four times OR Income Tax at 5%.
-  Two other bar placements were tried and rejected. A **column of its own** needed
-  58px and took them off the label, turning "OR Statewide Transit Tax (Ivan)" into
-  "OR Statewide Transit Tax (I…" at 390px — a label you cannot read is worse than a
-  proportion you cannot see. **Filling the row's background** was worse again: a
-  16% tint of olive on off-white is not a length anyone can measure, and a fill
-  stopping halfway across a row reads as a rendering fault rather than a quantity.
-- **One column for every figure**, totals included, so they all read down one
-  edge; and the `Clients` / `House Sitting` source badge sits on the row's second
-  line, since on the first it cost 70px of the one thing on the row that cannot
-  be guessed from context.
-- Lines are **biggest first** (`sectionOf`) — the order that answers "what should
-  I go after". Setup keeps `sort_order` instead: that screen is for editing a
-  named line, and a list that reshuffles as amounts change is no way to find one.
+- **The card is built around the two questions above**, and four versions of it
+  answered different ones. What it does now:
+  1. **A composition bar at the top** — each committed block's share of income,
+     then what is left, on one 100% track, with "37% committed · $4,328.16" and
+     "63% left over · $7,485.08" under it. The month in one line before a figure
+     is read. This is the *only* place proportion is drawn: thirteen bars, one per
+     row, were noise.
+  2. **A yearly figure against every commitment and every block total.** $14.99 a
+     month is a shrug; $180 a year is a decision. It is rounded
+     (`formatCurrencyRounded`) because it is a run rate, not an amount anybody was
+     charged.
+  3. **Money in reads green, everything committed reads neutral.** A reader
+     landing on a line must be able to tell whether the figure is a good thing
+     before reading what it says. `MonthSummary` matches: money in, **Committed**,
+     left over — in that order, which is the order the question gets asked.
+  4. **Lines first, then their conclusion.** People read a group of items and then
+     its total — a receipt, an invoice and a statement all work that way, and a
+     total on top is a claim you have to hold in your head while checking the
+     lines under it. Each block's total is its **last** row, heavier and tinted,
+     and it is the only place the block's name appears.
+  5. **One column for every figure**, totals included, so they all read down one
+     edge; every percentage on the card is one thing — share of money in — named
+     once in the header; and the `Clients` / `House Sitting` badge sits on the
+     second line, since on the first it cost 70px of the label.
+  6. **Biggest first** (`sectionOf`) — the order that answers "what should I go
+     after". Setup keeps `sort_order`: that screen is for finding a line by name,
+     and a list that reshuffles as amounts change is no way to find one.
+  Rejected, with reasons, so they do not come back: **per-row bars scaled inside
+  their own block** (a $2.10 line got a full-width bar in an otherwise empty
+  block, and no two blocks were comparable — nobody could say what a length
+  meant); **a bar column of its own** (58px, taken off the label, turning "OR
+  Statewide Transit Tax (Ivan)" into "OR Statewide Transit Tax (I…" at 390px);
+  **filling the row background** (a 16% tint of olive on off-white is not a length
+  anyone can measure, and a fill stopping mid-row reads as a rendering fault).
+  Four whole-card shapes were also built side by side on real August figures — a
+  waterfall, a donut-plus-ranked-list, proportional tiles, and a two-column
+  ledger — and the composition bar plus the grouped ledger is what came out of it:
+  the ranked-list and donut versions answer "where did it go" but lose the
+  block totals and the yearly run rate, which are what make a commitment
+  cancellable.
 - **`minmax(0, …)` on the phone's single grid column, not just the desktop
   pair.** An `auto` grid track sizes to its widest item's min-content, and
   min-width:0 inside a flex row does not cap that contribution — so one long line
@@ -1124,6 +1150,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
 - `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
+- `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1379,6 +1406,12 @@ re-runnable and one statement: it widens the `finance_lines` bucket check
 constraint to allow `Deductions`. Until it runs, the Deductions block and its
 Setup strip are both there, and adding a line to it reports the missing migration
 rather than failing silently.
+
+Then run `supabase/finance-subscriptions-bucket-schema.sql` in Supabase. It is
+re-runnable and one statement: it widens the `finance_lines` bucket check
+constraint to allow `Subscriptions`. Until it runs, the Subscriptions block and
+its Setup strip are both there, and adding a line to it reports the missing
+migration by name rather than failing silently.
 
 `supabase/finance-cadence-schema.sql` was applied on 19 August 2026. It adds
 `cadence` and `entered_amount` to `finance_line_rates` and backfilled every

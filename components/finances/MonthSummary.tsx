@@ -29,10 +29,14 @@ const HEADER_CARD_HEIGHT = "h-[60px]";
 export function MonthSummary({ month }: { month: MonthFinances }) {
   const short = month.leftOver < 0;
 
+  // In, then what is already promised, then what survives — the order the
+  // question gets asked. "Committed" rather than "money out": nothing occasional
+  // is ever typed into Finances, so every figure here is something that repeats
+  // whether anybody thinks about it or not, and that is the point of the page.
   const stats = [
-    { label: short ? "Short" : "Left over", value: month.leftOver, tone: short ? "bad" : "good" },
     { label: "Money in", value: month.moneyIn, tone: "plain" },
-    { label: "Money out", value: month.moneyOut, tone: "plain" }
+    { label: "Committed", value: month.moneyOut, tone: "plain" },
+    { label: short ? "Short" : "Left over", value: month.leftOver, tone: short ? "bad" : "good" }
   ];
 
   return (

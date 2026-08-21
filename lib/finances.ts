@@ -29,6 +29,7 @@ export const EDITABLE_BUCKETS: FinanceBucket[] = [
   "Tax Withheld",
   "Deductions",
   "Needs",
+  "Subscriptions",
   "Debt",
   "Investments & Savings"
 ];
@@ -49,6 +50,7 @@ export const SECTION_STYLE: Record<
   "Tax Withheld": { title: "Tax withheld", short: "Tax", color: "bg-[#8C8579]", text: "text-text-secondary" },
   Deductions: { title: "Deductions", short: "Deducted", color: "bg-accent", text: "text-text-secondary" },
   Needs: { title: "Needs", short: "Needs", color: "bg-[#D8C7A5]", text: "text-text-secondary" },
+  Subscriptions: { title: "Subscriptions", short: "Subs", color: "bg-[#8D9DAE]", text: "text-text-secondary" },
   Debt: { title: "Debt", short: "Debt", color: "bg-[#B87B6B]", text: "text-text-secondary" },
   "Investments & Savings": {
     title: "Investments & savings",
@@ -339,6 +341,7 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
     sectionOf("Tax Withheld", "out", manualRows(lines, "Tax Withheld", year, monthIndex)),
     sectionOf("Deductions", "out", manualRows(lines, "Deductions", year, monthIndex)),
     sectionOf("Needs", "out", manualRows(lines, "Needs", year, monthIndex)),
+    sectionOf("Subscriptions", "out", manualRows(lines, "Subscriptions", year, monthIndex)),
     sectionOf("Debt", "out", manualRows(lines, "Debt", year, monthIndex)),
     sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings", year, monthIndex))
   ];

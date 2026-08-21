@@ -33,7 +33,7 @@ alter table finance_lines
   drop constraint if exists finance_lines_bucket_check;
 alter table finance_lines
   add constraint finance_lines_bucket_check
-  check (bucket in ('Gross Income', 'Tax Withheld', 'Deductions', 'Needs', 'Debt', 'Investments & Savings'));
+  check (bucket in ('Gross Income', 'Tax Withheld', 'Deductions', 'Needs', 'Subscriptions', 'Debt', 'Investments & Savings'));
 
 alter table finance_lines
   drop constraint if exists finance_lines_amount_check;

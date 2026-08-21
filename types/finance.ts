@@ -24,6 +24,7 @@ export type FinanceBucket =
   | "Tax Withheld"
   | "Deductions"
   | "Needs"
+  | "Subscriptions"
   | "Debt"
   | "Investments & Savings";
 
@@ -32,6 +33,7 @@ export const FINANCE_BUCKETS: FinanceBucket[] = [
   "Tax Withheld",
   "Deductions",
   "Needs",
+  "Subscriptions",
   "Debt",
   "Investments & Savings"
 ];
