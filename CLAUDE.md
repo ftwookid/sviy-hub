@@ -1454,13 +1454,19 @@ than silently dropping it.
 
 **The date on a line's first change is now its payday, so it has to be right.**
 It was only a "from when" while months were averaged; it is the anchor of the
-whole cycle now. Ivan W2 and the seven withholding lines are anchored 21 December
-2025, which is correct — 2026 pays them 26 times, three of those in March and
-three in August. `Rent` is anchored 21 September 2021, so it counts as paid on
-the 21st of each month; that does not change any total (a monthly line pays once
-a month whatever the day), it only decides which side of a mid-month change a
-payment falls on. If a real rent day is the 1st, fix it by editing the first
-change's date in Setup.
+whole cycle now, and a wrong weekday is a wrong answer rather than a rounding
+error. Ivan W2 and the seven withholding lines were anchored 21 December 2025,
+**a Sunday** — the paycheck actually lands on Thursdays, so the app generated
+Sunday paydays and put the year's two extra paychecks in March and August. All
+eight were moved to **Thursday 25 December 2025** on 21 August 2026; 2026 now
+pays them 26 times with the third paycheck in **April and October**. The W2's
+raise is still dated 2 August 2026, which is not itself a payday: it applies from
+the Thursday 6 August paycheck, the same one it applied to before.
+
+`Rent` is anchored 21 September 2021, so it counts as paid on the 21st of each
+month; that does not change any total (a monthly line pays once a month whatever
+the day), it only decides which side of a mid-month change a payment falls on. If
+the real rent day is the 1st, fix it by editing the first change's date in Setup.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
