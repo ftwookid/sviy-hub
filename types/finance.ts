@@ -72,11 +72,13 @@ export type FinanceRate = {
   user_id: string;
   effective_from: string;
   /**
-   * The monthly figure, derived — what every reader on the page spends.
+   * The monthly figure, derived — the **average**, not what any month pays.
    *
-   * Derived rather than looked up so the whole existing month build, the year
-   * rail and the reports keep working off one number, and a cadence can never
-   * be half-applied by a reader that forgot to convert.
+   * A month is built from `entered_amount` on the dates the cadence actually
+   * pays, so this column no longer feeds the dashboard's arithmetic. It is what
+   * a line is worth per month over a year, which is the right figure for a run
+   * rate and for Setup's at-a-glance column (where it is tagged `avg`), and the
+   * wrong one for "what landed in August".
    */
   monthly_amount: number;
   /** What was actually typed: the paycheck, the quarterly bill. */
@@ -106,6 +108,17 @@ export type FinanceRow = {
   amount: number;
   source: FinanceRowSource;
   hint?: string;
+  /**
+   * What this line costs in a year at the rate in force — **not** the month
+   * times twelve.
+   *
+   * Once a month counts the payments that actually land in it, month × 12 is
+   * nonsense in the two months that carry a third paycheck: a $302.30
+   * fortnightly tax reads $906.90 in August and would annualise to $10,883
+   * against a real year of $7,859.80. The run rate has to come from the rate
+   * and its cadence, which is what `monthly_amount` already holds an average of.
+   */
+  yearAmount?: number;
 };
 
 /** Buckets as displayed. Every one of them is a bucket now. */

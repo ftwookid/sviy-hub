@@ -37,8 +37,8 @@ import type { FinanceSection, MonthFinances } from "@/types/finance";
  * name. No card here is titled with a phrase you have to interpret.
  */
 
-function yearly(amount: number) {
-  return `${formatCurrencyRounded(amount * 12)} a year`;
+function yearly(yearAmount: number) {
+  return `${formatCurrencyRounded(yearAmount)} a year`;
 }
 
 function percent(share: number) {
@@ -114,8 +114,10 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
                   amount: row.amount,
                   note: row.hint,
                   // A run rate is what turns a $15 line into a decision, so it
-                  // stays on the row even now the lines are grouped again.
-                  secondary: row.amount > 0 ? yearly(row.amount) : undefined
+                  // stays on the row even now the lines are grouped again. It
+                  // comes off the line's own rate rather than this month × 12,
+                  // which would annualise a three-paycheck August at 1.5x.
+                  secondary: row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined
                 }}
                 max={largest}
                 ink={OUT_INK}

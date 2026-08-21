@@ -872,12 +872,36 @@ Two kinds of number meet on the page and they behave differently:
   - **Each change records how often it arrives.** Almost nothing is genuinely
     paid monthly: a W2 lands every second week, insurance goes out quarterly.
     A rate therefore stores three things — `entered_amount` (what was typed),
-    `cadence`, and `monthly_amount` **derived** from the pair. The derived
-    column is the one every reader spends, so the month build, the year rail and
-    the reports never convert anything and a cadence cannot be half-applied by a
-    reader that forgot. Bi-weekly is 26 paydays a year spread evenly across the
-    months, not 24 — `Semi-monthly` exists separately for figures that really do
-    arrive twice a month.
+    `cadence`, and `monthly_amount`, the monthly **average** derived from the
+    pair. `Semi-monthly` exists separately from `Bi-weekly` for figures that
+    really do arrive twice a month.
+  - **A month is the payments that actually land in it, not an average.** This is
+    the arithmetic the page lives or dies on. 26 fortnightly paydays do not
+    divide by 12: anchored on 21 December 2025, 2026 pays twice in most months
+    and **three times in March and August**. The first version spread 26/12
+    evenly, so those two months read about $4,100 light and the other ten read a
+    few hundred heavy, and nothing on the page said so. `occurrencesInMonth()`
+    now generates the real dates from the line's anchor and `amountForMonth()`
+    adds up what landed; the row says `3 payments · $4,159.62 every 2 weeks`, so
+    a bigger August explains itself. Weekly does the same across 4- and 5-week
+    months, a quarterly bill lands in the four months it is actually paid, and
+    an annual one in the single month it leaves the account.
+  - **A raise does not restart the cycle; a change of cadence does.** Payday is
+    payday whatever the figure on it, so the anchor stays the line's first rate
+    date and a later change only says what each payment is worth. Going monthly
+    → fortnightly is a new schedule and re-anchors on the date it was given.
+  - **The mid-month blend is gone.** `amountForMonth()` used to walk the days and
+    average a raise across the month, which is truthful about something that
+    accrues daily and wrong about a paycheck — a paycheck is paid at the old
+    figure or the new one, never at a weighted mean of the two. Each payment now
+    takes the rate in force on the day it landed, and a month holding both says
+    `2 payments · $4,038.46 then $4,159.62`.
+  - **The run rate on a row is the rate annualised, never the month × 12.** In a
+    three-paycheck August, month × 12 turned a $302.30 fortnightly tax into
+    "$10,883 a year" against a real $7,859.80. `FinanceRow.yearAmount` carries
+    `monthly_amount × 12` instead. `monthly_amount` survives for exactly this and
+    for Setup's column, where it is tagged **`avg`** so it cannot be read as a
+    claim about any single month.
   - The cadence is set from the **caption above the amount field** — the slot
     that used to read a dead "A MONTH". A setting most lines never touch costs
     no height that way, and tapping it shows the whole list with a tick rather
@@ -1428,10 +1452,15 @@ re-runnable. Before it ran, Finances read and saved monthly figures exactly as
 before, and choosing any other cadence reported the missing migration rather
 than silently dropping it.
 
-**Ivan's W2 line still needs correcting by hand**: it holds a bi-weekly paycheck
-in a column that meant a month, and no migration can know which lines those are.
-Open Setup → Ivan W2 → tap the change in its history, set the caption above the
-amount to Bi-weekly, and Save.
+**The date on a line's first change is now its payday, so it has to be right.**
+It was only a "from when" while months were averaged; it is the anchor of the
+whole cycle now. Ivan W2 and the seven withholding lines are anchored 21 December
+2025, which is correct — 2026 pays them 26 times, three of those in March and
+three in August. `Rent` is anchored 21 September 2021, so it counts as paid on
+the 21st of each month; that does not change any total (a monthly line pays once
+a month whatever the day), it only decides which side of a mid-month change a
+payment falls on. If a real rent day is the 1st, fix it by editing the first
+change's date in Setup.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and

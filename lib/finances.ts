@@ -117,10 +117,13 @@ export function houseSittingByMonth(bookings: HouseSittingBooking[], year: numbe
  * How many times a cadence pays in a month, on average across a year.
  *
  * Bi-weekly is 26 paydays a year, not 24 — two months in every year carry a
- * third paycheck. Spreading 26/12 across the months is the honest average and
- * the only reading a monthly figure can carry; it is not a claim about any one
- * month's bank statement. Semi-monthly, which is genuinely twice a month, is a
- * separate option for exactly that reason.
+ * third paycheck. **This average no longer builds a month**: `amountForMonth`
+ * counts the payments that actually land in it, so August 2026 is three
+ * paychecks and July is two. What the average is still for is the run rate ("a
+ * year" on a row, which is this × 12) and the figure Setup shows beside a line,
+ * where it is labelled `avg` so it cannot be read as a promise about any one
+ * month. Semi-monthly, which is genuinely twice a month, stays a separate
+ * cadence.
  */
 export const CADENCE_PER_MONTH: Record<PayCadence, number> = {
   Weekly: 52 / 12,
@@ -197,27 +200,130 @@ export function rateOn(rates: FinanceRate[], dateValue: string) {
 }
 
 /**
- * What a line contributes to one month.
+ * The days a cadence actually pays in one month, counted from an anchor date.
  *
- * A change part-way through a month is blended across it by day: a W2 that goes
- * from $10,000 to $12,000 on 20 July pays 19 days at the old rate and 12 at the
- * new one, which is what actually lands in the account. Taking whichever rate
- * happened to be in force on the 1st would show July as a flat $10,000 and hide
- * the raise for a month.
+ * This is the whole reason the page can be trusted. A bi-weekly paycheck is 26 a
+ * year, and 26 does not divide by 12: anchored on 21 December 2025, 2026 pays
+ * twice in most months and **three times in March and August**. Spreading 26/12
+ * evenly showed every month as 2.17 paychecks, so the two months with a third
+ * one read about $4,100 light and the ten others read a few hundred heavy.
+ * Nothing on the page said so, and "am I actually up this month" is the only
+ * question it exists to answer.
  *
- * Day by day rather than by interval arithmetic, deliberately: it is 31
- * iterations, it cannot get a boundary wrong, and this is the number the whole
- * page hangs off.
+ * So a month is the payments that land in it, on their real dates.
  */
-export function amountForMonth(rates: FinanceRate[], year: number, monthIndex: number) {
-  if (rates.length === 0) return 0;
+const CADENCE_DAYS: Partial<Record<PayCadence, number>> = { Weekly: 7, "Bi-weekly": 14 };
+const CADENCE_MONTHS: Partial<Record<PayCadence, number>> = { Monthly: 1, Quarterly: 3, Annual: 12 };
 
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  let total = 0;
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    total += rateOn(rates, toInputDate(new Date(year, monthIndex, day)));
+/** Whole days since the epoch, DST-proof — a day step must never be 23 hours. */
+function dayNumber(date: Date) {
+  return Math.round(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000);
+}
+
+/** The 31st in a 30-day month is that month's last day, not the 1st of the next one. */
+function clampDay(year: number, monthIndex: number, day: number) {
+  return Math.min(day, new Date(year, monthIndex + 1, 0).getDate());
+}
+
+function dateValue(year: number, monthIndex: number, day: number) {
+  return toInputDate(new Date(year, monthIndex, day));
+}
+
+/**
+ * The date a line's cycle counts from.
+ *
+ * A raise does **not** restart the cycle — payday is payday whatever the figure
+ * on it — so the anchor stays the line's first rate date and a later change only
+ * says what each payment is worth. A change of *cadence* does restart it: going
+ * from monthly to fortnightly is a new schedule, and it starts on the day it was
+ * said to start.
+ */
+function anchorFor(rates: FinanceRate[], index: number) {
+  let anchor = rates[0].effective_from;
+  for (let step = 1; step <= index; step += 1) {
+    if (rates[step].cadence !== rates[step - 1].cadence) anchor = rates[step].effective_from;
   }
-  return total / daysInMonth;
+  return anchor;
+}
+
+/** Every date this cadence pays inside one month, given where the cycle started. */
+function cadenceDatesInMonth(anchorValue: string, cadence: PayCadence, year: number, monthIndex: number) {
+  const anchor = parseLocalDate(anchorValue);
+  const { start, end } = monthRange(year, monthIndex);
+  const period = CADENCE_DAYS[cadence];
+
+  if (period) {
+    // Jump straight to the first payment on or after the 1st rather than walking
+    // years of fortnights to get there.
+    const steps = Math.max(0, Math.ceil((dayNumber(parseLocalDate(start)) - dayNumber(anchor)) / period));
+    const dates: string[] = [];
+    for (let step = steps; ; step += 1) {
+      const value = toInputDate(addDays(anchor, step * period));
+      if (value > end) break;
+      if (value >= start) dates.push(value);
+    }
+    return dates;
+  }
+
+  if (cadence === "Semi-monthly") {
+    // Twice a month is exactly twice a month — the count never varies, only
+    // where the two land, which matters when a rate changes mid-month.
+    const first = clampDay(year, monthIndex, anchor.getDate());
+    const second = clampDay(year, monthIndex, anchor.getDate() + 15);
+    return Array.from(new Set([first, second]))
+      .sort((a, b) => a - b)
+      .map((day) => dateValue(year, monthIndex, day))
+      .filter((value) => value >= anchorValue);
+  }
+
+  const stride = CADENCE_MONTHS[cadence] ?? 1;
+  const monthsSince = (year - anchor.getFullYear()) * 12 + (monthIndex - anchor.getMonth());
+  if (monthsSince < 0 || monthsSince % stride !== 0) return [];
+  return [dateValue(year, monthIndex, clampDay(year, monthIndex, anchor.getDate()))];
+}
+
+export type PaymentOccurrence = { date: string; amount: number };
+
+/**
+ * Every payment a line makes in one month, with what each one is worth.
+ *
+ * Each rate owns the stretch of the month from its own start date until the next
+ * rate begins, so a payment is worth whatever was in force on the day it landed.
+ * That replaces the old day-by-day blend, which averaged a raise across the whole
+ * month — truthful about an amount that accrues daily, and wrong about a
+ * paycheck, which is either paid at the old figure or the new one.
+ */
+export function occurrencesInMonth(
+  rates: FinanceRate[],
+  year: number,
+  monthIndex: number
+): PaymentOccurrence[] {
+  if (rates.length === 0) return [];
+  const { start, end } = monthRange(year, monthIndex);
+  const occurrences: PaymentOccurrence[] = [];
+
+  rates.forEach((rate, index) => {
+    const next = rates[index + 1];
+    const windowStart = rate.effective_from > start ? rate.effective_from : start;
+    const windowEnd =
+      next && next.effective_from <= end ? toInputDate(addDays(parseLocalDate(next.effective_from), -1)) : end;
+    if (windowStart > windowEnd) return;
+
+    cadenceDatesInMonth(anchorFor(rates, index), rate.cadence, year, monthIndex)
+      .filter((value) => value >= windowStart && value <= windowEnd)
+      .forEach((value) => occurrences.push({ date: value, amount: Number(rate.entered_amount) }));
+  });
+
+  return occurrences.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** What a line contributes to one month: the payments that land in it, added up. */
+export function amountForMonth(rates: FinanceRate[], year: number, monthIndex: number) {
+  const total = occurrencesInMonth(rates, year, monthIndex).reduce(
+    (sum, occurrence) => sum + occurrence.amount,
+    0
+  );
+  return Math.round(total * 100) / 100;
 }
 
 /** The amount in force today — what the setup screen shows as the line's current figure. */
@@ -225,19 +331,13 @@ export function currentAmount(rates: FinanceRate[]) {
   return rateOn(rates, todayInputValue());
 }
 
-/** Changes landing inside a month, ignoring one on the 1st — that starts the month rather than splitting it. */
-function midMonthChanges(rates: FinanceRate[], year: number, monthIndex: number) {
-  const { start, end } = monthRange(year, monthIndex);
-  return rates.filter(
-    (rate) =>
-      rate.effective_from > start &&
-      rate.effective_from <= end &&
-      // The very first rate starting mid-month is a line beginning, not a change
-      // to blend — it is described as "starts" instead.
-      rate !== rates[0]
-  );
-}
-
+/**
+ * What the row says about itself under its figure.
+ *
+ * The count comes first, because that is the fact a monthly figure cannot carry:
+ * "3 payments" is why August is bigger than July, and without it the reader is
+ * left to assume the number is wrong.
+ */
 function lineHint(line: FinanceLine, year: number, monthIndex: number) {
   const rates = line.rates;
   if (rates.length === 0) return "No amount set";
@@ -245,23 +345,31 @@ function lineHint(line: FinanceLine, year: number, monthIndex: number) {
   const { start, end } = monthRange(year, monthIndex);
   const first = rates[0];
   if (first.effective_from > end) return `Starts ${formatShortDate(first.effective_from)}`;
+
+  const occurrences = occurrencesInMonth(rates, year, monthIndex);
+  const cadence = ([...rates].reverse().find((rate) => rate.effective_from <= end) ?? first).cadence;
+
+  // A quarterly bill in a month it is not due, or a line that has been ended.
+  if (occurrences.length === 0) {
+    if (first.effective_from > start) return `From ${formatShortDate(first.effective_from)}`;
+    return "Nothing due this month";
+  }
+
+  const amounts = Array.from(new Set(occurrences.map((occurrence) => occurrence.amount)));
+  const each = `${formatCurrency(amounts[0])} ${CADENCE_SUFFIX[cadence]}`;
+
+  // A rate change part-way through the month: the payments before it and after
+  // it are worth different amounts, and hiding that behind one figure is the
+  // thing that made the old blend unreadable.
+  if (amounts.length > 1) {
+    return `${occurrences.length} payments · ${formatCurrency(amounts[0])} then ${formatCurrency(
+      amounts[amounts.length - 1]
+    )}`;
+  }
+
+  if (occurrences.length > 1) return `${occurrences.length} payments · ${each}`;
+  if (cadence !== "Monthly") return `Paid ${formatShortDate(occurrences[0].date)} · ${each}`;
   if (first.effective_from > start) return `From ${formatShortDate(first.effective_from)}`;
-
-  const changes = midMonthChanges(rates, year, monthIndex);
-  if (changes.length === 1) {
-    return `Blended · ${formatCurrency(rateOn(rates, start))} to ${formatCurrency(
-      Number(changes[0].monthly_amount)
-    )} on ${formatShortDate(changes[0].effective_from)}`;
-  }
-  if (changes.length > 1) return `Blended · ${changes.length} changes this month`;
-
-  // A figure that is not paid monthly has to say what it is, or the row reads as
-  // a number nobody recognises against their own payslip.
-  const inForce = [...rates].reverse().find((rate) => rate.effective_from <= end);
-  if (inForce && inForce.cadence !== "Monthly") {
-    return `${formatCurrency(inForce.entered_amount)} ${CADENCE_SUFFIX[inForce.cadence]}`;
-  }
-
   return line.note ?? undefined;
 }
 
@@ -273,6 +381,9 @@ function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, m
       key: line.id,
       label: line.label,
       amount: amountForMonth(line.rates, year, monthIndex),
+      // The rate in force at the end of the month, annualised — 26 fortnightly
+      // payments, not this month's two or three times twelve.
+      yearAmount: rateOn(line.rates, monthRange(year, monthIndex).end) * 12,
       source: "Manual" as const,
       hint: lineHint(line, year, monthIndex)
     }));
