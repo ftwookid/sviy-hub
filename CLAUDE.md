@@ -17,6 +17,13 @@ Answer these before writing layout, and again before committing:
 1. **Did I stack cards?** More than two top-level cards on a screen is a failure.
    Related blocks go in **one** container split by `border-t`. Six sections means
    six rows in one card that expand, not six cards.
+   **Exception, granted explicitly on Finances:** a set of blocks that are
+   different *kinds* of figure reads better as a grid of small colour-headed
+   tables than as one divided list — see the Finances section. The test is whether
+   a reader can tell what kind of number they are looking at without tracing
+   upward to find a heading. Inside one card, a block boundary is a hairline and
+   a tint, and no amount of type hierarchy fixed it. Do not use this as a licence
+   to stack cards that hold the same kind of thing.
 2. **Is every row using its full width?** A card spanning the screen with its
    content in the left 10% is the single most-named failure. Numbers go where the
    space is — a divided strip across the row, not a left-hugging block.
@@ -54,6 +61,9 @@ The rules that follow from that:
 - **One card per screen, divided — not a stack of cards.** Each card costs a
   border, a shadow, a title and two lots of padding. Related blocks belong inside
   one container separated by `border-t`, the way the Mileage car block already does.
+  The one place this is deliberately inverted is Finances, where each block is its
+  own small table under its own colour, because the blocks are different kinds of
+  money and telling them apart at a glance matters more than the chrome costs.
 - **Entry forms collapse; readings do not.** A page is opened to read a number
   ten times for every once it is typed into. Log forms, setup fields and goal
   editors sit behind a disclosure or appear only while their value is unset. What
@@ -1139,8 +1149,9 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/finances/page.tsx`: Finances — the household month, in and out.
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
-- `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
-- `components/finances/BucketRows.tsx`: The six blocks and every line in them.
+- `components/finances/MonthSummary.tsx`: Gross → net income → spent → left over.
+- `components/finances/BlockCard.tsx`: One block as its own colour-headed table.
+- `components/finances/OutRing.tsx`: Money out as a ring, with the figures beside it.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
@@ -1149,8 +1160,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
-- `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
-- `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
+- `supabase/finance-buckets-schema.sql`: every bucket the month is made of.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1401,17 +1411,14 @@ deleted. Before it ran, `/finances` loaded and every linked figure read
 correctly, but the typed blocks showed a notice and saving a line reported the
 table missing.
 
-Then run `supabase/finance-deductions-bucket-schema.sql` in Supabase. It is
-re-runnable and one statement: it widens the `finance_lines` bucket check
-constraint to allow `Deductions`. Until it runs, the Deductions block and its
-Setup strip are both there, and adding a line to it reports the missing migration
-rather than failing silently.
-
-Then run `supabase/finance-subscriptions-bucket-schema.sql` in Supabase. It is
-re-runnable and one statement: it widens the `finance_lines` bucket check
-constraint to allow `Subscriptions`. Until it runs, the Subscriptions block and
-its Setup strip are both there, and adding a line to it reports the missing
-migration by name rather than failing silently.
+Then run `supabase/finance-buckets-schema.sql` in Supabase. It is re-runnable,
+one statement, and it replaces the two earlier per-bucket migrations (which have
+been deleted) rather than adding a third file to run in order — safe whether or
+not those were applied. It widens the `finance_lines` bucket check constraint to
+the full set: Gross Income, Tax Withheld, Deductions, Investments & Savings,
+Needs, Subscriptions, Debt, Wants. Until it runs, the Subscriptions and Wants
+blocks are both on screen and adding a line to either reports the migration by
+name rather than failing silently.
 
 `supabase/finance-cadence-schema.sql` was applied on 19 August 2026. It adds
 `cadence` and `entered_amount` to `finance_line_rates` and backfilled every

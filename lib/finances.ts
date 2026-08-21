@@ -1,5 +1,6 @@
 import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
+import { BUCKET_STAGE } from "@/types/finance";
 import type {
   FinanceBucket,
   FinanceLine,
@@ -28,10 +29,11 @@ export const EDITABLE_BUCKETS: FinanceBucket[] = [
   "Gross Income",
   "Tax Withheld",
   "Deductions",
+  "Investments & Savings",
   "Needs",
   "Subscriptions",
   "Debt",
-  "Investments & Savings"
+  "Wants"
 ];
 
 /**
@@ -44,20 +46,22 @@ export const EDITABLE_BUCKETS: FinanceBucket[] = [
  */
 export const SECTION_STYLE: Record<
   FinanceSectionKey,
-  { title: string; short: string; color: string; text: string }
+  { title: string; short: string; color: string; hex: string; text: string }
 > = {
-  "Gross Income": { title: "Gross income", short: "In", color: "bg-[#5F8C74]", text: "text-[#4A8C6F]" },
-  "Tax Withheld": { title: "Tax withheld", short: "Tax", color: "bg-[#8C8579]", text: "text-text-secondary" },
-  Deductions: { title: "Deductions", short: "Deducted", color: "bg-accent", text: "text-text-secondary" },
-  Needs: { title: "Needs", short: "Needs", color: "bg-[#D8C7A5]", text: "text-text-secondary" },
-  Subscriptions: { title: "Subscriptions", short: "Subs", color: "bg-[#8D9DAE]", text: "text-text-secondary" },
-  Debt: { title: "Debt", short: "Debt", color: "bg-[#B87B6B]", text: "text-text-secondary" },
+  "Gross Income": { title: "Money in", short: "In", color: "bg-[#4A8C6F]", hex: "#4A8C6F", text: "text-[#2F6B4F]" },
+  "Tax Withheld": { title: "Tax withheld", short: "Tax", color: "bg-[#6F6A61]", hex: "#6F6A61", text: "text-text-secondary" },
+  Deductions: { title: "Deductions", short: "Deducted", color: "bg-[#A08249]", hex: "#A08249", text: "text-text-secondary" },
   "Investments & Savings": {
     title: "Investments & savings",
     short: "Saved",
-    color: "bg-[#7FA890]",
+    color: "bg-[#7E9E6A]",
+    hex: "#7E9E6A",
     text: "text-text-secondary"
-  }
+  },
+  Needs: { title: "Needs", short: "Needs", color: "bg-[#B4703F]", hex: "#B4703F", text: "text-text-secondary" },
+  Subscriptions: { title: "Subscriptions", short: "Subs", color: "bg-[#5F7F94]", hex: "#5F7F94", text: "text-text-secondary" },
+  Debt: { title: "Debt", short: "Debt", color: "bg-[#9B4F4F]", hex: "#9B4F4F", text: "text-text-secondary" },
+  Wants: { title: "Wants", short: "Wants", color: "bg-[#8A6E9C]", hex: "#8A6E9C", text: "text-text-secondary" }
 };
 
 function emptyYear() {
@@ -296,6 +300,7 @@ function sectionOf(
   return {
     key,
     direction,
+    stage: BUCKET_STAGE[key],
     rows: [...rows].sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label)),
     total: rows.reduce((sum, row) => sum + row.amount, 0)
   };
@@ -340,25 +345,29 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
     income,
     sectionOf("Tax Withheld", "out", manualRows(lines, "Tax Withheld", year, monthIndex)),
     sectionOf("Deductions", "out", manualRows(lines, "Deductions", year, monthIndex)),
+    sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings", year, monthIndex)),
     sectionOf("Needs", "out", manualRows(lines, "Needs", year, monthIndex)),
     sectionOf("Subscriptions", "out", manualRows(lines, "Subscriptions", year, monthIndex)),
     sectionOf("Debt", "out", manualRows(lines, "Debt", year, monthIndex)),
-    sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings", year, monthIndex))
+    sectionOf("Wants", "out", manualRows(lines, "Wants", year, monthIndex))
   ];
 
-  const moneyIn = sections
-    .filter((section) => section.direction === "in")
-    .reduce((sum, section) => sum + section.total, 0);
-  const moneyOut = sections
-    .filter((section) => section.direction === "out")
-    .reduce((sum, section) => sum + section.total, 0);
+  const totalOf = (stage: "in" | "pre" | "post") =>
+    sections.filter((section) => section.stage === stage).reduce((sum, section) => sum + section.total, 0);
+
+  const grossIn = totalOf("in");
+  const preNet = totalOf("pre");
+  const postNet = totalOf("post");
 
   return {
     periodMonth: toInputDate(new Date(year, monthIndex, 1)),
     sections,
-    moneyIn,
-    moneyOut,
-    leftOver: moneyIn - moneyOut
+    moneyIn: grossIn,
+    preNet,
+    netIncome: grossIn - preNet,
+    postNet,
+    moneyOut: preNet + postNet,
+    leftOver: grossIn - preNet - postNet
   };
 }
 

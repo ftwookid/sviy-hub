@@ -30,14 +30,8 @@ const CADENCE_MIGRATION = "The pay cadence needs its column. Run supabase/financ
  * about arrives with a migration of its own — and the message has to name the
  * right one, or it sends the reader to a file they have already run.
  */
-const BUCKET_MIGRATIONS: Partial<Record<FinanceBucket, string>> = {
-  Deductions: "supabase/finance-deductions-bucket-schema.sql",
-  Subscriptions: "supabase/finance-subscriptions-bucket-schema.sql"
-};
-
 function bucketMigrationMessage(bucket: FinanceBucket) {
-  const file = BUCKET_MIGRATIONS[bucket] ?? "supabase/finances-schema.sql";
-  return `${bucket} is not a bucket in the database yet. Run ${file} in Supabase.`;
+  return `${bucket} is not a bucket in the database yet. Run supabase/finance-buckets-schema.sql in Supabase.`;
 }
 
 /** A bucket the app knows and the database does not fails as a constraint violation. */
