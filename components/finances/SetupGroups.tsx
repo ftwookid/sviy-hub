@@ -145,6 +145,11 @@ function LineDetail({
   // raise, so the change being typed inherits the cadence already in force.
   const [cadence, setCadence] = useState<PayCadence>(() => currentCadence(line.rates));
 
+  const changeHint =
+    cadence === "Monthly"
+      ? "A month the date lands inside is split across both amounts. To stop a line, change it to 0."
+      : `${monthlyLine(changeAmount, cadence)} A month the date lands inside is split across both amounts.`;
+
   function saveChange() {
     if (!changeAmount.trim()) return;
     onSetRate(changeDate, parseAmount(changeAmount), cadence);
@@ -176,7 +181,7 @@ function LineDetail({
   }
 
   return (
-    <div className="bg-subtle/50 px-3.5 py-2.5">
+    <div className="bg-subtle/50 px-3.5 py-2.5 sm:px-4 sm:py-3">
       {line.rates.length > 0 ? (
         <div className="mb-2.5 divide-y divide-border/50">
           {/* Newest first: the change most likely being corrected is the last one
@@ -187,8 +192,8 @@ function LineDetail({
                  else on the card would leave the reader checking which of two
                  identical forms belonged to the figure they tapped. */
               <div key={rate.id} className="py-2">
-                <div className="flex items-end gap-1.5">
-                  <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
+                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
                     <DateField
                       label="From"
                       value={editing.date}
@@ -196,13 +201,13 @@ function LineDetail({
                       onChange={(date) => setEditing({ ...editing, date })}
                     />
                   </div>
-                  <div className="shrink-0">
+                  <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
                     <CadencePicker
                       value={editing.cadence}
                       onChange={(next) => setEditing({ ...editing, cadence: next })}
                     />
                     <AmountInput
-                      className="w-[96px]"
+                      className="w-full sm:w-[150px]"
                       label={`Amount ${CADENCE_SUFFIX[editing.cadence]} from this date`}
                       value={editing.amount}
                       onChange={(amount) => setEditing({ ...editing, amount })}
@@ -253,17 +258,24 @@ function LineDetail({
                 aria-label={`Edit the change from ${longDate(rate.effective_from)}`}
                 onClick={() => startEditing(rate)}
               >
-                <span className="min-w-0 flex-1 text-[12.5px] text-text-secondary">
+                <span className="min-w-0 flex-1 text-[13px] text-text-secondary">
                   <span className="block truncate">From {longDate(rate.effective_from)}</span>
                   {/* Only where it says something: a monthly line's typed figure
-                      and its monthly figure are the same number. */}
+                      and its monthly figure are the same number. Under the date
+                      on a phone; in its own column once there is room, so the
+                      dates and the figures each read down a straight edge. */}
                   {rate.cadence !== "Monthly" ? (
-                    <span className="block truncate text-[11.5px] text-text-tertiary">
+                    <span className="block truncate text-[11.5px] text-text-tertiary sm:hidden">
                       {formatCurrency(rate.entered_amount)} {CADENCE_SUFFIX[rate.cadence]}
                     </span>
                   ) : null}
                 </span>
-                <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
+                <span className="hidden shrink-0 text-right text-[12.5px] tabular-nums text-text-tertiary sm:block sm:w-[200px]">
+                  {rate.cadence === "Monthly"
+                    ? ""
+                    : `${formatCurrency(rate.entered_amount)} ${CADENCE_SUFFIX[rate.cadence]}`}
+                </span>
+                <span className="shrink-0 text-right text-[13.5px] font-medium tabular-nums text-text-primary sm:w-[120px]">
                   {formatCurrency(rate.monthly_amount)}
                 </span>
                 <Pencil size={13} strokeWidth={1.7} className="shrink-0 text-text-tertiary" />
@@ -282,14 +294,14 @@ function LineDetail({
           wrong one. */}
       {editing ? null : (
         <>
-      <div className="flex items-end gap-1.5">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
+        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
-        <div className="shrink-0">
+        <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
           <CadencePicker value={cadence} onChange={setCadence} />
           <AmountInput
-            className="w-[96px]"
+            className="w-full sm:w-[150px]"
             label={`Amount ${CADENCE_SUFFIX[cadence]} from this date`}
             value={changeAmount}
             onChange={setChangeAmount}
@@ -299,22 +311,20 @@ function LineDetail({
         <IconButton label="Save this change" tone="accent" disabled={!changeAmount.trim()} onClick={saveChange}>
           <Check size={17} strokeWidth={2} />
         </IconButton>
+        {/* Beside the amount it is about, on a screen with room for it — the
+            same sentence stacked underneath left the right half of an 880px row
+            empty and cost a line of height. */}
+        <p className="hidden min-w-0 text-[11.5px] leading-snug text-text-tertiary sm:block sm:flex-1 sm:self-center sm:pl-1">
+          {changeHint}
+        </p>
       </div>
-      <p className="mt-1.5 text-[11px] text-text-tertiary">
-        {cadence === "Monthly" ? (
-          "A month the date lands inside is split across both amounts. To stop a line, change it to 0."
-        ) : (
-          <>
-            {monthlyLine(changeAmount, cadence)} A month the date lands inside is split across both amounts.
-          </>
-        )}
-      </p>
+      <p className="mt-1.5 text-[11px] text-text-tertiary sm:hidden">{changeHint}</p>
         </>
       )}
 
       <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         <input
-          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary"
+          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px]"
           value={label}
           aria-label="Line name"
           onChange={(event) => setLabel(event.target.value)}
@@ -386,33 +396,44 @@ export function SetupGroups({
 
         return (
           <div key={bucket} className={cn(bucketIndex > 0 && "border-t border-border")}>
-            {/* A 32px strip, not a card header. */}
-            <div className="flex items-center gap-2 bg-[#FAFAF7] px-3.5 py-2">
-              <span aria-hidden className={cn("h-3 w-1 shrink-0 rounded-full", style.color)} />
-              {/* No blurb under the name. "Before anything is taken out" under
-                  Gross income tells whoever typed these figures nothing they do
-                  not know, and six of them cost 96px on a phone. */}
-              <h2 className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+            {/* The heading outranks its lines, which is the whole job of a
+                heading. It was 10.5px uppercase tertiary over 14px near-black
+                rows — a label whispering above the things it was meant to
+                govern, so the eye read the lines first and had to hunt upward to
+                find out which bucket they were in.
+
+                No blurb under the name: "Before anything is taken out" under
+                Gross income tells whoever typed these figures nothing they do
+                not know, and six of them cost 96px on a phone. */}
+            <div className="flex items-center gap-2.5 bg-[#F4F2EC] px-3.5 py-2 sm:px-4">
+              <span aria-hidden className={cn("h-4 w-1.5 shrink-0 rounded-full", style.color)} />
+              <h2 className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[-0.01em] text-text-primary sm:text-[17px]">
                 {style.title}
               </h2>
-              <span className="shrink-0 text-[12px] font-medium tabular-nums text-text-secondary">
+              <span className="shrink-0 text-[15px] font-medium tabular-nums text-text-primary sm:text-[16px]">
                 {formatCurrency(inEffect)}
               </span>
               <button
-                className="focus-ring -mr-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-primary"
+                className="focus-ring -mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary"
                 type="button"
                 aria-label={`Add a line to ${style.title}`}
                 onClick={() => (addingBucket === bucket ? setAddingBucket(null) : startAdding(bucket))}
               >
-                <Plus size={16} strokeWidth={2} />
+                <Plus size={17} strokeWidth={2} />
               </button>
             </div>
 
             {addingBucket === bucket ? (
-              <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5">
-                <div className="flex items-end gap-1.5">
+              /* Name, cadence, amount, date and Save — one row where there is
+                 room for one, two where there is not. The wrap points are
+                 explicit rather than left to the browser: on a phone the name
+                 shares its line with the amount and the date shares its line
+                 with the buttons, which is the arrangement that fits 390px
+                 without any field dropping below a comfortable width. */
+              <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5 sm:px-4 sm:py-3">
+                <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
                   <input
-                    className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary"
+                    className="focus-ring min-h-11 min-w-0 basis-full rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary sm:basis-auto sm:flex-1"
                     value={newLabel}
                     aria-label="New line name"
                     placeholder="Name"
@@ -423,20 +444,18 @@ export function SetupGroups({
                       if (event.key === "Escape") setAddingBucket(null);
                     }}
                   />
-                  <div className="shrink-0">
+                  <div className="min-w-0 basis-full sm:basis-auto sm:w-[210px]">
+                    <DateField label="Starting from" value={newFrom} dimFutureDates={false} onChange={setNewFrom} />
+                  </div>
+                  <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
                     <CadencePicker value={newCadence} onChange={setNewCadence} />
                     <AmountInput
-                      className="w-[96px]"
+                      className="w-full sm:w-[150px]"
                       label={`New line amount ${CADENCE_SUFFIX[newCadence]}`}
                       value={newAmount}
                       onChange={setNewAmount}
                       onEnter={() => submitNew(bucket)}
                     />
-                  </div>
-                </div>
-                <div className="mt-2 flex items-end gap-1.5">
-                  <div className="min-w-0 flex-1">
-                    <DateField label="Starting from" value={newFrom} dimFutureDates={false} onChange={setNewFrom} />
                   </div>
                   <IconButton
                     label="Save new line"
@@ -465,11 +484,20 @@ export function SetupGroups({
                 const open = openLineId === line.id;
                 const latest = line.rates[line.rates.length - 1];
                 const pending = latest && latest.effective_from > todayInputValue();
+                // What the line's last change was, said once and placed twice.
+                const meta =
+                  line.rates.length === 0
+                    ? "No amount set"
+                    : pending
+                      ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(latest.effective_from)}`
+                      : `Since ${formatShortDate(latest.effective_from)}${
+                          line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
+                        }`;
 
                 return (
                   <div key={line.id}>
                     <button
-                      className="focus-ring flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors duration-200 ease-out hover:bg-subtle/60"
+                      className="focus-ring flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors duration-200 ease-out hover:bg-subtle/60 sm:px-4 sm:py-2.5"
                       type="button"
                       aria-expanded={open}
                       onClick={() => {
@@ -477,21 +505,21 @@ export function SetupGroups({
                         setAddingBucket(null);
                       }}
                     >
+                      {/* Label, then when it last changed, then the figure —
+                          three columns once there is room for three. Stacking
+                          the "Since Dec 21" under the name left 400px of nothing
+                          down the middle of an 880px dialog, and made every row
+                          two lines tall for a fact that fits on one. */}
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] text-text-primary">{line.label}</span>
-                        <span className="block truncate text-[11px] text-text-tertiary">
-                          {line.rates.length === 0
-                            ? "No amount set"
-                            : pending
-                              ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(
-                                  latest.effective_from
-                                )}`
-                              : `Since ${formatShortDate(latest.effective_from)}${
-                                  line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
-                                }`}
+                        <span className="block truncate text-[14px] text-text-secondary sm:text-[15px]">
+                          {line.label}
                         </span>
+                        <span className="block truncate text-[11.5px] text-text-tertiary sm:hidden">{meta}</span>
                       </span>
-                      <span className="shrink-0 text-[14.5px] font-medium tabular-nums text-text-primary">
+                      <span className="hidden shrink-0 truncate text-right text-[12.5px] text-text-tertiary sm:block sm:w-[220px]">
+                        {meta}
+                      </span>
+                      <span className="shrink-0 text-right text-[14px] tabular-nums text-text-primary sm:w-[120px] sm:text-[15px]">
                         {formatCurrency(currentAmount(line.rates))}
                       </span>
                       <ChevronDown

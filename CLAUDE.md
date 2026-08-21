@@ -986,13 +986,40 @@ Setup is a **panel — not a tab, and not a route** (`SetupSheet`). A full-width
 segmented row for two tabs charges 48px to every visit for a screen opened a few
 times a year; but the route that replaced it was worse and more irritating, since
 it meant a page load and a fresh set of queries to show figures the month behind
-it had already loaded, then another load coming back. As a slide-over it opens
+it had already loaded, then another load coming back. As a panel it opens
 instantly on data already in memory, and a saved change lands on the month
 underneath while the panel is still open — which is the whole reason you opened
-it. Inside, the six buckets are strips in one card, each with its total and a
-`+`. **No blurb under the name** — "Before anything is taken out" under Gross
-income tells whoever typed those figures nothing they did not know, and six of
-them cost about 96px on a phone for nothing.
+it.
+
+**It is a centred dialog on a desktop, 880px wide, and the whole screen on a
+phone.** It was a 520px slide-over, which sizes itself from the edge of the
+screen rather than from what is inside it: a date, a cadence and an amount were
+fighting over 470px while 900px of page sat dimmed behind them. Nothing in here
+wants to be read beside the month — the month is not readable while this is open
+— so it takes the middle of the screen and lays the fields out across it. The
+header stays put and the figures scroll under it.
+
+Inside, the six buckets are strips in one card, each with its total and a `+`.
+
+- **A heading outranks its lines**, which is the whole job of a heading. The
+  bucket name was 10.5px uppercase tertiary above 14px near-black rows — a label
+  whispering above the things it governed, so the eye read the lines first and
+  had to hunt upward to find out which bucket it was in. It is 16–17px primary
+  now, and the line rows sit a step below it.
+- **No blurb under the name** — "Before anything is taken out" under Gross income
+  tells whoever typed those figures nothing they did not know, and six of them
+  cost about 96px on a phone for nothing.
+- **Three columns where there is width**: label, when it last changed, the
+  figure. Stacking the "Since Dec 21" under the name left 400px of nothing down
+  the middle of the dialog and made every row two lines tall for a fact that
+  fits on one. The history rows read the same way — date, the typed figure with
+  its cadence, the monthly figure — so each column runs down a straight edge.
+- **A field never shares a line it cannot fit on.** The date trigger needs about
+  150px for "September 20, 2026"; sharing a 308px phone row with the amount and
+  Save left it 93px and it wrapped to two lines. So on a phone the date takes its
+  own line and the amount stretches to the end of the next one; on a desktop the
+  whole row — date, cadence, amount, Save, and the sentence explaining the
+  conversion — fits across in one.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It
