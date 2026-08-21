@@ -943,33 +943,39 @@ come to, what is it made of, how does it compare with the year:
   immediately, without losing the others from view. Each line keeps its hint,
   which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
   Aug 2", "3 nights booked", "$302.30 every 2 weeks").
-- **But nineteen figures only read if the eye is given something to travel
-  along**, and the first version gave it nothing: every number within a point of
-  the same size, section totals barely heavier than their lines, each amount
-  ending wherever its own row ended, and the lines in the order somebody typed
-  them. It read as a list of numbers rather than an answer. Three things fix
-  that, and none of them is hiding data:
-  1. **One column for every figure.** Totals and line amounts share a fixed
-     right-hand column, so all nineteen sit on one edge and the eye runs down
-     them instead of hunting left and right.
-  2. **A heading outranks its lines** — 15px primary over 13px secondary, with
-     the block's colour and a tinted strip, so a block is findable without
-     reading a word of it.
-  3. **A bar against every line**, sized against the biggest line in its own
-     block, on the row's second line beside the hint — so the proportion costs no
-     height. Which line dominates a block is a question about proportion, and a
-     length answers it faster than comparing digits. `sectionOf` therefore sorts
-     **biggest first**, so the bars step down and the two lines that matter are
-     always the top two. Setup keeps `sort_order` instead: that screen is for
-     editing a named line, and a list that reshuffles as amounts change is no way
-     to find one.
-  Two placements for that bar were tried and rejected. A **column of its own**
-  needed 58px to be readable and took them off the label, turning "OR Statewide
-  Transit Tax (Ivan)" into "OR Statewide Transit Tax (I…" at 390px — a label you
-  cannot read is worse than a proportion you cannot see. **Filling the row's
-  background** was worse again: a 16% tint of olive on off-white is not a length
-  anyone can measure, and a fill stopping halfway across a row reads as a
-  rendering fault rather than a quantity.
+- **The card exists to answer one question — what is taking the money, and what
+  is worth going after first.** Three versions answered a different one, and the
+  mistakes are worth keeping written down because each looked tidy:
+  1. **Money in and money out looked identical** — same type, same rows, tinted
+     strips a shade apart. A reader landing on a line could not tell whether the
+     figure was a good thing or a bad thing, which is the first thing a number
+     here has to say. Income reads in green and closes with a green total;
+     everything that leaves is neutral.
+  2. **The block total sat above its lines.** People read a group of items and
+     then its conclusion — a receipt, an invoice and a bank statement all work
+     that way, and a total on top is a claim you have to hold in your head while
+     checking the lines under it. The total is now the block's **last** row,
+     heavier and tinted, and it is the only place the block's name appears.
+  3. **The bars measured the wrong thing.** Scaled against the biggest line
+     inside each block, a $2.10 line looked enormous in a block holding nothing
+     else and no two blocks were comparable — a picture that has to be decoded is
+     worse than no picture. Every percentage and every bar on the card is now one
+     thing: **share of the month's money in**, named once at the top of the card,
+     on one scale, so Needs at 20% is visibly a fifth of everything earned and
+     visibly four times OR Income Tax at 5%.
+  Two other bar placements were tried and rejected. A **column of its own** needed
+  58px and took them off the label, turning "OR Statewide Transit Tax (Ivan)" into
+  "OR Statewide Transit Tax (I…" at 390px — a label you cannot read is worse than a
+  proportion you cannot see. **Filling the row's background** was worse again: a
+  16% tint of olive on off-white is not a length anyone can measure, and a fill
+  stopping halfway across a row reads as a rendering fault rather than a quantity.
+- **One column for every figure**, totals included, so they all read down one
+  edge; and the `Clients` / `House Sitting` source badge sits on the row's second
+  line, since on the first it cost 70px of the one thing on the row that cannot
+  be guessed from context.
+- Lines are **biggest first** (`sectionOf`) — the order that answers "what should
+  I go after". Setup keeps `sort_order` instead: that screen is for editing a
+  named line, and a list that reshuffles as amounts change is no way to find one.
 - **`minmax(0, …)` on the phone's single grid column, not just the desktop
   pair.** An `auto` grid track sizes to its widest item's min-content, and
   min-width:0 inside a flex row does not cap that contribution — so one long line
