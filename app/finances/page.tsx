@@ -6,20 +6,14 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
-import { BucketRows } from "@/components/finances/BucketRows";
+import { Commitments, MoneyIn, WhereItGoes } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
 import { SetupSheet } from "@/components/finances/SetupSheet";
 import { YearList } from "@/components/finances/YearList";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth } from "@/lib/expenses";
-import {
-  buildYear,
-  clientMonthlyIncome,
-  houseSittingByMonth,
-  mileageByMonth,
-  spendByMonth
-} from "@/lib/finances";
+import { buildYear, clientMonthlyIncome, houseSittingByMonth } from "@/lib/finances";
 import {
   addFinanceLine,
   deleteFinanceLine,
@@ -30,13 +24,10 @@ import {
   updateFinanceRate
 } from "@/lib/financeClient";
 import { parseLocalDate } from "@/lib/formatters";
-import { dateFromTimestamp, loadMileageTrips, loadMileageUploads } from "@/lib/mileage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientWithPets } from "@/types/client";
-import type { Expense } from "@/types/expense";
 import type { HouseSittingBooking } from "@/types/houseSitting";
-import type { MileageTrip } from "@/types/mileage";
 import type { FinanceBucket, FinanceLine } from "@/types/finance";
 
 /**
@@ -44,16 +35,17 @@ import type { FinanceBucket, FinanceLine } from "@/types/finance";
  *
  * Every other section answers a question about the business. This one asks
  * whether the family came out ahead: what arrived, what the taxman took, what
- * the business spent, what the household owes, and what was put away.
+ * is deducted from pay, what the household owes, and what was put away.
  *
  * Two kinds of number meet here. The standing ones — the W2, rent, the car
- * payment — carry a dated schedule and are written in Setup. The ones the app
- * already records — regular clients, house sitting, business spending, miles —
- * are read from their own tables, so there is never a second, staler copy of a
- * figure the books already hold.
+ * payment, the insurance taken out of a paycheck — carry a dated schedule and
+ * are written in Setup. The ones the app already records — regular clients,
+ * house sitting — are read from their own tables, so there is never a second,
+ * staler copy of a figure the books already hold.
  *
- * The mileage deduction is shown but never subtracted. It lowers a tax bill, not
- * a bank balance, and counting it as money out would invent a deficit.
+ * Nothing about the business's tax deduction is on this page. Spending and miles
+ * answer a Taxes question and are totalled on Reports; shown here they read as
+ * cash the household never handled.
  *
  * The layout answers three questions in the order they get asked: what did the
  * month come to, what is it made of, and how does it compare with the rest of the
@@ -70,8 +62,6 @@ export default function FinancesPage() {
   const [notice, setNotice] = useState("");
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [trips, setTrips] = useState<MileageTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [setupOpen, setSetupOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -106,17 +96,7 @@ export default function FinancesPage() {
       .select("*")
       .lte("start_date", `${year}-12-31`)
       .gte("end_date", `${year}-01-01`);
-    const expenseQuery = supabase
-      .from("expenses")
-      .select("*")
-      .gte("date", `${year}-01-01`)
-      .lte("date", `${year}-12-31`);
-
-    const [clientResult, bookingResult, expenseResult] = await Promise.all([
-      clientQuery,
-      bookingQuery,
-      expenseQuery
-    ]);
+    const [clientResult, bookingResult] = await Promise.all([clientQuery, bookingQuery]);
 
     setClients(
       ((clientResult.data ?? []) as Array<ClientWithPets & { price_history: ClientWithPets["price_history"] }>).map(
@@ -132,16 +112,6 @@ export default function FinancesPage() {
         status: booking.status === "Cancelled" ? "Cancelled" : "Planned"
       }))
     );
-    setExpenses((expenseResult.data ?? []) as Expense[]);
-
-    const scope = { ownerId: "all" };
-    const { uploads } = await loadMileageUploads(scope);
-    const { trips: nextTrips } = await loadMileageTrips(
-      scope,
-      uploads.filter((upload) => upload.is_active).map((upload) => upload.id)
-    );
-    setTrips(nextTrips.filter((trip) => dateFromTimestamp(trip.start_at).getFullYear() === year));
-
     setNotice(await refreshLines());
     setLoading(false);
   }, [refreshLines, user, year]);
@@ -156,11 +126,9 @@ export default function FinancesPage() {
         year,
         lines,
         clientIncome: clientMonthlyIncome(clients),
-        houseSitting: houseSittingByMonth(bookings, year),
-        spend: spendByMonth(expenses, year),
-        mileage: mileageByMonth(trips, year)
+        houseSitting: houseSittingByMonth(bookings, year)
       }),
-    [bookings, clients, expenses, lines, trips, year]
+    [bookings, clients, lines, year]
   );
 
   const month = months[monthIndex];
@@ -225,20 +193,34 @@ export default function FinancesPage() {
                 title and Setup, and a control on a row of its own left the whole
                 top right of the page blank. Placement is explicit per cell so
                 the phone still reads picker, month, breakdown, year. */}
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
-              {/* The header pair: the month, and what the month came to. Both are
-                  a fixed 60px whatever is in them, and they share a grid row, so
-                  neither can move the other. Row two is the detail and the year. */}
-              <div className="lg:col-start-2 lg:row-start-1">
+            {/* minmax(0,…) on the phone's single column too, not just the
+                desktop pair: an auto grid track sizes to its widest item's
+                min-content, so one long line name inside the breakdown pushed
+                the whole page 81px wider than the screen and everything scrolled
+                sideways. */}
+            {/* Two columns where there is width. The left one is the month's
+                own arithmetic — how much is spoken for and by which block, then
+                what came in to measure it against — and the right one is the
+                detail you act on: every commitment on one scale, then the year.
+
+                Phone order is the order the questions get asked: which month,
+                what it came to, how much is committed, what to go after, where
+                the money came from, and only then how the months compare. */}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
+              <div className="order-1 lg:col-start-1 lg:row-start-1">
                 <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} variant="panel" />
               </div>
-              <div className="lg:col-start-1 lg:row-start-1">
+              <div className="order-2 lg:col-start-2 lg:row-start-1">
                 <MonthSummary month={month} />
               </div>
-              <div className="lg:col-start-1 lg:row-start-2">
-                <BucketRows sections={month.sections} moneyIn={month.moneyIn} />
+
+              <div className="order-3 space-y-3 lg:col-start-1 lg:row-start-2 lg:self-start">
+                <WhereItGoes month={month} />
+                <MoneyIn month={month} />
               </div>
-              <div className="lg:col-start-2 lg:row-start-2 lg:self-start">
+
+              <div className="order-4 space-y-3 lg:col-start-2 lg:row-start-2 lg:self-start">
+                <Commitments month={month} />
                 <YearList
                   months={months}
                   year={year}

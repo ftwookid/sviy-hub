@@ -821,16 +821,47 @@ Every other section answers a question about the business. **Finances**
 of a month: did more come in than went out. It is a household view, not a tax
 view — the year's deductible total lives in Reports and is not repeated here.
 
-Six blocks, in this order:
+**It tracks recurring commitments, not spending.** This is the scope decision the
+whole page hangs off, so it is written here first: a line belongs in Finances only
+if it repeats whether anybody thinks about it or not — a paycheck, rent, payroll
+tax, an insurance premium, a loan, a subscription, a standing transfer into
+savings. Restaurants, an occasional trip, a one-off purchase are **not** typed
+here and there is deliberately nowhere to put them. So the questions the page
+exists to answer are: how much of the month is already promised before it starts,
+and which commitment is worth killing. Anything that reframes it as a
+list-every-transaction budget app is out of scope, and any layout that cannot
+answer those two questions is the wrong layout however tidy it is.
+
+Seven blocks, in this order:
 
 | Block | Where the figures come from |
 | --- | --- |
 | Gross income | Typed lines (Ivan W2) + regular clients + house sitting |
 | Tax withheld | Typed |
-| Deductions | Read from Transactions, plus the mileage deduction for context |
-| Needs | Typed |
+| Deductions | Typed — insurance, repayments, anything withheld that is not tax |
+| Needs | Typed — rent, utilities, groceries as a standing figure |
+| Subscriptions | Typed — the recurring services worth cancelling |
 | Debt | Typed |
 | Investments & savings | Typed |
+
+**Subscriptions has its own block on purpose.** Filed under Needs they were
+invisible: one $2,395 rent line drowns nine small ones, and "what am I paying for
+every month that I no longer use" cannot be read off a total. Its own block means
+its own total, its own share of income, and its own yearly run rate — and of
+everything on this page, it is the one part a household can actually cut. Tax and
+rent are not arguable; a pile of $15-a-month services is.
+
+**Deductions here is not the business deduction.** It was, for a version: the
+block read business spending and the mileage deduction off the books, which put a
+*tax* total in the middle of a cash-flow page — the miles are not cash and could
+never be subtracted, and the spending answers a Taxes question that Reports
+already totals. It also left the money that genuinely comes out of a paycheck
+before it lands — health insurance, a repayment, a garnishment — with nowhere to
+be typed. So Deductions is the sixth typed bucket, with dated amounts and a
+cadence like every other standing figure, and nothing about the business's
+deduction appears on Finances at all. Business spending is not subtracted here
+either, so a month with business purchases reads higher than the bank does; the
+figure has one home, and it is Reports.
 
 Two kinds of number meet on the page and they behave differently:
 
@@ -890,11 +921,9 @@ Two kinds of number meet on the page and they behave differently:
 
 Rules the arithmetic follows:
 
-- **The mileage deduction is shown but never subtracted.** It lowers a tax bill,
-  not a bank balance. Counting it as money out would invent a deficit out of
-  nothing. It renders as an `informational` row, which `sectionOf()` excludes
-  from the section total.
-- Business spending **is** subtracted: unlike the miles, it left an account.
+- **No business figure is on the page.** Neither the mileage deduction (never
+  cash) nor business spending (Taxes' question, totalled on Reports) is read into
+  the month, so nothing here can be a tax total pretending to be a bank balance.
 - House sitting is spread over the nights it was slept in, not filed under its
   start date, so a stay from the 28th to the 3rd pays into both months. Cancelled
   stays earn nothing.
@@ -927,12 +956,56 @@ come to, what is it made of, how does it compare with the year:
   version set the net two steps larger, which made the reader ask why the type
   kept changing. Emphasis is colour, per financial convention: **green in
   surplus, red in deficit**, which is also the only cue the sign needs.
-- `BucketRows` shows **every line, always**. They were collapsed behind a tap for
-  a version on the reasoning that the total is what you read — backwards: you
-  scan totals to find the one that looks wrong and then need its lines
-  immediately, without losing the others from view. Each line keeps its hint,
-  which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
-  Aug 2", "3 nights booked", "Lowers the tax bill, not the bank balance").
+- **The month is three charts, not a table.** One table was being asked three
+  questions at once and answered none of them well, and every restyle of it lost
+  whichever question it was not built around. Each chart now has exactly one job,
+  chosen by what the data's job is rather than by what fits:
+  1. **How much is spoken for** — a single ratio against a limit, which is a
+     **meter**: one track, the committed part filled, both ends directly labelled
+     ("37% committed · $4,328.16" / "63% left · $7,485.08").
+  2. **Which blocks take it** — magnitude across seven named things, which is a
+     **sorted bar chart** (`WhereItGoes`). Sorted by size, not by the order the
+     buckets were declared, because the question is which is biggest.
+  3. **Which commitment to go after** — magnitude across *every line in the month*
+     on one shared scale, biggest first, regardless of block (`Commitments`).
+     Inside a block-by-block table this comparison was impossible: rent and a $15
+     subscription never appeared on the same axis. Each row carries its block name
+     and its **yearly run rate**, because $15 a month is a shrug and $180 a year
+     is a decision. Rounded (`formatCurrencyRounded`) — a run rate is an
+     extrapolation, not an amount anybody was charged.
+  `MoneyIn` is its own card, in green: it is not a competitor to the outflows, it
+  is the denominator every share on the page is measured against.
+- **Magnitude is length from a shared baseline, never colour.** The block palette
+  (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
+  checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under
+  deuteranopia, and 9.3 under *normal* vision against a floor of 15. Those hues
+  keep their identity job — a dot beside a name, a strip in Setup — and are never
+  asked to carry a quantity again; that also rules out a ring of seven slices. So
+  each chart is one series in one hue (`OUT_INK`, `IN_INK` in
+  `components/finances/chart.tsx`, both ≥ 3:1 against the surface), which needs no
+  legend because the card's title names it.
+- Mark spec, from the house data-viz rules: 10px bars, a 4px rounded data-end with
+  a square baseline, a hairline track one step off the surface, **no gridlines**
+  (every value is labelled), no dashes, no borders drawn around marks, and **no
+  mark at all for a zero** — an empty track is a bar drawn for a quantity that does
+  not exist. Figures live in a fixed right-hand column rather than at each bar's
+  tip: tip labels put every number at a different horizontal position, which is
+  fine for one bar and useless for reading down thirty. `tabular-nums` in those
+  columns, and **not** on the stat tiles, where equal-width digits only make a
+  standalone figure look loose.
+- Rejected, with reasons, so none of them come back: **per-row bars scaled inside
+  their own block** (a $2.10 line got a full-width bar in an otherwise empty
+  block, and no two blocks were comparable — nobody could say what a length
+  meant); **a bar column of its own** (58px taken off the label, turning "OR
+  Statewide Transit Tax (Ivan)" into "OR Statewide Transit Tax (I…" at 390px);
+  **filling the row background** (a 16% tint of olive on off-white is not a length
+  anyone can measure); and a **donut with a legend**, which is the weakest possible
+  encoding for seven similar shares and needs a palette that fails the checks.
+- **`minmax(0, …)` on the phone's single grid column, not just the desktop
+  pair.** An `auto` grid track sizes to its widest item's min-content, and
+  min-width:0 inside a flex row does not cap that contribution — so one long line
+  name in the breakdown pushed the whole page 81px wider than the screen and
+  every card, the summary included, scrolled sideways.
 - **The grid is two real rows, so cards that sit side by side end level.** Row one
   is the month picker and the month's total; row two is the breakdown and the
   year. The picker was floating above a column that spanned both rows, which left
@@ -976,11 +1049,40 @@ Setup is a **panel — not a tab, and not a route** (`SetupSheet`). A full-width
 segmented row for two tabs charges 48px to every visit for a screen opened a few
 times a year; but the route that replaced it was worse and more irritating, since
 it meant a page load and a fresh set of queries to show figures the month behind
-it had already loaded, then another load coming back. As a slide-over it opens
+it had already loaded, then another load coming back. As a panel it opens
 instantly on data already in memory, and a saved change lands on the month
 underneath while the panel is still open — which is the whole reason you opened
-it. Inside, the five buckets are strips in one card, each with its total, its
-blurb ("Needs" alone does not say what belongs in it) and a `+`.
+it.
+
+**It is a centred dialog on a desktop, 880px wide, and the whole screen on a
+phone.** It was a 520px slide-over, which sizes itself from the edge of the
+screen rather than from what is inside it: a date, a cadence and an amount were
+fighting over 470px while 900px of page sat dimmed behind them. Nothing in here
+wants to be read beside the month — the month is not readable while this is open
+— so it takes the middle of the screen and lays the fields out across it. The
+header stays put and the figures scroll under it.
+
+Inside, the six buckets are strips in one card, each with its total and a `+`.
+
+- **A heading outranks its lines**, which is the whole job of a heading. The
+  bucket name was 10.5px uppercase tertiary above 14px near-black rows — a label
+  whispering above the things it governed, so the eye read the lines first and
+  had to hunt upward to find out which bucket it was in. It is 16–17px primary
+  now, and the line rows sit a step below it.
+- **No blurb under the name** — "Before anything is taken out" under Gross income
+  tells whoever typed those figures nothing they did not know, and six of them
+  cost about 96px on a phone for nothing.
+- **Three columns where there is width**: label, when it last changed, the
+  figure. Stacking the "Since Dec 21" under the name left 400px of nothing down
+  the middle of the dialog and made every row two lines tall for a fact that
+  fits on one. The history rows read the same way — date, the typed figure with
+  its cadence, the monthly figure — so each column runs down a straight edge.
+- **A field never shares a line it cannot fit on.** The date trigger needs about
+  150px for "September 20, 2026"; sharing a 308px phone row with the amount and
+  Save left it 93px and it wrapped to two lines. So on a phone the date takes its
+  own line and the amount stretches to the end of the next one; on a desktop the
+  whole row — date, cadence, amount, Save, and the sentence explaining the
+  conversion — fits across in one.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It
@@ -1037,7 +1139,8 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
-- `components/finances/BucketRows.tsx`: The six blocks and every line in them.
+- `components/finances/MonthBreakdown.tsx`: The month's three charts.
+- `components/finances/chart.tsx`: Bars, meter, chart ink and the mark spec.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
@@ -1046,6 +1149,8 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
+- `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
+- `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1295,6 +1400,18 @@ empty page. It is re-runnable, and re-running never resurrects a line somebody
 deleted. Before it ran, `/finances` loaded and every linked figure read
 correctly, but the typed blocks showed a notice and saving a line reported the
 table missing.
+
+Then run `supabase/finance-deductions-bucket-schema.sql` in Supabase. It is
+re-runnable and one statement: it widens the `finance_lines` bucket check
+constraint to allow `Deductions`. Until it runs, the Deductions block and its
+Setup strip are both there, and adding a line to it reports the missing migration
+rather than failing silently.
+
+Then run `supabase/finance-subscriptions-bucket-schema.sql` in Supabase. It is
+re-runnable and one statement: it widens the `finance_lines` bucket check
+constraint to allow `Subscriptions`. Until it runs, the Subscriptions block and
+its Setup strip are both there, and adding a line to it reports the missing
+migration by name rather than failing silently.
 
 `supabase/finance-cadence-schema.sql` was applied on 19 August 2026. It adds
 `cadence` and `entered_amount` to `finance_line_rates` and backfilled every

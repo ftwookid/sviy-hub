@@ -5,6 +5,12 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2
 });
 
+const roundedCurrencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0
+});
+
 const monthFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
   year: "numeric"
@@ -17,6 +23,15 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 
 export function formatCurrency(value: number | string) {
   return currencyFormatter.format(Number(value || 0));
+}
+
+/**
+ * Currency with the cents dropped — for a figure that is an extrapolation
+ * rather than an amount anybody was charged, like a yearly run rate. Printing
+ * "$28,431.72 a year" claims a precision the number does not have.
+ */
+export function formatCurrencyRounded(value: number | string) {
+  return roundedCurrencyFormatter.format(Number(value || 0));
 }
 
 

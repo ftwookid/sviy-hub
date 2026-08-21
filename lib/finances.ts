@@ -1,7 +1,5 @@
 import type { ClientWithPets } from "@/types/client";
-import type { Expense } from "@/types/expense";
 import type { HouseSittingBooking } from "@/types/houseSitting";
-import type { MileageTrip } from "@/types/mileage";
 import type {
   FinanceBucket,
   FinanceLine,
@@ -15,7 +13,6 @@ import type {
 import { estimateClientMonthlyNet } from "@/lib/clients";
 import { addDays, activeBookings, estimateHouseSitting, nightsBetween } from "@/lib/houseSitting";
 import { formatCurrency, formatShortDate, monthRange, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
-import { dateFromTimestamp } from "@/lib/mileage";
 
 /**
  * The month, assembled.
@@ -30,18 +27,12 @@ import { dateFromTimestamp } from "@/lib/mileage";
 export const EDITABLE_BUCKETS: FinanceBucket[] = [
   "Gross Income",
   "Tax Withheld",
+  "Deductions",
   "Needs",
+  "Subscriptions",
   "Debt",
   "Investments & Savings"
 ];
-
-export const BUCKET_BLURBS: Record<FinanceBucket, string> = {
-  "Gross Income": "Before anything is taken out",
-  "Tax Withheld": "Already gone before payday",
-  Needs: "Rent, food, utilities, insurance",
-  Debt: "What the loans and cards take",
-  "Investments & Savings": "Put away rather than spent"
-};
 
 /**
  * How each block is named and coloured, in one place.
@@ -57,8 +48,9 @@ export const SECTION_STYLE: Record<
 > = {
   "Gross Income": { title: "Gross income", short: "In", color: "bg-[#5F8C74]", text: "text-[#4A8C6F]" },
   "Tax Withheld": { title: "Tax withheld", short: "Tax", color: "bg-[#8C8579]", text: "text-text-secondary" },
-  Deductions: { title: "Deductions", short: "Business", color: "bg-accent", text: "text-text-secondary" },
+  Deductions: { title: "Deductions", short: "Deducted", color: "bg-accent", text: "text-text-secondary" },
   Needs: { title: "Needs", short: "Needs", color: "bg-[#D8C7A5]", text: "text-text-secondary" },
+  Subscriptions: { title: "Subscriptions", short: "Subs", color: "bg-[#8D9DAE]", text: "text-text-secondary" },
   Debt: { title: "Debt", short: "Debt", color: "bg-[#B87B6B]", text: "text-text-secondary" },
   "Investments & Savings": {
     title: "Investments & savings",
@@ -119,28 +111,6 @@ export function houseSittingByMonth(bookings: HouseSittingBooking[], year: numbe
   });
 
   return { net, nights };
-}
-
-/** Business spending, by month. Real cash out of a real account, unlike the mileage deduction. */
-export function spendByMonth(expenses: Expense[], year: number) {
-  const totals = emptyYear();
-  expenses.forEach((expense) => {
-    const date = parseLocalDate(expense.date);
-    if (date.getFullYear() !== year) return;
-    totals[date.getMonth()] += Number(expense.amount);
-  });
-  return totals;
-}
-
-/** The mileage deduction, by month. Counted nowhere in the cash flow — see `MonthFinances.mileageDeduction`. */
-export function mileageByMonth(trips: MileageTrip[], year: number) {
-  const totals = emptyYear();
-  trips.forEach((trip) => {
-    const date = dateFromTimestamp(trip.start_at);
-    if (date.getFullYear() !== year) return;
-    totals[date.getMonth()] += Number(trip.deduction_value);
-  });
-  return totals;
 }
 
 /**
@@ -308,6 +278,16 @@ function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, m
     }));
 }
 
+/**
+ * A block, with its lines biggest first.
+ *
+ * Not in the order they were typed. A block is read to find out where the money
+ * went, and the answer is almost always the top one or two lines — putting them
+ * in insertion order means scanning thirteen near-identical figures to find the
+ * $654 among the $1.56s. Setup keeps `sort_order`, because that screen is for
+ * editing a named line and a list that reshuffles as amounts change is no way to
+ * find it.
+ */
 function sectionOf(
   key: FinanceSection["key"],
   direction: FinanceSection["direction"],
@@ -316,8 +296,8 @@ function sectionOf(
   return {
     key,
     direction,
-    rows,
-    total: rows.reduce((sum, row) => (row.informational ? sum : sum + row.amount), 0)
+    rows: [...rows].sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label)),
+    total: rows.reduce((sum, row) => sum + row.amount, 0)
   };
 }
 
@@ -326,14 +306,11 @@ export type MonthInputs = {
   lines: FinanceLine[];
   clientIncome: number;
   houseSitting: { net: number[]; nights: number[] };
-  spend: number[];
-  mileage: number[];
 };
 
 export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinances {
-  const { lines, clientIncome, houseSitting, spend, mileage, year } = inputs;
+  const { lines, clientIncome, houseSitting, year } = inputs;
   const nights = houseSitting.nights[monthIndex] ?? 0;
-  const mileageDeduction = mileage[monthIndex] ?? 0;
 
   const income = sectionOf("Gross Income", "in", [
     ...manualRows(lines, "Gross Income", year, monthIndex),
@@ -353,32 +330,18 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
     }
   ]);
 
-  // Business spending is cash; the mileage deduction is not. It rides along as an
-  // informational row so the section still reads as the deduction total the
-  // Reports page gives, without ever being subtracted from the family's month.
-  const deductions = sectionOf("Deductions", "out", [
-    {
-      key: "business-spend",
-      label: "Business spending",
-      amount: spend[monthIndex] ?? 0,
-      source: "Transactions",
-      hint: "From Taxes → Transactions"
-    },
-    {
-      key: "mileage",
-      label: "Mileage deduction",
-      amount: mileageDeduction,
-      source: "Mileage",
-      hint: "Lowers the tax bill, not the bank balance",
-      informational: true
-    }
-  ]);
-
+  // Deductions are typed, like the other four out-blocks: insurance, a
+  // repayment, whatever the employer takes that is not tax. The business
+  // deduction that used to sit here — spending and miles read off the books —
+  // belongs to Taxes and is answered on Reports; a tax total in the middle of a
+  // cash-flow page could not be subtracted from a bank balance and left nowhere
+  // to record the money that actually leaves the paycheck.
   const sections = [
     income,
     sectionOf("Tax Withheld", "out", manualRows(lines, "Tax Withheld", year, monthIndex)),
-    deductions,
+    sectionOf("Deductions", "out", manualRows(lines, "Deductions", year, monthIndex)),
     sectionOf("Needs", "out", manualRows(lines, "Needs", year, monthIndex)),
+    sectionOf("Subscriptions", "out", manualRows(lines, "Subscriptions", year, monthIndex)),
     sectionOf("Debt", "out", manualRows(lines, "Debt", year, monthIndex)),
     sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings", year, monthIndex))
   ];
@@ -395,8 +358,7 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
     sections,
     moneyIn,
     moneyOut,
-    leftOver: moneyIn - moneyOut,
-    mileageDeduction
+    leftOver: moneyIn - moneyOut
   };
 }
 

@@ -25,6 +25,27 @@ const MIGRATIONS: Array<[table: string, file: string]> = [
 
 const CADENCE_MIGRATION = "The pay cadence needs its column. Run supabase/finance-cadence-schema.sql in Supabase.";
 
+/**
+ * The bucket list lives in a check constraint, so every bucket the app learns
+ * about arrives with a migration of its own — and the message has to name the
+ * right one, or it sends the reader to a file they have already run.
+ */
+const BUCKET_MIGRATIONS: Partial<Record<FinanceBucket, string>> = {
+  Deductions: "supabase/finance-deductions-bucket-schema.sql",
+  Subscriptions: "supabase/finance-subscriptions-bucket-schema.sql"
+};
+
+function bucketMigrationMessage(bucket: FinanceBucket) {
+  const file = BUCKET_MIGRATIONS[bucket] ?? "supabase/finances-schema.sql";
+  return `${bucket} is not a bucket in the database yet. Run ${file} in Supabase.`;
+}
+
+/** A bucket the app knows and the database does not fails as a constraint violation. */
+function isUnknownBucket(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return error.code === "23514" && /finance_lines_bucket_check/.test(error.message ?? "");
+}
+
 /** PostgREST rejects an unknown column with PGRST204 before the request reaches Postgres. */
 function isMissingCadenceColumn(error: { code?: string; message?: string } | null) {
   if (!error) return false;
@@ -113,6 +134,8 @@ export async function addFinanceLine(input: {
     })
     .select("id")
     .single();
+
+  if (isUnknownBucket(error)) throw new Error(bucketMigrationMessage(input.bucket));
 
   const insertError = reportable(error);
   if (insertError) throw insertError;

@@ -1,6 +1,6 @@
 -- The household's month.
 --
--- Deductions, Clients and House Sitting each answer one question about the
+-- Taxes, Clients and House Sitting each answer one question about the
 -- business. None of them answers the question the family actually asks at the
 -- end of a month: did more come in than went out. That needs figures the app has
 -- never held — a W2, what the taxman already took, rent, the car loan, what went
@@ -33,7 +33,7 @@ alter table finance_lines
   drop constraint if exists finance_lines_bucket_check;
 alter table finance_lines
   add constraint finance_lines_bucket_check
-  check (bucket in ('Gross Income', 'Tax Withheld', 'Needs', 'Debt', 'Investments & Savings'));
+  check (bucket in ('Gross Income', 'Tax Withheld', 'Deductions', 'Needs', 'Subscriptions', 'Debt', 'Investments & Savings'));
 
 alter table finance_lines
   drop constraint if exists finance_lines_amount_check;
