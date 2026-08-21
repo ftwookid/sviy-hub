@@ -956,25 +956,33 @@ come to, what is it made of, how does it compare with the year:
   version set the net two steps larger, which made the reader ask why the type
   kept changing. Emphasis is colour, per financial convention: **green in
   surplus, red in deficit**, which is also the only cue the sign needs.
-- **The month is three charts, not a table.** One table was being asked three
-  questions at once and answered none of them well, and every restyle of it lost
-  whichever question it was not built around. Each chart now has exactly one job,
-  chosen by what the data's job is rather than by what fits:
-  1. **How much is spoken for** — a single ratio against a limit, which is a
-     **meter**: one track, the committed part filled, both ends directly labelled
-     ("37% committed · $4,328.16" / "63% left · $7,485.08").
-  2. **Which blocks take it** — magnitude across seven named things, which is a
-     **sorted bar chart** (`WhereItGoes`). Sorted by size, not by the order the
-     buckets were declared, because the question is which is biggest.
-  3. **Which commitment to go after** — magnitude across *every line in the month*
-     on one shared scale, biggest first, regardless of block (`Commitments`).
-     Inside a block-by-block table this comparison was impossible: rent and a $15
-     subscription never appeared on the same axis. Each row carries its block name
-     and its **yearly run rate**, because $15 a month is a shrug and $180 a year
-     is a decision. Rounded (`formatCurrencyRounded`) — a run rate is an
-     extrapolation, not an amount anybody was charged.
-  `MoneyIn` is its own card, in green: it is not a competitor to the outflows, it
-  is the denominator every share on the page is measured against.
+- **The month reads by section, in the order the buckets are declared.** Two
+  cards — `Money in` and `Money out` — each split by `border-t` into its blocks:
+  a header row carrying the bucket's name, its share of money in and its total,
+  with that bucket's lines beneath it (biggest first inside the block). The
+  order is fixed rather than sorted by size, so a block sits in the same place
+  every month.
+  - The version before this one dissolved the sections: it sorted the blocks by
+    size in one card (`WhereItGoes`) and poured **every line in the month** into
+    another, biggest first, with its block written under it in 10px grey
+    (`Commitments`). That answered "which single commitment is largest" and lost
+    the question the page is opened with — what does each part of the month
+    cost — because a line could not be found where it lives, and tax withheld
+    sat three rows away from tax withheld. Neither card is coming back.
+  - **The meter stays**, at the top of `Money out`: how much of what came in is
+    spoken for is one ratio against a limit, both ends directly labelled
+    ("37% committed · $4,328.16" / "63% left · $7,485.08").
+  - **One scale across the whole card, not one per block.** Every bar in
+    `Money out` is measured against the largest line in the month, so a $15
+    subscription draws a $15 bar next to rent and the cross-block comparison the
+    flat list existed for survives the grouping. Per-block scaling is the
+    already-rejected trap that gave a $2.10 line a full-width bar.
+  - Each line keeps its **yearly run rate** — $15 a month is a shrug and $180 a
+    year is a decision. Rounded (`formatCurrencyRounded`), because a run rate is
+    an extrapolation, not an amount anybody was charged.
+  - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
+    own name. Nothing is titled with a phrase that has to be interpreted.
+  - An empty block is its header row and nothing else.
 - **Magnitude is length from a shared baseline, never colour.** The block palette
   (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
   checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under
@@ -1139,7 +1147,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
-- `components/finances/MonthBreakdown.tsx`: The month's three charts.
+- `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
 - `components/finances/chart.tsx`: Bars, meter, chart ink and the mark spec.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.

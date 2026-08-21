@@ -1,32 +1,40 @@
 "use client";
 
+import { Fragment } from "react";
+
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
-import { BarRow, ChartCard, IN_INK, Meter, OUT_INK, type BarRowData } from "@/components/finances/chart";
-import type { MonthFinances } from "@/types/finance";
+import { BarRow, ChartCard, IN_INK, Meter, OUT_INK } from "@/components/finances/chart";
+import type { FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
- * The month, in three charts, each answering exactly one question.
+ * The month, read by section.
  *
- * This replaced a single nineteen-row table, and the reason it is three charts
- * rather than one is that the table was being asked three questions at once and
- * answered none of them well: how much of the month is spoken for, which blocks
- * take it, and which individual commitment is the one to go after. Every version
- * of the table lost whichever question it was not built around.
+ * The version before this one dissolved the sections: it sorted the blocks by
+ * size in one card and then poured **every line in the month** into another,
+ * biggest first, with its block written underneath in 10px grey. That answered
+ * "which single commitment is largest" and lost the question the page is
+ * actually opened with — what does each part of the month cost — because a line
+ * could no longer be found where it lives. Tax withheld was three rows apart
+ * from tax withheld.
  *
- * - **How much is spoken for** is a single ratio against a limit, which is a
- *   meter — the only form that job wants.
- * - **Which blocks take it** is magnitude across six named things, which is a
- *   sorted bar chart. Sorted by size, not by the order the buckets were defined,
- *   because the question is which is biggest.
- * - **Which commitment to go after** is magnitude across every line in the month
- *   regardless of which block it sits in, so those bars share one scale and one
- *   list. Inside a block-by-block table this comparison was impossible: rent and
- *   a $15 subscription never appeared on the same axis.
+ * So the buckets are back, **in their declared order** (tax, deductions, needs,
+ * subscriptions, debt, savings), each a header row carrying its own total and
+ * its share of what came in, with its lines beneath it. The order is fixed
+ * rather than sorted by size so a block sits in the same place every month;
+ * inside a block the lines are still biggest first, which is `sectionOf`'s job
+ * in `lib/finances.ts`.
  *
- * Money in is its own card. It is not a competitor to the outflows — it is the
- * denominator every share on the page is measured against, so it reads in green
- * and sits apart.
+ * The one thing worth keeping from the flat list was the shared scale, and it is
+ * kept: **every bar in the card is measured against the largest line in the
+ * month**, not against the biggest line in its own block. A $15 subscription
+ * therefore draws a $15 bar next to rent instead of a full-width one, so the
+ * cross-block comparison survives the sections. Per-block scaling is the trap
+ * that was already tried and rejected — it made a $2.10 line look like the
+ * biggest thing on the page.
+ *
+ * Headings say what they hold: `Money in`, `Money out`, and the bucket's own
+ * name. No card here is titled with a phrase you have to interpret.
  */
 
 function yearly(amount: number) {
@@ -37,23 +45,47 @@ function percent(share: number) {
   return share >= 0.005 ? `${Math.round(share * 100)}%` : "under 1%";
 }
 
-/** How much of what came in is already promised, and to what. */
-export function WhereItGoes({ month }: { month: MonthFinances }) {
-  const blocks = month.sections
-    .filter((section) => section.direction === "out")
-    .sort((a, b) => b.total - a.total);
-  const largest = Math.max(...blocks.map((block) => block.total), 0);
-
-  const rows: BarRowData[] = blocks.map((block) => ({
-    key: block.key,
-    label: SECTION_STYLE[block.key].title,
-    amount: block.total,
-    share: block.total > 0 ? `${percent(shareOfIncome(block.total, month.moneyIn))} of money in` : undefined,
-    note: yearly(block.total)
-  }));
+/**
+ * A bucket's own row: name, what it takes of the month's income, its total.
+ *
+ * The name outranks the lines under it — that is the whole job of a heading, and
+ * a 10px uppercase whisper above near-black rows failed it on the Setup screen
+ * for months. Three columns across the full width, because the row has three
+ * facts and the space is there.
+ */
+function SectionHeader({ section, moneyIn }: { section: FinanceSection; moneyIn: number }) {
+  const share = section.total > 0 && moneyIn > 0 ? `${percent(shareOfIncome(section.total, moneyIn))} of money in` : null;
 
   return (
-    <ChartCard title="Where it goes" note="By block">
+    <div className="flex items-baseline gap-3 border-t border-border bg-subtle/50 px-3.5 py-1.5 sm:px-4">
+      <h3 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-text-primary">
+        {SECTION_STYLE[section.key].title}
+      </h3>
+      {share ? (
+        <span className="shrink-0 text-[10.5px] tabular-nums text-text-tertiary">{share}</span>
+      ) : null}
+      <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
+        {formatCurrency(section.total)}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Everything the month is already promised to, by block.
+ *
+ * The meter sits at the top because it is the one figure the whole card is a
+ * breakdown of: how much of what came in is spoken for. Both its ends are
+ * labelled, so nothing has to be inferred from a length.
+ */
+export function MoneyOut({ month }: { month: MonthFinances }) {
+  const sections = month.sections.filter((section) => section.direction === "out");
+  // One scale for the card, taken across every line in every block, so a bar's
+  // length means the same thing wherever it is read.
+  const largest = Math.max(...sections.flatMap((section) => section.rows.map((row) => row.amount)), 0);
+
+  return (
+    <ChartCard title="Money out" note={formatCurrency(month.moneyOut)}>
       {month.moneyIn > 0 ? (
         <Meter
           filled={month.moneyOut}
@@ -66,92 +98,69 @@ export function WhereItGoes({ month }: { month: MonthFinances }) {
           )}`}
         />
       ) : null}
-      <div className="divide-y divide-border/50 border-t border-border">
-        {rows.map((row) => (
-          <BarRow key={row.key} row={row} max={largest} ink={OUT_INK} />
-        ))}
-      </div>
-    </ChartCard>
-  );
-}
 
-/**
- * Every commitment in the month on one scale, biggest first.
- *
- * The block a line belongs to is written under its name rather than encoded in
- * the bar's colour — seven hues on one axis is the thing the colour checks
- * refuse, and a name cannot be misread.
- */
-export function Commitments({ month }: { month: MonthFinances }) {
-  const lines = month.sections
-    .filter((section) => section.direction === "out")
-    .flatMap((section) =>
-      section.rows.map((row) => ({
-        key: `${section.key}-${row.key}`,
-        label: row.label,
-        amount: row.amount,
-        block: SECTION_STYLE[section.key].title,
-        hint: row.hint
-      }))
-    )
-    .sort((a, b) => b.amount - a.amount);
-
-  const largest = Math.max(...lines.map((line) => line.amount), 0);
-
-  return (
-    <ChartCard title="Every commitment, biggest first" note="Same scale">
-      {lines.length === 0 ? (
-        <p className="px-3.5 py-3 text-[12.5px] text-text-tertiary sm:px-4">
-          Nothing committed this month. Standing figures are typed in Setup.
-        </p>
-      ) : (
-        <div className="divide-y divide-border/50">
-          {lines.map((line) => (
-            <BarRow
-              key={line.key}
-              row={{
-                key: line.key,
-                label: line.label,
-                amount: line.amount,
-                note: [line.block, line.hint].filter(Boolean).join(" · "),
-                secondary: yearly(line.amount)
-              }}
-              max={largest}
-              ink={OUT_INK}
-            />
-          ))}
-        </div>
-      )}
+      {sections.map((section) => (
+        <Fragment key={section.key}>
+          <SectionHeader section={section} moneyIn={month.moneyIn} />
+          {/* An empty block is its header row and nothing else — there is no
+              line to draw and no zero worth printing twice. */}
+          <div className="divide-y divide-border/40">
+            {section.rows.map((row) => (
+              <BarRow
+                key={row.key}
+                row={{
+                  key: row.key,
+                  label: row.label,
+                  amount: row.amount,
+                  note: row.hint,
+                  // A run rate is what turns a $15 line into a decision, so it
+                  // stays on the row even now the lines are grouped again.
+                  secondary: row.amount > 0 ? yearly(row.amount) : undefined
+                }}
+                max={largest}
+                ink={OUT_INK}
+              />
+            ))}
+          </div>
+        </Fragment>
+      ))}
     </ChartCard>
   );
 }
 
 /** The denominator: what actually arrived, and from where. */
 export function MoneyIn({ month }: { month: MonthFinances }) {
-  const rows = month.sections
-    .filter((section) => section.direction === "in")
-    .flatMap((section) => section.rows)
-    .sort((a, b) => b.amount - a.amount);
-  const largest = Math.max(...rows.map((row) => row.amount), 0);
+  const sections = month.sections.filter((section) => section.direction === "in");
+  const largest = Math.max(...sections.flatMap((section) => section.rows.map((row) => row.amount)), 0);
+  // One in-block today, and its name and the card's title would say the same
+  // thing twice. A second one would need telling apart, so the header appears
+  // then and not before.
+  const showHeaders = sections.length > 1;
 
   return (
     <ChartCard title="Money in" note={formatCurrency(month.moneyIn)}>
-      <div className="divide-y divide-border/50">
-        {rows.map((row) => (
-          <BarRow
-            key={row.key}
-            row={{
-              key: row.key,
-              label: row.label,
-              amount: row.amount,
-              note: row.hint,
-              share: `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in`
-            }}
-            max={largest}
-            ink={IN_INK}
-          />
-        ))}
-      </div>
+      {sections.map((section) => (
+        <Fragment key={section.key}>
+          {showHeaders ? <SectionHeader section={section} moneyIn={month.moneyIn} /> : null}
+          <div className="divide-y divide-border/40">
+            {section.rows.map((row) => (
+              <BarRow
+                key={row.key}
+                row={{
+                  key: row.key,
+                  label: row.label,
+                  amount: row.amount,
+                  note: row.hint,
+                  share:
+                    row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
+                }}
+                max={largest}
+                ink={IN_INK}
+              />
+            ))}
+          </div>
+        </Fragment>
+      ))}
     </ChartCard>
   );
 }
