@@ -5,57 +5,55 @@ import { formatCurrency } from "@/lib/formatters";
 import type { MonthFinances } from "@/types/finance";
 
 /**
- * The month as a chain, in the order it actually happens.
+ * What the month came to: the net, what came in, what went out.
  *
- * Gross → what never reaches the account → **net income** → what is spent out of
- * it → what is left. Three figures used to sit here (left over, in, out) and
- * "out" added tax to rent, which produced a number measured against gross pay
- * that was never available to spend. Net income is the figure the household
- * actually recognises, and it only exists if the two kinds of outflow are kept
- * apart.
+ * Three peer figures at the same size — an earlier version set the net two steps
+ * larger, which asked the reader why the type kept changing size. The emphasis is
+ * **colour**, the way every other financial report does it: green in surplus, red
+ * in deficit. That is also the only cue needed for the sign, so the label says
+ * "Left over" or "Short" and the figure stays unsigned.
  *
- * Emphasis is **colour**, per financial convention: green in surplus, red in
- * deficit. That is also the only cue the sign needs, so the label reads "Left
- * over" or "Short" and the figure stays unsigned. Everything is one size — an
- * earlier version set the net two steps larger, which asked the reader why the
- * type kept changing.
- *
- * Two across on a phone, four on a desktop, and every cell a fixed 60px: this
- * card shares a grid row with the month picker at `lg`, and a header that changes
- * height moves the control beside it.
+ * **Fixed height, always.** This card and the month picker are the page's header
+ * pair, sitting in one grid row, and a header that changes height moves the
+ * control next to it. A composition bar used to live under these figures and
+ * appeared only once something had been allocated — so the picker beside it
+ * jumped by 50px depending on the month being viewed. The share of income each
+ * block takes is on the block's own row in the breakdown, which is where you are
+ * looking when you want it.
  */
 
-const CELL_HEIGHT = "h-[60px]";
+// 60px, matched by MonthPicker's panel variant. Both header cards are pinned to
+// it so neither can shift the other, whatever their contents.
+const HEADER_CARD_HEIGHT = "h-[60px]";
 
 export function MonthSummary({ month }: { month: MonthFinances }) {
   const short = month.leftOver < 0;
 
+  // In, then what is already promised, then what survives — the order the
+  // question gets asked. "Committed" rather than "money out": nothing occasional
+  // is ever typed into Finances, so every figure here is something that repeats
+  // whether anybody thinks about it or not, and that is the point of the page.
   const stats = [
-    { label: "Gross in", value: month.moneyIn, tone: "plain" },
-    { label: "Net income", value: month.netIncome, tone: "plain" },
-    { label: "Spent", value: month.postNet, tone: "plain" },
+    { label: "Money in", value: month.moneyIn, tone: "plain" },
+    { label: "Committed", value: month.moneyOut, tone: "plain" },
     { label: short ? "Short" : "Left over", value: month.leftOver, tone: short ? "bad" : "good" }
   ];
 
   return (
-    <section className="grid grid-cols-2 overflow-hidden rounded-[20px] border border-border bg-surface shadow-card lg:grid-cols-4">
-      {stats.map((stat, index) => (
-        <div
-          key={stat.label}
-          className={cn(
-            "flex min-w-0 flex-col justify-center border-border/70 px-3",
-            CELL_HEIGHT,
-            index % 2 === 1 ? "border-l" : "",
-            index >= 2 ? "border-t lg:border-t-0" : "",
-            "lg:border-l lg:first:border-l-0"
-          )}
-        >
+    <section
+      className={cn(
+        "grid grid-cols-3 divide-x divide-border/70 overflow-hidden rounded-[20px] border border-border bg-surface shadow-card",
+        HEADER_CARD_HEIGHT
+      )}
+    >
+      {stats.map((stat) => (
+        <div key={stat.label} className="flex min-w-0 flex-col justify-center px-3">
           <div className="truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
             {stat.label}
           </div>
           <div
             className={cn(
-              "mt-1 truncate text-[17px] font-medium leading-none tracking-[-0.01em] tabular-nums",
+              "mt-1 truncate text-[17px] font-medium leading-none tracking-[-0.01em]",
               stat.tone === "bad" ? "text-danger" : stat.tone === "good" ? "text-success" : "text-text-primary"
             )}
           >

@@ -23,48 +23,20 @@ export type FinanceBucket =
   | "Gross Income"
   | "Tax Withheld"
   | "Deductions"
-  | "Investments & Savings"
   | "Needs"
   | "Subscriptions"
   | "Debt"
-  | "Wants";
+  | "Investments & Savings";
 
 export const FINANCE_BUCKETS: FinanceBucket[] = [
   "Gross Income",
   "Tax Withheld",
   "Deductions",
-  "Investments & Savings",
   "Needs",
   "Subscriptions",
   "Debt",
-  "Wants"
+  "Investments & Savings"
 ];
-
-/**
- * When a bucket takes its money.
- *
- * The household's own budget was kept as two columns for years and the split is
- * the thing that makes the month legible: tax, payroll deductions and the 401k
- * never reach the account — they are gone before the paycheck lands — while rent,
- * debt, subscriptions and wants come out of what actually arrives. A page that
- * adds all of them together produces a "committed" figure nobody recognises,
- * because it is measured against gross pay that was never available to spend.
- *
- * So the month runs: gross → less what is taken before it lands → **net income**
- * → less what is spent out of it → left over.
- */
-export type FinanceStage = "in" | "pre" | "post";
-
-export const BUCKET_STAGE: Record<FinanceBucket, FinanceStage> = {
-  "Gross Income": "in",
-  "Tax Withheld": "pre",
-  Deductions: "pre",
-  "Investments & Savings": "pre",
-  Needs: "post",
-  Subscriptions: "post",
-  Debt: "post",
-  Wants: "post"
-};
 
 /**
  * How often a figure actually arrives or is paid.
@@ -143,8 +115,6 @@ export type FinanceSection = {
   key: FinanceSectionKey;
   /** `in` adds to the month, `out` takes from it. */
   direction: "in" | "out";
-  /** Before the paycheck lands, or out of what landed. See `BUCKET_STAGE`. */
-  stage: FinanceStage;
   rows: FinanceRow[];
   total: number;
 };
@@ -152,15 +122,7 @@ export type FinanceSection = {
 export type MonthFinances = {
   periodMonth: string;
   sections: FinanceSection[];
-  /** Gross — everything earned, before anything is taken out. */
   moneyIn: number;
-  /** Taken before the paycheck lands: tax, payroll deductions, the 401k. */
-  preNet: number;
-  /** What actually arrives in the account. */
-  netIncome: number;
-  /** Spent out of the net: rent, debt, subscriptions, wants. */
-  postNet: number;
-  /** Everything that leaves, whichever side of net it leaves on. */
   moneyOut: number;
   leftOver: number;
 };

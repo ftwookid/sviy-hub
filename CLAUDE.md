@@ -17,13 +17,6 @@ Answer these before writing layout, and again before committing:
 1. **Did I stack cards?** More than two top-level cards on a screen is a failure.
    Related blocks go in **one** container split by `border-t`. Six sections means
    six rows in one card that expand, not six cards.
-   **Exception, granted explicitly on Finances:** a set of blocks that are
-   different *kinds* of figure reads better as a grid of small colour-headed
-   tables than as one divided list — see the Finances section. The test is whether
-   a reader can tell what kind of number they are looking at without tracing
-   upward to find a heading. Inside one card, a block boundary is a hairline and
-   a tint, and no amount of type hierarchy fixed it. Do not use this as a licence
-   to stack cards that hold the same kind of thing.
 2. **Is every row using its full width?** A card spanning the screen with its
    content in the left 10% is the single most-named failure. Numbers go where the
    space is — a divided strip across the row, not a left-hugging block.
@@ -61,9 +54,6 @@ The rules that follow from that:
 - **One card per screen, divided — not a stack of cards.** Each card costs a
   border, a shadow, a title and two lots of padding. Related blocks belong inside
   one container separated by `border-t`, the way the Mileage car block already does.
-  The one place this is deliberately inverted is Finances, where each block is its
-  own small table under its own colour, because the blocks are different kinds of
-  money and telling them apart at a glance matters more than the chrome costs.
 - **Entry forms collapse; readings do not.** A page is opened to read a number
   ten times for every once it is typed into. Log forms, setup fields and goal
   editors sit behind a disclosure or appear only while their value is unset. What
@@ -966,52 +956,51 @@ come to, what is it made of, how does it compare with the year:
   version set the net two steps larger, which made the reader ask why the type
   kept changing. Emphasis is colour, per financial convention: **green in
   surplus, red in deficit**, which is also the only cue the sign needs.
-- `BucketRows` shows **every line, always**. They were collapsed behind a tap for
-  a version on the reasoning that the total is what you read — backwards: you
-  scan totals to find the one that looks wrong and then need its lines
-  immediately, without losing the others from view. Each line keeps its hint,
-  which is where a figure explains itself ("Blended · $4,038.46 to $4,159.62 on
-  Aug 2", "3 nights booked", "$302.30 every 2 weeks").
-- **The card is built around the two questions above**, and four versions of it
-  answered different ones. What it does now:
-  1. **A composition bar at the top** — each committed block's share of income,
-     then what is left, on one 100% track, with "37% committed · $4,328.16" and
-     "63% left over · $7,485.08" under it. The month in one line before a figure
-     is read. This is the *only* place proportion is drawn: thirteen bars, one per
-     row, were noise.
-  2. **A yearly figure against every commitment and every block total.** $14.99 a
-     month is a shrug; $180 a year is a decision. It is rounded
-     (`formatCurrencyRounded`) because it is a run rate, not an amount anybody was
-     charged.
-  3. **Money in reads green, everything committed reads neutral.** A reader
-     landing on a line must be able to tell whether the figure is a good thing
-     before reading what it says. `MonthSummary` matches: money in, **Committed**,
-     left over — in that order, which is the order the question gets asked.
-  4. **Lines first, then their conclusion.** People read a group of items and then
-     its total — a receipt, an invoice and a statement all work that way, and a
-     total on top is a claim you have to hold in your head while checking the
-     lines under it. Each block's total is its **last** row, heavier and tinted,
-     and it is the only place the block's name appears.
-  5. **One column for every figure**, totals included, so they all read down one
-     edge; every percentage on the card is one thing — share of money in — named
-     once in the header; and the `Clients` / `House Sitting` badge sits on the
-     second line, since on the first it cost 70px of the label.
-  6. **Biggest first** (`sectionOf`) — the order that answers "what should I go
-     after". Setup keeps `sort_order`: that screen is for finding a line by name,
-     and a list that reshuffles as amounts change is no way to find one.
-  Rejected, with reasons, so they do not come back: **per-row bars scaled inside
+- **The month is three charts, not a table.** One table was being asked three
+  questions at once and answered none of them well, and every restyle of it lost
+  whichever question it was not built around. Each chart now has exactly one job,
+  chosen by what the data's job is rather than by what fits:
+  1. **How much is spoken for** — a single ratio against a limit, which is a
+     **meter**: one track, the committed part filled, both ends directly labelled
+     ("37% committed · $4,328.16" / "63% left · $7,485.08").
+  2. **Which blocks take it** — magnitude across seven named things, which is a
+     **sorted bar chart** (`WhereItGoes`). Sorted by size, not by the order the
+     buckets were declared, because the question is which is biggest.
+  3. **Which commitment to go after** — magnitude across *every line in the month*
+     on one shared scale, biggest first, regardless of block (`Commitments`).
+     Inside a block-by-block table this comparison was impossible: rent and a $15
+     subscription never appeared on the same axis. Each row carries its block name
+     and its **yearly run rate**, because $15 a month is a shrug and $180 a year
+     is a decision. Rounded (`formatCurrencyRounded`) — a run rate is an
+     extrapolation, not an amount anybody was charged.
+  `MoneyIn` is its own card, in green: it is not a competitor to the outflows, it
+  is the denominator every share on the page is measured against.
+- **Magnitude is length from a shared baseline, never colour.** The block palette
+  (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
+  checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under
+  deuteranopia, and 9.3 under *normal* vision against a floor of 15. Those hues
+  keep their identity job — a dot beside a name, a strip in Setup — and are never
+  asked to carry a quantity again; that also rules out a ring of seven slices. So
+  each chart is one series in one hue (`OUT_INK`, `IN_INK` in
+  `components/finances/chart.tsx`, both ≥ 3:1 against the surface), which needs no
+  legend because the card's title names it.
+- Mark spec, from the house data-viz rules: 10px bars, a 4px rounded data-end with
+  a square baseline, a hairline track one step off the surface, **no gridlines**
+  (every value is labelled), no dashes, no borders drawn around marks, and **no
+  mark at all for a zero** — an empty track is a bar drawn for a quantity that does
+  not exist. Figures live in a fixed right-hand column rather than at each bar's
+  tip: tip labels put every number at a different horizontal position, which is
+  fine for one bar and useless for reading down thirty. `tabular-nums` in those
+  columns, and **not** on the stat tiles, where equal-width digits only make a
+  standalone figure look loose.
+- Rejected, with reasons, so none of them come back: **per-row bars scaled inside
   their own block** (a $2.10 line got a full-width bar in an otherwise empty
   block, and no two blocks were comparable — nobody could say what a length
-  meant); **a bar column of its own** (58px, taken off the label, turning "OR
+  meant); **a bar column of its own** (58px taken off the label, turning "OR
   Statewide Transit Tax (Ivan)" into "OR Statewide Transit Tax (I…" at 390px);
   **filling the row background** (a 16% tint of olive on off-white is not a length
-  anyone can measure, and a fill stopping mid-row reads as a rendering fault).
-  Four whole-card shapes were also built side by side on real August figures — a
-  waterfall, a donut-plus-ranked-list, proportional tiles, and a two-column
-  ledger — and the composition bar plus the grouped ledger is what came out of it:
-  the ranked-list and donut versions answer "where did it go" but lose the
-  block totals and the yearly run rate, which are what make a commitment
-  cancellable.
+  anyone can measure); and a **donut with a legend**, which is the weakest possible
+  encoding for seven similar shares and needs a palette that fails the checks.
 - **`minmax(0, …)` on the phone's single grid column, not just the desktop
   pair.** An `auto` grid track sizes to its widest item's min-content, and
   min-width:0 inside a flex row does not cap that contribution — so one long line
@@ -1149,9 +1138,9 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/finances/page.tsx`: Finances — the household month, in and out.
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
-- `components/finances/MonthSummary.tsx`: Gross → net income → spent → left over.
-- `components/finances/BlockCard.tsx`: One block as its own colour-headed table.
-- `components/finances/OutRing.tsx`: Money out as a ring, with the figures beside it.
+- `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
+- `components/finances/MonthBreakdown.tsx`: The month's three charts.
+- `components/finances/chart.tsx`: Bars, meter, chart ink and the mark spec.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
@@ -1160,7 +1149,8 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
-- `supabase/finance-buckets-schema.sql`: every bucket the month is made of.
+- `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
+- `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1411,14 +1401,17 @@ deleted. Before it ran, `/finances` loaded and every linked figure read
 correctly, but the typed blocks showed a notice and saving a line reported the
 table missing.
 
-Then run `supabase/finance-buckets-schema.sql` in Supabase. It is re-runnable,
-one statement, and it replaces the two earlier per-bucket migrations (which have
-been deleted) rather than adding a third file to run in order — safe whether or
-not those were applied. It widens the `finance_lines` bucket check constraint to
-the full set: Gross Income, Tax Withheld, Deductions, Investments & Savings,
-Needs, Subscriptions, Debt, Wants. Until it runs, the Subscriptions and Wants
-blocks are both on screen and adding a line to either reports the migration by
-name rather than failing silently.
+Then run `supabase/finance-deductions-bucket-schema.sql` in Supabase. It is
+re-runnable and one statement: it widens the `finance_lines` bucket check
+constraint to allow `Deductions`. Until it runs, the Deductions block and its
+Setup strip are both there, and adding a line to it reports the missing migration
+rather than failing silently.
+
+Then run `supabase/finance-subscriptions-bucket-schema.sql` in Supabase. It is
+re-runnable and one statement: it widens the `finance_lines` bucket check
+constraint to allow `Subscriptions`. Until it runs, the Subscriptions block and
+its Setup strip are both there, and adding a line to it reports the missing
+migration by name rather than failing silently.
 
 `supabase/finance-cadence-schema.sql` was applied on 19 August 2026. It adds
 `cadence` and `entered_amount` to `finance_line_rates` and backfilled every
