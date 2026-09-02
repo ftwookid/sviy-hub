@@ -175,7 +175,7 @@ export function normalizeRate(rate: FinanceRate): FinanceRate {
       : Math.round((monthly / CADENCE_PER_MONTH[cadence]) * 100) / 100
     : Number(rate.entered_amount);
 
-  return { ...rate, monthly_amount: monthly, entered_amount: entered, cadence };
+  return { ...rate, monthly_amount: monthly, entered_amount: entered, cadence, effective_to: rate.effective_to ?? null };
 }
 
 /** Rates oldest first. Every reader below assumes this order, so it is done once, on load. */
@@ -189,14 +189,37 @@ export function currentCadence(rates: FinanceRate[]): PayCadence {
   return (inForce ?? rates[rates.length - 1])?.cadence ?? "Monthly";
 }
 
-/** What a line is worth per month on one date, or 0 before its first rate starts. */
+/**
+ * What a line is worth per month on one date.
+ *
+ * Zero before its first rate starts, and zero again once the rate in force has
+ * run out — an ended line is worth nothing, not its last amount forever. A later
+ * rate still wins over an earlier one that ended, which is how a line that was
+ * stopped and later restarted reads.
+ */
 export function rateOn(rates: FinanceRate[], dateValue: string) {
   let amount = 0;
   for (const rate of rates) {
     if (rate.effective_from > dateValue) break;
-    amount = Number(rate.monthly_amount);
+    amount = hasEnded(rate, dateValue) ? 0 : Number(rate.monthly_amount);
   }
   return amount;
+}
+
+/** Whether this rate had already run out by the given day. */
+function hasEnded(rate: FinanceRate, dateValue: string) {
+  return rate.effective_to !== null && rate.effective_to !== undefined && rate.effective_to < dateValue;
+}
+
+/**
+ * The day a line stopped for good, or null while it is still running.
+ *
+ * Only the last rate can end a line: an end date on any earlier one is a gap
+ * that the next dated change closes.
+ */
+export function endedOn(rates: FinanceRate[]) {
+  const last = rates[rates.length - 1];
+  return last?.effective_to ?? null;
 }
 
 /**
@@ -350,8 +373,13 @@ export function occurrencesInMonth(
   rates.forEach((rate, index) => {
     const next = rates[index + 1];
     const windowStart = rate.effective_from > start ? rate.effective_from : start;
-    const windowEnd =
+    const nextStarts =
       next && next.effective_from <= end ? toInputDate(addDays(parseLocalDate(next.effective_from), -1)) : end;
+    // An end date is inclusive, so it closes the window on its own day. It only
+    // ever shortens: a line that stopped on the 12th cannot pay on the 20th
+    // whatever the next change says.
+    const stops = rate.effective_to ?? null;
+    const windowEnd = stops !== null && stops < nextStarts ? stops : nextStarts;
     if (windowStart > windowEnd) return;
 
     cadenceDatesInMonth(anchorFor(rates, index), rate.cadence, year, monthIndex)
@@ -391,11 +419,19 @@ function lineHint(line: FinanceLine, year: number, monthIndex: number) {
   const first = rates[0];
   if (first.effective_from > end) return `Starts ${formatShortDate(first.effective_from)}`;
 
+  // A line that stopped before this month is not shown at all (`manualRows`
+  // drops it), so this only speaks for the month it stopped in and the ones a
+  // future end date has not reached yet.
+  const stopped = endedOn(rates);
+  if (stopped !== null && stopped < start) return `Ended ${formatShortDate(stopped)}`;
+  const ending = stopped !== null && stopped <= end ? `Ends ${formatShortDate(stopped)}` : null;
+
   const occurrences = occurrencesInMonth(rates, year, monthIndex);
   const cadence = ([...rates].reverse().find((rate) => rate.effective_from <= end) ?? first).cadence;
 
   // A quarterly bill in a month it is not due, or a line that has been ended.
   if (occurrences.length === 0) {
+    if (ending) return ending;
     if (first.effective_from > start) return `From ${formatShortDate(first.effective_from)}`;
     return "Nothing due this month";
   }
@@ -413,14 +449,25 @@ function lineHint(line: FinanceLine, year: number, monthIndex: number) {
   }
 
   if (occurrences.length > 1) return `${occurrences.length} payments · ${each}`;
+  if (ending) return `${ending}${cadence === "Monthly" ? "" : ` · ${each}`}`;
   if (cadence !== "Monthly") return `Paid ${formatShortDate(occurrences[0].date)} · ${each}`;
   if (first.effective_from > start) return `From ${formatShortDate(first.effective_from)}`;
   return line.note ?? undefined;
 }
 
 function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, monthIndex: number): FinanceRow[] {
+  const { start: monthStart } = monthRange(year, monthIndex);
+
   return lines
     .filter((line) => line.bucket === bucket)
+    // A line that stopped before this month started is gone from it, rather than
+    // a $0.00 row sitting in every month for the rest of time. That is the whole
+    // difference between an end date and the change-it-to-0 it replaces: one
+    // says the commitment is over, the other says it is currently free.
+    .filter((line) => {
+      const stopped = endedOn(line.rates);
+      return stopped === null || stopped >= monthStart;
+    })
     .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label))
     // A fixed-weekday line is read on its paydays. Setup already writes the
     // snapped date, so this is normally a no-op — it is here so that a row

@@ -953,9 +953,31 @@ Two kinds of number meet on the page and they behave differently:
     Taking whichever rate was in force on the 1st would hide the raise for a
     month. `amountForMonth()` walks the days rather than doing interval
     arithmetic: 31 iterations, no boundary to get wrong.
-  - **Ending a line is a change to 0, not a deletion.** The months it did run
-    still have to add up. Deleting the line is the one write on the Setup screen
-    that asks for confirmation, because it takes the whole history with it.
+  - **A line ends with a date, not a deletion and not a zero.** Every rate carries
+    an optional `effective_to`, inclusive; null means it is still running. The
+    months it did run still have to add up, so deleting the line is the one write
+    on the Setup screen that asks for confirmation — it takes the whole history
+    with it. The change-it-to-0 that used to be the only way to stop something is
+    gone from the copy: it was right about the arithmetic and wrong about
+    everything else, because the line then kept a $0.00 row in every month
+    afterwards and "cancelled in September" was stored as the same thing as
+    "still running, currently free". A line whose last rate has ended is dropped
+    from the months after it (`manualRows`), reads `Ends Sep 20` in the month it
+    stops in, and is worth 0 from the day after (`rateOn`). An end date on any
+    rate but the last is a **gap**: the line pays nothing until the next dated
+    change picks it up, which is what a subscription cancelled and re-taken looks
+    like.
+  - **Stopping is a one-tap control that shows you the date.** The line's footer
+    in Setup carries `⊘` beside Delete: it opens the last change in the ordinary
+    edit form with an end date pre-filled to today, so the date is a suggestion
+    until it is saved rather than a silent write. Once ended the same control is
+    `↺` — Resume, which clears the end date outright, there being nothing to
+    choose about it. The end date is also an optional `Until` field on the
+    add-a-change and add-a-line forms, absent until "Add an end date" is tapped:
+    a permanent second date on every entry row would charge every raise for a
+    setting most changes never use. On a desktop that fourth field wraps the
+    explaining sentence onto its own line, because sharing the row left it 130px
+    and five lines tall.
   - Before the first rate's date a line contributes nothing and reads
     "No amount set" — never a zero pretending to be a figure.
 - **Linked figures** are read from the tables that already record them and are
@@ -1201,6 +1223,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
+- `supabase/finance-rate-end-schema.sql`: `effective_to` — the day a rate stops.
 - `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
 - `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
@@ -1471,6 +1494,14 @@ existing row as Monthly, which is what the single column meant. It is
 re-runnable. Before it ran, Finances read and saved monthly figures exactly as
 before, and choosing any other cadence reported the missing migration rather
 than silently dropping it.
+
+Then run `supabase/finance-rate-end-schema.sql` in Supabase. It is re-runnable
+and two statements: it adds the nullable `effective_to` column to
+`finance_line_rates` and the check that keeps an end date on or after the date it
+starts. Nothing needs backfilling — every existing rate is open-ended, which is
+what null means. Until it runs, Finances reads and saves exactly as before and
+only an end date reports the missing migration by name, rather than being
+silently dropped.
 
 **`Ivan W2` is paid on Thursdays, and the app enforces it.** `PAYDAY_WEEKDAY` in
 `lib/finances.ts` maps that one label to Thursday; `snapToPayday()` moves any

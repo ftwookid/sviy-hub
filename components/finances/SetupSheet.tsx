@@ -49,10 +49,23 @@ export function SetupSheet({
     amount: number;
     cadence: PayCadence;
     effectiveFrom: string;
+    effectiveTo: string | null;
   }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
-  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onSetRate: (
+    lineId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
+  onUpdateRate: (
+    rateId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (lineId: string) => void;
   notice?: string;
@@ -112,8 +125,8 @@ export function SetupSheet({
           title={`Delete ${deleting.label}?`}
           description={
             deleting.rates.length > 1
-              ? `Its ${deleting.rates.length} dated amounts go too, and every month that used them will change. To stop a line without losing its history, set it to 0 from a date instead.`
-              : "It will stop counting in every month. To stop a line from a date without losing its history, set it to 0 instead."
+              ? `Its ${deleting.rates.length} dated amounts go too, and every month that used them will change. To stop a line without losing its history, give it an end date instead.`
+              : "It will stop counting in every month, including the ones it already ran in. To stop it from a date and keep those, give it an end date instead."
           }
           confirmLabel="Delete it"
           onCancel={() => setDeleting(null)}

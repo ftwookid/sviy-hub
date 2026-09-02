@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, CircleSlash, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { DateField } from "@/components/ui/DateField";
 import { CadencePicker } from "@/components/finances/CadencePicker";
@@ -11,6 +11,7 @@ import {
   SECTION_STYLE,
   currentAmount,
   currentCadence,
+  endedOn,
   monthlyFromCadence,
   paydayWeekdayFor,
   snapToPayday
@@ -61,8 +62,49 @@ function AverageTag({ cadence }: { cadence: PayCadence }) {
   return <span className="ml-1 text-[10px] font-normal text-text-tertiary">avg</span>;
 }
 
-/** A change being corrected: which row, and the three things it holds. */
-type EditingRate = { id: string; date: string; amount: string; cadence: PayCadence };
+/** A change being corrected: which row, and the four things it holds. */
+type EditingRate = { id: string; date: string; amount: string; cadence: PayCadence; end: string | null };
+
+/**
+ * The optional last day an amount is paid.
+ *
+ * Absent until it is wanted — a permanent second date field on every entry row
+ * would charge every raise for a setting most changes never use, and the common
+ * case is a commitment that just keeps running. So it is a word until it is a
+ * field, and the field carries its own way back to nothing.
+ */
+function EndDateField({
+  value,
+  from,
+  onChange
+}: {
+  value: string | null;
+  from: string;
+  onChange: (next: string | null) => void;
+}) {
+  if (value === null) {
+    return (
+      <button
+        className="focus-ring min-h-11 shrink-0 rounded-xl px-2 text-left text-[12.5px] text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary"
+        type="button"
+        onClick={() => onChange(from > todayInputValue() ? from : todayInputValue())}
+      >
+        Add an end date
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 basis-full items-end gap-1 sm:basis-auto sm:flex-1 sm:max-w-[230px]">
+      <div className="min-w-0 flex-1">
+        <DateField label="Until" value={value} dimFutureDates={false} onChange={(next) => onChange(next)} />
+      </div>
+      <IconButton label="Remove the end date" onClick={() => onChange(null)}>
+        <X size={16} strokeWidth={1.8} />
+      </IconButton>
+    </div>
+  );
+}
 
 function longDate(dateValue: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
@@ -144,14 +186,21 @@ function LineDetail({
 }: {
   line: FinanceLine;
   onRename: (label: string) => void;
-  onSetRate: (effectiveFrom: string, amount: number, cadence: PayCadence) => void;
-  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onSetRate: (effectiveFrom: string, amount: number, cadence: PayCadence, effectiveTo: string | null) => void;
+  onUpdateRate: (
+    rateId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: () => void;
 }) {
   const [label, setLabel] = useState(line.label);
   const [changeDate, setChangeDate] = useState(todayInputValue());
   const [changeAmount, setChangeAmount] = useState("");
+  const [changeEnd, setChangeEnd] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditingRate | null>(null);
   // A line paid every second week is still paid every second week after a
   // raise, so the change being typed inherits the cadence already in force.
@@ -173,7 +222,7 @@ function LineDetail({
   // count of the payments that landed in them.
   const changeHint = [
     cadence === "Monthly"
-      ? "Payments from this date on use the new amount. To stop a line, change it to 0."
+      ? "Payments from this date on use the new amount. To stop a line, give it an end date."
       : `${monthlyLine(changeAmount, cadence)} Payments from this date on use the new amount.`,
     // Said where the date is being picked, not afterwards in a toast: the point
     // is that Ivan does not have to know which Thursday it was.
@@ -184,23 +233,53 @@ function LineDetail({
 
   function saveChange() {
     if (!changeAmount.trim()) return;
-    onSetRate(snapToPayday(changeDate, payday), parseAmount(changeAmount), cadence);
+    onSetRate(snapToPayday(changeDate, payday), parseAmount(changeAmount), cadence, changeEnd);
     setChangeAmount("");
+    setChangeEnd(null);
   }
 
-  function startEditing(rate: FinanceRate) {
+  function startEditing(rate: FinanceRate, end: string | null = rate.effective_to ?? null) {
     setEditing({
       id: rate.id,
       date: rate.effective_from,
       amount: String(rate.entered_amount),
-      cadence: rate.cadence
+      cadence: rate.cadence,
+      end
     });
   }
 
   function saveEditing() {
     if (!editing || !editing.amount.trim()) return;
-    onUpdateRate(editing.id, snapToPayday(editing.date, payday), parseAmount(editing.amount), editing.cadence);
+    onUpdateRate(
+      editing.id,
+      snapToPayday(editing.date, payday),
+      parseAmount(editing.amount),
+      editing.cadence,
+      editing.end
+    );
     setEditing(null);
+  }
+
+  /**
+   * Stopping a line is one tap that opens the date it stopped on, not a silent
+   * write of today.
+   *
+   * The last change is the one that is still running, so ending it ends the
+   * line; the form it opens in is the same one every other correction uses, and
+   * the date is a suggestion until it is saved. Resuming clears the end date
+   * outright, because there is nothing to choose about it.
+   */
+  const latest = line.rates[line.rates.length - 1];
+  const stopped = endedOn(line.rates);
+
+  function stopLine() {
+    if (!latest) return;
+    startEditing(latest, latest.effective_from > todayInputValue() ? latest.effective_from : todayInputValue());
+  }
+
+  function resumeLine() {
+    if (!latest) return;
+    onUpdateRate(latest.id, latest.effective_from, Number(latest.entered_amount), latest.cadence, null);
   }
 
   function commitLabel() {
@@ -246,6 +325,11 @@ function LineDetail({
                       onEnter={saveEditing}
                     />
                   </div>
+                  <EndDateField
+                    value={editing.end}
+                    from={editing.date}
+                    onChange={(end) => setEditing({ ...editing, end })}
+                  />
                 </div>
                 {editing.cadence !== "Monthly" ? (
                   <p className="mt-1.5 text-[11px] text-text-tertiary">
@@ -291,7 +375,13 @@ function LineDetail({
                 onClick={() => startEditing(rate)}
               >
                 <span className="min-w-0 flex-1 text-[13px] text-text-secondary">
-                  <span className="block truncate">From {longDate(rate.effective_from)}</span>
+                  {/* The end date belongs on the same line as the start: they
+                      are one fact, and a stopped line has to say so where the
+                      dates are read rather than only in the month behind. */}
+                  <span className="block truncate">
+                    From {longDate(rate.effective_from)}
+                    {rate.effective_to ? ` → ${longDate(rate.effective_to)}` : ""}
+                  </span>
                   {/* Only where it says something: a monthly line's typed figure
                       and its monthly figure are the same number. Under the date
                       on a phone; in its own column once there is room, so the
@@ -327,7 +417,11 @@ function LineDetail({
           wrong one. */}
       {editing ? null : (
         <>
-      <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
+      {/* One row while it is the usual date-cadence-amount; two once an end date
+          is open, because a fourth field leaves the sentence about 130px and
+          five lines tall. The wrap point is explicit rather than the browser's
+          — nowrap is what keeps the sentence beside the amount it explains. */}
+      <div className={cn("flex flex-wrap items-end gap-1.5 sm:gap-2", changeEnd === null && "sm:flex-nowrap")}>
         <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
@@ -341,13 +435,14 @@ function LineDetail({
             onEnter={saveChange}
           />
         </div>
+        <EndDateField value={changeEnd} from={changeDate} onChange={setChangeEnd} />
         <IconButton label="Save this change" tone="accent" disabled={!changeAmount.trim()} onClick={saveChange}>
           <Check size={17} strokeWidth={2} />
         </IconButton>
         {/* Beside the amount it is about, on a screen with room for it — the
             same sentence stacked underneath left the right half of an 880px row
             empty and cost a line of height. */}
-        <p className="hidden min-w-0 text-[11.5px] leading-snug text-text-tertiary sm:block sm:flex-1 sm:self-center sm:pl-1">
+        <p className="hidden text-[11.5px] leading-snug text-text-tertiary sm:block sm:min-w-[240px] sm:flex-1 sm:self-center sm:pl-1">
           {changeHint}
         </p>
       </div>
@@ -366,6 +461,17 @@ function LineDetail({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
+        {/* Stopping and deleting are different acts and sit apart: one ends the
+            commitment and keeps every month it ran, the other takes the history
+            with it. */}
+        {latest ? (
+          <IconButton
+            label={stopped ? `Let ${line.label} run again` : `Stop ${line.label} from a date`}
+            onClick={stopped ? resumeLine : stopLine}
+          >
+            {stopped ? <RotateCcw size={16} strokeWidth={1.8} /> : <CircleSlash size={16} strokeWidth={1.8} />}
+          </IconButton>
+        ) : null}
         <IconButton label={`Delete ${line.label}`} tone="danger" onClick={onDeleteLine}>
           <Trash2 size={16} strokeWidth={1.8} />
         </IconButton>
@@ -390,10 +496,23 @@ export function SetupGroups({
     amount: number;
     cadence: PayCadence;
     effectiveFrom: string;
+    effectiveTo: string | null;
   }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
-  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onSetRate: (
+    lineId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
+  onUpdateRate: (
+    rateId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (line: FinanceLine) => void;
 }) {
@@ -402,6 +521,7 @@ export function SetupGroups({
   const [newLabel, setNewLabel] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newFrom, setNewFrom] = useState(todayInputValue());
+  const [newUntil, setNewUntil] = useState<string | null>(null);
   const [newCadence, setNewCadence] = useState<PayCadence>("Monthly");
 
   function startAdding(bucket: FinanceBucket) {
@@ -410,13 +530,21 @@ export function SetupGroups({
     setNewLabel("");
     setNewAmount("");
     setNewFrom(todayInputValue());
+    setNewUntil(null);
     setNewCadence("Monthly");
   }
 
   function submitNew(bucket: FinanceBucket) {
     const label = newLabel.trim();
     if (!label) return;
-    onAddLine({ bucket, label, amount: parseAmount(newAmount), cadence: newCadence, effectiveFrom: newFrom });
+    onAddLine({
+      bucket,
+      label,
+      amount: parseAmount(newAmount),
+      cadence: newCadence,
+      effectiveFrom: newFrom,
+      effectiveTo: newUntil
+    });
     setAddingBucket(null);
   }
 
@@ -490,6 +618,10 @@ export function SetupGroups({
                       onEnter={() => submitNew(bucket)}
                     />
                   </div>
+                  {/* A charge that is known to end — a twelve-month plan, a
+                      sublet — can say so as it is typed, instead of coming back
+                      later to stop it. */}
+                  <EndDateField value={newUntil} from={newFrom} onChange={setNewUntil} />
                   <IconButton
                     label="Save new line"
                     tone="accent"
@@ -517,15 +649,20 @@ export function SetupGroups({
                 const open = openLineId === line.id;
                 const latest = line.rates[line.rates.length - 1];
                 const pending = latest && latest.effective_from > todayInputValue();
+                const stopped = endedOn(line.rates);
                 // What the line's last change was, said once and placed twice.
+                // An end date outranks the rest of it: "since December" is not
+                // the fact worth carrying about something that has stopped.
                 const meta =
                   line.rates.length === 0
                     ? "No amount set"
-                    : pending
-                      ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(latest.effective_from)}`
-                      : `Since ${formatShortDate(latest.effective_from)}${
-                          line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
-                        }`;
+                    : stopped
+                      ? `${stopped < todayInputValue() ? "Ended" : "Ends"} ${formatShortDate(stopped)}`
+                      : pending
+                        ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(latest.effective_from)}`
+                        : `Since ${formatShortDate(latest.effective_from)}${
+                            line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
+                          }`;
 
                 return (
                   <div key={line.id}>
@@ -570,7 +707,9 @@ export function SetupGroups({
                       <LineDetail
                         line={line}
                         onRename={(label) => onRename(line.id, label)}
-                        onSetRate={(effectiveFrom, amount, cadence) => onSetRate(line.id, effectiveFrom, amount, cadence)}
+                        onSetRate={(effectiveFrom, amount, cadence, effectiveTo) =>
+                          onSetRate(line.id, effectiveFrom, amount, cadence, effectiveTo)
+                        }
                         onUpdateRate={onUpdateRate}
                         onDeleteRate={onDeleteRate}
                         onDeleteLine={() => onDeleteLine(line)}
