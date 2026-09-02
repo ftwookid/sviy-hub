@@ -106,6 +106,26 @@ change instead. There is no hover lift left anywhere — the client cards deepen
 their shadow instead of rising, so a card never pulls its own delete button out
 from under the cursor.
 
+**The one exception, and its fence.** The mobile tab bar's selection pill
+(`components/MobileTabBar.tsx`) scales: it stretches along its direction of
+travel while being dragged, thins slightly across it, and springs back. Ivan
+asked for the bar to feel like Apple's, and squash-and-stretch is most of what
+makes that read as liquid rather than as a rectangle sliding; the request was
+explicit, so the exception is deliberate rather than a rule quietly broken.
+
+It is safe *there* for the reason the rule exists everywhere else: the scar
+behind the rule is a tile **inside a bordered card**, which kept its border
+while its contents scaled away from it. The pill carries its own ring and its
+own background and has nothing hugging it, so it deforms as one object and no
+gutter can open. Measured at 390/430/440: peak scale 1.14 × 0.92, and its
+closest approach to the bar's inner edge is 3.7px, so it never breaks out of
+the glass it sits in.
+
+The fence: this element, driven by a finger, and nothing else. It does not
+license a press-scale, a hover lift, or a scale on anything that sits inside
+another bordered container. A new interaction that wants a transform still
+wants a colour or an opacity change instead.
+
 **A control that changes what you are looking at shows you the options.** No
 blind toggles: tapping the person avatar opens the list of people, it does not
 silently swap to the other one. Cycling makes the reader check the screen

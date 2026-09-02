@@ -43,12 +43,22 @@ export type TabItem = { label: string; href: string; icon: LucideIcon };
  * highlight belonged to the room and the glass were sliding under it. It
  * settles back to centre a moment after the finger stops.
  *
- * Deliberately NOT here: the stretch-and-squash that Apple's version uses,
- * where the pill elongates towards its direction of travel. That is the single
- * biggest part of the effect and it is a scale, which this app forbids
- * everywhere — the rule exists because a scaling element inside a bordered
- * container flashes gutters down its edges mid-transition. Adding it is a
- * deliberate exception to make, not a detail to slip in.
+ * **The one scale in the app.** The pill stretches along its direction of
+ * travel and thins slightly across it, then springs back — the squash-and-
+ * stretch that is most of what makes Apple's version read as liquid rather
+ * than as a rectangle that slides. The house rule is that nothing scales, and
+ * this is a deliberate, scoped exception to it, recorded in CLAUDE.md.
+ *
+ * It is safe *here* for the reason the rule exists elsewhere: that rule was
+ * written after a tile inside a bordered card kept its border while its
+ * contents scaled away from it, flashing white gutters down both edges. This
+ * pill carries its own ring and its own background and has nothing hugging it,
+ * so it deforms as one object and no gutter can open. The exception does not
+ * generalise: it is this element, driven by a finger, and nothing else.
+ *
+ * The settle is a spring rather than an ease. Real glass does not glide to a
+ * halt, and a linear ease-out is the tell that separates "animated" from
+ * "physical" — so the release overshoots its slot by a hair and comes back.
  */
 
 /** Pixels of travel before a press becomes a drag rather than a tap. */
@@ -56,8 +66,18 @@ const DRAG_THRESHOLD = 8;
 
 /** How far the specular band lags behind the pill, at most, in pixels. */
 const SHEEN_LAG = 9;
-/** Milliseconds of stillness after which the sheen drifts back to centre. */
-const SHEEN_SETTLE_MS = 140;
+/** Milliseconds of stillness after which the sheen and the stretch relax. */
+const SETTLE_MS = 140;
+/** The most the pill may stretch along its travel: 1.14 = 14% longer. */
+const MAX_STRETCH = 0.14;
+/** Speed, in px per millisecond, at which the stretch reaches its maximum. */
+const STRETCH_AT_SPEED = 2.6;
+/**
+ * The settle. A spring would be better still, but a CSS transition cannot run
+ * one — this curve overshoots by roughly 8% and returns, which is what the eye
+ * reads as weight. Reduced motion gets a plain ease and no overshoot.
+ */
+const SPRING = "cubic-bezier(0.34, 1.42, 0.64, 1)";
 
 type Slot = { center: number; left: number; width: number };
 
@@ -77,11 +97,17 @@ export function MobileTabBar({
   // time, when the pill simply sits on the active slot.
   const [dragCenter, setDragCenter] = useState<number | null>(null);
 
-  // How far the light band inside the pill is displaced, in pixels. Driven by
-  // how fast the pill is moving, not by where it is.
+  // What the pill's speed is doing to it: how far the light band is displaced,
+  // and how far it is stretched along its travel. Both are functions of how
+  // fast it is moving, not of where it is.
   const [sheen, setSheen] = useState(0);
+  const [stretch, setStretch] = useState(0);
+  // True while the pill is relaxing rather than tracking: the finger has
+  // stopped or lifted, so the transition goes back on and it springs.
+  const [settling, setSettling] = useState(false);
   const lastX = useRef(0);
-  const sheenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAt = useRef(0);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A press that has not yet travelled far enough to count as a drag. Kept in a
   // ref because every pointermove reads it and none of them should re-render.
@@ -121,7 +147,7 @@ export function MobileTabBar({
   }, [measure]);
 
   useEffect(() => () => {
-    if (sheenTimer.current) clearTimeout(sheenTimer.current);
+    if (settleTimer.current) clearTimeout(settleTimer.current);
   }, []);
 
   const nearestIndex = useCallback(
@@ -150,8 +176,11 @@ export function MobileTabBar({
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (!slots.length) return;
     dragged.current = false;
+    setSettling(false);
     const origin = rowRef.current?.getBoundingClientRect().left ?? 0;
     const x = event.clientX - origin;
+    lastX.current = x;
+    lastAt.current = event.timeStamp;
     press.current = {
       id: event.pointerId,
       startX: x,
@@ -172,20 +201,37 @@ export function MobileTabBar({
       if (Math.abs(x - current.startX) < DRAG_THRESHOLD) return;
       dragged.current = true;
       lastX.current = x;
+      lastAt.current = event.timeStamp;
       // Capture only once it is really a drag, so a plain tap never steals the
       // pointer from the link it landed on.
       event.currentTarget.setPointerCapture(current.id);
     }
 
+    const step = x - lastX.current;
+    // Speed in px/ms, so the stretch means the same thing on a 120Hz phone as
+    // on a 60Hz one — per-event distance would be half as large on the faster
+    // screen for the identical gesture.
+    const elapsed = Math.max(1, event.timeStamp - lastAt.current);
+    const speed = Math.abs(step) / elapsed;
+    lastX.current = x;
+    lastAt.current = event.timeStamp;
+
+    setSettling(false);
     // The band lags *against* the direction of travel, which is what selling
     // the glass depends on: the light stays where it is and the pill moves
-    // under it. A finger that stops moving stops sending events, so a timer
-    // returns it to centre rather than leaving a stale highlight parked.
-    const step = x - lastX.current;
-    lastX.current = x;
+    // under it.
     setSheen(Math.max(-SHEEN_LAG, Math.min(SHEEN_LAG, -step * 0.9)));
-    if (sheenTimer.current) clearTimeout(sheenTimer.current);
-    sheenTimer.current = setTimeout(() => setSheen(0), SHEEN_SETTLE_MS);
+    setStretch(Math.min(1, speed / STRETCH_AT_SPEED) * MAX_STRETCH);
+
+    // A finger that stops moving stops sending events, so nothing else would
+    // ever relax the stretch — it would sit there elongated under a stationary
+    // thumb. The timer puts it back, with the transition on so it springs.
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      setSettling(true);
+      setSheen(0);
+      setStretch(0);
+    }, SETTLE_MS);
 
     // Clamped to the first and last slot centres: the pill is a selection, and a
     // selection cannot sit off the end of the bar.
@@ -197,7 +243,10 @@ export function MobileTabBar({
   function endDrag(event: React.PointerEvent<HTMLDivElement>) {
     const current = press.current;
     press.current = null;
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    setSettling(true);
     setSheen(0);
+    setStretch(0);
     if (!current || !dragged.current) {
       setDragCenter(null);
       return;
@@ -214,8 +263,11 @@ export function MobileTabBar({
   function handlePointerCancel() {
     press.current = null;
     dragged.current = false;
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    setSettling(true);
     setDragCenter(null);
     setSheen(0);
+    setStretch(0);
   }
 
   // A drag that ends over a link would otherwise fire that link's click as well,
@@ -230,6 +282,15 @@ export function MobileTabBar({
 
   const pill = slots[highlighted];
   const pillCenter = dragCenter ?? pill?.center ?? 0;
+  const dragging = dragCenter !== null;
+  // Transform runs free only while the pill is tracking the finger. The moment
+  // it is relaxing — finger lifted, or stopped mid-drag — the transition goes
+  // back on so the stretch springs out instead of snapping.
+  const eased = !dragging || settling;
+  // Volume is roughly preserved: what it gains along its travel it gives up
+  // across it, which is what stops the stretch reading as "it got bigger".
+  const scaleX = 1 + stretch;
+  const scaleY = 1 - stretch * 0.55;
 
   return (
     <nav
@@ -260,35 +321,41 @@ export function MobileTabBar({
             aria-hidden
             className={cn(
               "pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[18px] ring-1 ring-inset ring-accent/45",
-              // No transition while the finger is down: the pill is the finger,
-              // and easing it would make it trail behind the thumb.
-              dragCenter === null &&
-                "transition-transform duration-[300ms] ease-out motion-reduce:transition-none"
+              // Under reduced motion the pill still moves — it has to, it is
+              // the selection — but it neither stretches nor overshoots.
+              "motion-reduce:!scale-100 motion-reduce:transition-none"
             )}
             style={{
               width: pill.width,
-              transform: `translateX(${pillCenter - pill.width / 2}px)`,
+              // Origin at the centre: the pill grows from its middle in both
+              // directions, the way a squashed drop does, rather than shooting
+              // one edge out ahead of the other.
+              transformOrigin: "center",
+              transform: `translateX(${pillCenter - pill.width / 2}px) scale(${scaleX}, ${scaleY})`,
+              // Free while tracking the finger; springs while relaxing.
+              transition: eased ? `transform 380ms ${SPRING}, box-shadow 200ms ease-out` : "box-shadow 200ms ease-out",
               background:
                 "linear-gradient(180deg, rgba(255,252,246,0.96) 0%, #F0E8D8 42%, #EADFC9 100%)",
-              boxShadow:
-                // Specular top edge, shaded bottom edge, then a soft bloom of
-                // the accent so the pill reads as sitting on the bar.
-                "inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(160,127,66,0.16), 0 2px 10px rgba(201,169,110,0.30), 0 1px 2px rgba(120,95,52,0.10)"
+              boxShadow: dragging
+                ? // Lifted while held: the bloom deepens and spreads, so the
+                  // pill reads as picked up off the bar. Light, not geometry —
+                  // the lift costs no movement of its own.
+                  "inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(160,127,66,0.20), 0 6px 18px rgba(201,169,110,0.42), 0 2px 6px rgba(120,95,52,0.16)"
+                : "inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(160,127,66,0.16), 0 2px 10px rgba(201,169,110,0.30), 0 1px 2px rgba(120,95,52,0.10)"
             }}
           >
             {/* The light band. Wide and very soft, so at rest it is only a
                 gentle brightening down the middle rather than a stripe. */}
             <span
-              className={cn(
-                "absolute inset-y-0 left-1/2 w-[70%] -translate-x-1/2",
-                dragCenter === null
-                  ? "transition-transform duration-[300ms] ease-out motion-reduce:transition-none"
-                  : "transition-transform duration-[90ms] ease-out motion-reduce:transition-none"
-              )}
+              className="absolute inset-y-0 left-1/2 w-[70%] -translate-x-1/2 motion-reduce:transition-none"
               style={{
                 background:
                   "radial-gradient(60% 120% at 50% 0%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.28) 45%, rgba(255,255,255,0) 100%)",
-                transform: `translateX(calc(-50% + ${sheen}px))`
+                // Counter-scaled, so the light does not stretch with the glass —
+                // a highlight that deforms with the object it sits on stops
+                // reading as a reflection and starts reading as paint.
+                transform: `translateX(calc(-50% + ${sheen}px)) scale(${1 / scaleX}, ${1 / scaleY})`,
+                transition: eased ? `transform 380ms ${SPRING}` : "transform 90ms ease-out"
               }}
             />
           </span>
