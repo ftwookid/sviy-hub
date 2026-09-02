@@ -4,10 +4,8 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  ChevronDown,
   MapPinned
 } from "lucide-react";
-import { useState } from "react";
 import { ClientMap } from "@/components/ClientMap";
 import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
@@ -216,14 +214,14 @@ function metricTrend(current: number, previous: number, options?: { inverse?: bo
  *    number rather than on a row of its own.
  * 2. **The breakdowns**, in one card split by `border-t`, one section each.
  *
- * The sections are rows that expand on a phone and are simply open from 768px
- * up, where the width exists and hiding things would only cost taps — the
- * switch is at `md` rather than `lg` because a collapsed row on an iPad put its
- * title and its figure at opposite ends of a 1,000px rule with nothing in
- * between, which is the same wasted width this rewrite exists to remove. The
- * collapsed row is not a blank label either: it carries that section's headline
- * ("Rover · 62%", "Fri busiest"), so the four collapsed rows still answer four
- * questions without being opened.
+ * **Nothing is collapsed.** A version of this hid the four breakdowns behind
+ * disclosures on a phone, which had the gate rule backwards — forms and setup
+ * collapse, readings do not — and made the reader tap four times to see the
+ * analysis the tab exists for. Every row is on screen at every width now, and
+ * the height that costs is bought back from the rows: one line each, with the
+ * bar in a column between the label and the figure instead of on a line of its
+ * own. That is 26px a row against 48px, which over eighteen rows is worth more
+ * than the disclosures ever saved.
  *
  * The old "Smart read" panel is gone, folded into the sections its three lines
  * belonged to: the top client and the best net/visit are read off the rankings
@@ -254,9 +252,16 @@ function TrendBadge({ trend }: { trend: Trend }) {
 /**
  * One breakdown, as a row of the single card.
  *
- * Expandable on a phone, permanently open from `lg` up — the same component
- * either way, with the breakpoint doing the work in CSS rather than a
- * `matchMedia` read that would have to guess before the first paint.
+ * **Never collapsed.** An earlier version put these behind a disclosure on a
+ * phone, which read the gate rule backwards: entry forms, history and setup
+ * collapse, and what the page exists to show does not. These rows *are* the
+ * reading. The height they cost is paid for by the rows themselves being one
+ * line each, not by hiding them.
+ *
+ * `summary` is for a figure the body does not already state — the top-three
+ * concentration, the count of mapped pins. It is deliberately absent from the
+ * blocks whose headline is just their own first row: "Fri busiest · 4" above a
+ * list in which Friday is plainly the longest bar states a thing twice.
  */
 function Section({
   title,
@@ -264,63 +269,84 @@ function Section({
   children
 }: {
   title: string;
-  summary: string;
+  summary?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="border-t border-border first:border-t-0">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-expanded={open}
-        className="focus-ring flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-200 ease-out md:pointer-events-none"
-      >
-        <span className="shrink-0 text-[13px] font-medium text-text-primary">{title}</span>
-        {/* The headline sits on the row itself, so a closed section still says
-            something. It is redundant once the section is open, and on a
-            desktop the section is always open — so it goes away in both cases
-            rather than repeating what is directly underneath it. */}
-        <span className={cn("min-w-0 flex-1 truncate text-right text-[12px] text-text-secondary", open && "hidden", "md:hidden")}>
-          {summary}
-        </span>
-        <ChevronDown
-          size={15}
-          strokeWidth={1.9}
-          className={cn("shrink-0 text-text-tertiary transition-transform duration-200 ease-out md:hidden", open && "rotate-180")}
-        />
-      </button>
-      <div className={cn("px-3.5 pb-3.5", open ? "block" : "hidden md:block")}>{children}</div>
+    <div className="border-t border-border px-3.5 py-3 first:border-t-0">
+      <div className="flex items-baseline gap-3">
+        <h3 className="shrink-0 text-[13px] font-medium text-text-primary">{title}</h3>
+        {summary ? (
+          <span className="min-w-0 flex-1 truncate text-right text-[12px] text-text-secondary">{summary}</span>
+        ) : null}
+      </div>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
 
+/**
+ * One measured row: what it is, how big, how big in words.
+ *
+ * A single line, with the bar between the label and the figure rather than on a
+ * line of its own beneath them. The three-line version — label row, full-width
+ * bar, detail row — cost about 48px a row, and eighteen of those is most of a
+ * phone screen spent on eighteen numbers. `sub` buys a second line back for the
+ * one block that genuinely carries more than fits: the client rankings, where
+ * the owner's name and the net per visit are not derivable from the row above.
+ *
+ * The bar is a fixed width in its own column, not a share of the row. Letting it
+ * flex would give every block a different scale and make the lengths
+ * incomparable between them, which is the trap already recorded on Finances.
+ */
 function BarRow({
   label,
-  value,
   detail,
+  value,
+  sub,
   amount,
   max,
   accent = false
 }: {
   label: string;
-  value: string;
+  /** Secondary fact, inline after the label — greyed, and truncated first. */
   detail?: string;
+  value: string;
+  /** A second line, for rows carrying more than one line can hold. */
+  sub?: string;
   amount: number;
   max: number;
   accent?: boolean;
 }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3 text-[12px] font-medium">
-        <span className="min-w-0 truncate text-text-secondary">{label}</span>
-        <span className="shrink-0 tabular-nums text-text-primary">{value}</span>
+    <div className="py-[3px]">
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-text-secondary">
+          {label}
+          {detail ? <span className="font-normal text-text-tertiary"> · {detail}</span> : null}
+        </span>
+        {/* 40px on a phone: at 320px the 8px this gives back off a 48px column
+            is the difference between "Dog walking · 3 · 9 visits" reading in
+            full and clipping, and a bar this short is a comparison of lengths
+            either way. */}
+        <span className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-subtle sm:w-16">
+          {amount > 0 ? (
+            <span
+              className={cn("block h-full rounded-full", accent ? "bg-text-primary" : "bg-accent")}
+              style={{ width: barWidth(amount, max) }}
+            />
+          ) : null}
+        </span>
+        {/* A fixed figure column, so every bar in the card starts and ends on
+            the same two vertical lines. Letting the figure size itself moved
+            the bar with it — "$332.20/wk" and "$100.00/wk" are different
+            widths, so no two rows shared a baseline and the lengths stopped
+            being comparable at a glance, which is the whole job of a bar. */}
+        <span className="w-[74px] shrink-0 text-right text-[12px] font-medium tabular-nums text-text-primary">
+          {value}
+        </span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-subtle">
-        <div className={cn("h-full rounded-full", accent ? "bg-text-primary" : "bg-accent")} style={{ width: barWidth(amount, max) }} />
-      </div>
-      {detail ? <div className="mt-1 truncate text-[11px] text-text-tertiary">{detail}</div> : null}
+      {sub ? <div className="truncate text-[11px] leading-tight text-text-tertiary">{sub}</div> : null}
     </div>
   );
 }
@@ -354,7 +380,6 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
       share: share(monthlyNet, totals.monthlyNet)
     };
   });
-  const topPayment = paymentBreakdown.slice().sort((a, b) => b.monthlyNet - a.monthlyNet)[0];
 
   const dayBreakdown = WEEK_DAYS.map((day) => {
     const dayClients = clientMetrics.filter((item) => item.visitDays.includes(day));
@@ -365,7 +390,6 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
     };
   });
   const maxDayVisits = Math.max(1, ...dayBreakdown.map((item) => item.visits));
-  const busiestDay = dayBreakdown.find((item) => item.visits === maxDayVisits && item.visits > 0);
 
   const serviceBreakdown = Array.from(
     clientMetrics
@@ -437,13 +461,13 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
               : "No income yet"
           }
         >
-          <div className="space-y-2.5">
+          <div>
             {sortedByWeekly.slice(0, 5).map((item, index) => (
               <BarRow
                 key={item.client.id}
                 label={`${index + 1}. ${item.pets}`}
                 value={`${formatCurrency(item.weeklyNet)}/wk`}
-                detail={`${item.client.name} · ${formatCurrency(item.netPerVisit)} net/visit`}
+                sub={`${item.client.name} · ${formatCurrency(item.netPerVisit)}/visit`}
                 amount={item.weeklyNet}
                 max={Math.max(1, sortedByWeekly[0]?.weeklyNet ?? 1)}
                 accent={index === 0}
@@ -455,24 +479,23 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
             {/* What the old Smart read panel said about efficiency, on the
                 block that already ranks the same people. */}
             {sortedByEfficiency[0] ? (
-              <div className="border-t border-border pt-2.5 text-[11px] text-text-tertiary">
+              <div className="mt-1.5 border-t border-border pt-1.5 text-[11px] text-text-tertiary">
                 Best net/visit: {sortedByEfficiency[0].pets} · {formatCurrency(sortedByEfficiency[0].netPerVisit)}
               </div>
             ) : null}
           </div>
         </Section>
 
-        <Section
-          title="Payment mix"
-          summary={topPayment && topPayment.monthlyNet > 0 ? `${topPayment.method} · ${percent(topPayment.share)}` : "No income yet"}
-        >
-          <div className="space-y-2.5">
+        {/* No summary on the header: "Cash · 51%" above a list in which Cash is
+            plainly the longest bar is the same fact written twice. */}
+        <Section title="Payment mix">
+          <div>
             {paymentBreakdown.map((item) => (
               <BarRow
                 key={item.method}
                 label={`${item.method} · ${item.count}`}
+                detail={formatCurrency(item.monthlyNet)}
                 value={percent(item.share)}
-                detail={`${formatCurrency(item.monthlyNet)} monthly net`}
                 amount={item.monthlyNet}
                 max={totals.monthlyNet}
               />
@@ -480,17 +503,14 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
           </div>
         </Section>
 
-        <Section
-          title="Weekly workload"
-          summary={busiestDay ? `${busiestDay.day} busiest · ${busiestDay.visits}` : "Nothing scheduled"}
-        >
-          <div className="space-y-2">
+        <Section title="Weekly workload">
+          <div>
             {dayBreakdown.map((item) => (
               <BarRow
                 key={item.day}
                 label={item.day}
+                detail={formatCurrency(item.weeklyNet)}
                 value={`${item.visits}`}
-                detail={`${formatCurrency(item.weeklyNet)} net scheduled`}
                 amount={item.visits}
                 max={maxDayVisits}
                 accent={item.visits === maxDayVisits && item.visits > 0}
@@ -499,17 +519,14 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
           </div>
         </Section>
 
-        <Section
-          title="Service mix"
-          summary={serviceBreakdown[0] ? `${serviceBreakdown[0].service} · ${formatCurrency(serviceBreakdown[0].weeklyNet)}/wk` : "No services yet"}
-        >
-          <div className="space-y-2.5">
+        <Section title="Service mix">
+          <div>
             {serviceBreakdown.map((item) => (
               <BarRow
                 key={item.service}
                 label={`${item.service} · ${item.clients}`}
+                detail={`${item.visits} ${item.visits === 1 ? "visit" : "visits"}`}
                 value={`${formatCurrency(item.weeklyNet)}/wk`}
-                detail={`${item.visits} scheduled ${item.visits === 1 ? "visit" : "visits"}/week`}
                 amount={item.weeklyNet}
                 max={maxServiceWeekly}
               />
@@ -517,10 +534,8 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
           </div>
         </Section>
 
-        {/* The map is 360px of height for a question nobody asks from a phone
-            mid-scroll, so it is the one section that stays a section on a
-            desktop too — full width beneath the two columns, and closed until
-            it is wanted on a phone. */}
+        {/* Full width beneath the two columns. Its pin count is on the header
+            because nothing in the body states it. */}
         <div className="md:col-span-2">
           <Section title="Client map" summary={`${mappable} of ${clients.length} mapped`}>
             <ClientMap clients={clients} />
