@@ -105,7 +105,16 @@ export function MonthPicker({
             // A fixed box, so the arrows do not creep inwards on "May 2026" and
             // outwards on "September 2026". The label re-centres inside it; the
             // controls either side of it never move.
-            variant === "panel" ? "w-[196px] shrink-0" : "flex-1"
+            //
+            // 224px, not the 196px it was: the widest case is "September 2026"
+            // *with* the Now chip beside it, which measures 196.4px — four
+            // tenths of a pixel over, so the month the page opens on was the one
+            // month that read "September 20…". A box sized to the exact worst
+            // case has no room for a phone whose text metrics differ by a hair,
+            // which is every phone; this one has ~27px of slack. It shrinks
+            // rather than overflowing under ~360px, where the card itself cannot
+            // hold 224px plus both arrows.
+            variant === "panel" ? "w-[224px]" : "flex-1"
           )}
           type="button"
           aria-expanded={open}
