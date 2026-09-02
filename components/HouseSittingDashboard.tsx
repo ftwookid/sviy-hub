@@ -27,6 +27,7 @@ import { DateField } from "@/components/ui/DateField";
 import { FieldShell, Input, Select } from "@/components/ui/Field";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
+import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { CLIENT_PAYMENT_METHODS, PET_TYPES, ROVER_COMMISSION_RATE } from "@/lib/clients";
@@ -491,22 +492,25 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
 
   return (
     <div className="space-y-5">
-      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        <HouseMetric
-          icon={CalendarDays}
+      {/* Four figures, one set of chrome — the same strip the Performance tab
+          uses, for the same reason: four bordered cards with a 108px floor and
+          a 32px icon badge apiece spent about 230px of a phone on four numbers
+          that need a third of that, and put each number in the left half of a
+          card whose right half held a decorative badge. */}
+      <FigureGrid columns="grid-cols-2 lg:grid-cols-4">
+        <Figure
           label="Upcoming"
           value={String(stats.upcomingCount)}
           detail={stats.nextBooking ? `${stats.nextBooking.customer_name} next` : "No future stays"}
         />
-        <HouseMetric icon={Moon} label="Booked nights" value={String(stats.monthNights)} detail="For selected month" />
-        <HouseMetric icon={Sparkles} label="Year net" value={formatCurrency(stats.yearNet)} detail={`${cursorDate.getFullYear()} house sitting`} />
-        <HouseMetric
-          icon={BedDouble}
+        <Figure label="Booked nights" value={String(stats.monthNights)} detail="Selected month" />
+        <Figure label="Year net" value={formatCurrency(stats.yearNet)} detail={String(cursorDate.getFullYear())} />
+        <Figure
           label="Next stay"
           value={stats.nextBooking ? shortDate(stats.nextBooking.start_date) : "None"}
           detail={stats.nextBooking ? dateRangeLabel(stats.nextBooking.start_date, stats.nextBooking.end_date) : "Calendar is clear"}
         />
-      </section>
+      </FigureGrid>
 
       <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card sm:rounded-[24px]">
         <div className="flex flex-col gap-3 border-b border-border p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
@@ -677,34 +681,6 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
       ) : null}
 
       {toast ? <Toast message={toast} /> : null}
-    </div>
-  );
-}
-
-function HouseMetric({
-  icon: Icon,
-  label,
-  value,
-  detail
-}: {
-  icon: typeof CalendarDays;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="min-h-[108px] rounded-[18px] border border-border bg-surface p-3 shadow-card sm:min-h-[128px] sm:p-4">
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary sm:text-[11px]">{label}</div>
-          <div className="mt-2 truncate text-[21px] font-medium leading-none text-text-primary sm:text-[26px]">{value}</div>
-        </div>
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[13px] bg-accent-soft text-accent sm:h-10 sm:w-10 sm:rounded-[16px]">
-          <Icon size={16} strokeWidth={1.6} className="sm:hidden" />
-          <Icon size={18} strokeWidth={1.6} className="hidden sm:block" />
-        </span>
-      </div>
-      <p className="mt-3 line-clamp-2 text-[12px] leading-snug text-text-secondary sm:mt-4 sm:text-[14px]">{detail}</p>
     </div>
   );
 }

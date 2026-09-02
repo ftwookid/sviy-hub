@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPinned } from "lucide-react";
 import type { ClientWithPets } from "@/types/client";
 
 type GoogleMapsWindow = Window & {
@@ -253,35 +252,25 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
   }, [clientsWithAddresses, locationKey]);
 
   return (
-    <section className="flex h-full flex-col overflow-hidden rounded-[22px] border border-border bg-surface shadow-card">
-      <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
-            <MapPinned size={19} strokeWidth={1.7} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-[18px] font-medium leading-tight text-text-primary">Client map</h2>
-            <p className="mt-0.5 text-[13px] leading-snug text-text-secondary">{statusText}</p>
-          </div>
-        </div>
-        <div className="text-[12px] font-medium uppercase tracking-[0.12em] text-text-tertiary">
-          {clients.length} visible
-        </div>
-      </div>
-
-      <div className="relative h-[360px] min-h-[320px] w-full flex-1 bg-subtle sm:h-[430px] xl:h-auto">
+    /* No card of its own, and no title. This sits inside a section of the
+       Performance card that already names it and counts the pins, so a border,
+       a shadow, a 40px icon badge and a second "Client map" heading would all
+       be chrome repeating what is directly above them. What is left is the map
+       and the one line that says whether it worked. */
+    <div className="overflow-hidden rounded-[14px] border border-border bg-subtle">
+      <div className="relative h-[260px] w-full sm:h-[320px] md:h-[380px]">
         <div ref={containerRef} className="h-full w-full" aria-label="Map of client addresses" />
         {status === "loading" || status === "empty" || status === "error" ? (
           <div className="absolute inset-0 grid place-items-center bg-subtle/80 px-5 text-center backdrop-blur-[1px]">
             <div>
-              <div className="text-[15px] font-medium text-text-primary">
+              <div className="text-[14px] font-medium text-text-primary">
                 {status === "loading" ? "Building client map" : status === "empty" ? "No pins available" : "Map unavailable"}
               </div>
-              <div className="mt-1 max-w-sm text-[13px] text-text-secondary">{statusText}</div>
+              <div className="mt-1 max-w-sm text-[12px] text-text-secondary">{statusText}</div>
             </div>
           </div>
         ) : null}
       </div>
-    </section>
+    </div>
   );
 }
