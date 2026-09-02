@@ -33,10 +33,31 @@ export type TabItem = { label: string; href: string; icon: LucideIcon };
  * with no transition at all (a transition would make it lag behind the thumb);
  * on release it glides to the slot it landed on, and under
  * `prefers-reduced-motion` it simply arrives.
+ *
+ * What makes it read as glass is the **material**, not extra movement: a fill
+ * that is lighter at the top than the bottom, a white specular hairline along
+ * its top edge, a shaded bottom edge, and a soft bloom of its own colour
+ * underneath — so it sits *above* the bar rather than being a patch of tint cut
+ * into it. Plus one thing that only exists while it is moving: a soft light
+ * band inside the pill that lags behind the travel (SHEEN_LAG), as though the
+ * highlight belonged to the room and the glass were sliding under it. It
+ * settles back to centre a moment after the finger stops.
+ *
+ * Deliberately NOT here: the stretch-and-squash that Apple's version uses,
+ * where the pill elongates towards its direction of travel. That is the single
+ * biggest part of the effect and it is a scale, which this app forbids
+ * everywhere — the rule exists because a scaling element inside a bordered
+ * container flashes gutters down its edges mid-transition. Adding it is a
+ * deliberate exception to make, not a detail to slip in.
  */
 
 /** Pixels of travel before a press becomes a drag rather than a tap. */
 const DRAG_THRESHOLD = 8;
+
+/** How far the specular band lags behind the pill, at most, in pixels. */
+const SHEEN_LAG = 9;
+/** Milliseconds of stillness after which the sheen drifts back to centre. */
+const SHEEN_SETTLE_MS = 140;
 
 type Slot = { center: number; left: number; width: number };
 
@@ -55,6 +76,12 @@ export function MobileTabBar({
   // While dragging, the pill's centre in row coordinates. Null the rest of the
   // time, when the pill simply sits on the active slot.
   const [dragCenter, setDragCenter] = useState<number | null>(null);
+
+  // How far the light band inside the pill is displaced, in pixels. Driven by
+  // how fast the pill is moving, not by where it is.
+  const [sheen, setSheen] = useState(0);
+  const lastX = useRef(0);
+  const sheenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A press that has not yet travelled far enough to count as a drag. Kept in a
   // ref because every pointermove reads it and none of them should re-render.
@@ -92,6 +119,10 @@ export function MobileTabBar({
     window.addEventListener("orientationchange", measure);
     return () => window.removeEventListener("orientationchange", measure);
   }, [measure]);
+
+  useEffect(() => () => {
+    if (sheenTimer.current) clearTimeout(sheenTimer.current);
+  }, []);
 
   const nearestIndex = useCallback(
     (center: number) => {
@@ -140,10 +171,21 @@ export function MobileTabBar({
     if (!dragged.current) {
       if (Math.abs(x - current.startX) < DRAG_THRESHOLD) return;
       dragged.current = true;
+      lastX.current = x;
       // Capture only once it is really a drag, so a plain tap never steals the
       // pointer from the link it landed on.
       event.currentTarget.setPointerCapture(current.id);
     }
+
+    // The band lags *against* the direction of travel, which is what selling
+    // the glass depends on: the light stays where it is and the pill moves
+    // under it. A finger that stops moving stops sending events, so a timer
+    // returns it to centre rather than leaving a stale highlight parked.
+    const step = x - lastX.current;
+    lastX.current = x;
+    setSheen(Math.max(-SHEEN_LAG, Math.min(SHEEN_LAG, -step * 0.9)));
+    if (sheenTimer.current) clearTimeout(sheenTimer.current);
+    sheenTimer.current = setTimeout(() => setSheen(0), SHEEN_SETTLE_MS);
 
     // Clamped to the first and last slot centres: the pill is a selection, and a
     // selection cannot sit off the end of the bar.
@@ -155,6 +197,7 @@ export function MobileTabBar({
   function endDrag(event: React.PointerEvent<HTMLDivElement>) {
     const current = press.current;
     press.current = null;
+    setSheen(0);
     if (!current || !dragged.current) {
       setDragCenter(null);
       return;
@@ -172,6 +215,7 @@ export function MobileTabBar({
     press.current = null;
     dragged.current = false;
     setDragCenter(null);
+    setSheen(0);
   }
 
   // A drag that ends over a link would otherwise fire that link's click as well,
@@ -204,22 +248,50 @@ export function MobileTabBar({
         onPointerCancel={handlePointerCancel}
         onClickCapture={handleClickCapture}
       >
-        {/* One pill that moves, rather than five tints that take turns. */}
+        {/* One pill that moves, rather than five tints that take turns. It is
+            built as glass: lit along the top edge, shaded along the bottom, and
+            blooming its own colour onto the bar beneath it. No backdrop-filter
+            of its own — the bar already carries one, and a nested backdrop
+            filter is what makes translucent elements flicker on iOS Safari
+            while they are being transformed, which is precisely when this one
+            is being looked at. */}
         {pill ? (
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute inset-y-0 left-0 rounded-[18px] bg-accent-soft ring-1 ring-inset ring-accent/45",
+              "pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[18px] ring-1 ring-inset ring-accent/45",
               // No transition while the finger is down: the pill is the finger,
               // and easing it would make it trail behind the thumb.
               dragCenter === null &&
-                "transition-transform duration-[260ms] ease-out motion-reduce:transition-none"
+                "transition-transform duration-[300ms] ease-out motion-reduce:transition-none"
             )}
             style={{
               width: pill.width,
-              transform: `translateX(${pillCenter - pill.width / 2}px)`
+              transform: `translateX(${pillCenter - pill.width / 2}px)`,
+              background:
+                "linear-gradient(180deg, rgba(255,252,246,0.96) 0%, #F0E8D8 42%, #EADFC9 100%)",
+              boxShadow:
+                // Specular top edge, shaded bottom edge, then a soft bloom of
+                // the accent so the pill reads as sitting on the bar.
+                "inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(160,127,66,0.16), 0 2px 10px rgba(201,169,110,0.30), 0 1px 2px rgba(120,95,52,0.10)"
             }}
-          />
+          >
+            {/* The light band. Wide and very soft, so at rest it is only a
+                gentle brightening down the middle rather than a stripe. */}
+            <span
+              className={cn(
+                "absolute inset-y-0 left-1/2 w-[70%] -translate-x-1/2",
+                dragCenter === null
+                  ? "transition-transform duration-[300ms] ease-out motion-reduce:transition-none"
+                  : "transition-transform duration-[90ms] ease-out motion-reduce:transition-none"
+              )}
+              style={{
+                background:
+                  "radial-gradient(60% 120% at 50% 0%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.28) 45%, rgba(255,255,255,0) 100%)",
+                transform: `translateX(calc(-50% + ${sheen}px))`
+              }}
+            />
+          </span>
         ) : null}
 
         {items.map((item, index) => {
