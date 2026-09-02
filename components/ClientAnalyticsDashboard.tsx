@@ -1,23 +1,13 @@
 "use client";
 
 import {
-  Activity,
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  BarChart3,
-  CalendarDays,
-  CircleDollarSign,
-  Clock,
-  Crown,
-  PieChart,
-  ReceiptText,
-  TrendingUp,
-  Users,
-  Wallet
+  MapPinned
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { ClientMap } from "@/components/ClientMap";
+import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
 import { estimateClientCurrentEarnings, estimateClientEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
 import { formatCurrency, toInputDate } from "@/lib/formatters";
@@ -25,21 +15,6 @@ import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
 
 type ClientDashboardProps = {
   clients: ClientWithPets[];
-};
-
-type MetricCardProps = {
-  label: string;
-  value: string;
-  detail: string;
-  icon: LucideIcon;
-  emphasis?: boolean;
-  trend?: Trend;
-};
-
-type PanelProps = {
-  title: string;
-  icon: LucideIcon;
-  children: React.ReactNode;
 };
 
 const PAYMENT_METHODS: ClientPaymentMethod[] = ["Rover", "Venmo", "Cash"];
@@ -198,10 +173,14 @@ function comparisonDate() {
 function metricTrend(current: number, previous: number, options?: { inverse?: boolean }): Trend {
   const difference = current - previous;
   const direction = Math.abs(difference) < 0.01 ? "flat" : difference > 0 ? "up" : "down";
+  // No "YoY" in the label. It was on all six figures at once, and those 28px
+  // apiece were what clipped the line the badge shares — the arrow and the
+  // sign already say "change", and the period is on the badge's title and its
+  // accessible name, where it costs no width.
   const label =
     previous > 0 || current > 0
-      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${formatCompactCurrency(Math.abs(difference))} YoY`
-      : "Flat YoY";
+      ? `${direction === "up" ? "+" : direction === "down" ? "-" : ""}${formatCompactCurrency(Math.abs(difference))}`
+      : "Flat";
 
   const isGood = options?.inverse ? direction === "down" : direction === "up";
   const isBad = options?.inverse ? direction === "up" : direction === "down";
@@ -214,95 +193,180 @@ function metricTrend(current: number, previous: number, options?: { inverse?: bo
   };
 }
 
+/**
+ * Performance — what the regular book earns, and what it is made of.
+ *
+ * This screen was six full-width metric cards stacked down a phone, then five
+ * more panels under them: twelve bordered boxes and 3,223px of scroll at 390px,
+ * which is 3.6 screens to read numbers that add up to about a dozen figures.
+ * Every card charged a border, a shadow, an icon badge and two lots of padding
+ * for one number, and each one spent its width on a 32px badge at the right
+ * while the number itself sat in the left third. Tablets were no better: the
+ * grid only ever unfolded at 1280px, so a 768px iPad read the same single
+ * column as a phone.
+ *
+ * It is two containers now:
+ *
+ * 1. **The figures**, in one hairline grid — two across on a phone, three on a
+ *    tablet, six on a desktop — with no icons and no captions restating the
+ *    arithmetic ("Average weekly net divided by scheduled visits" under a
+ *    figure named Net/visit). The YoY change sits on the same line as the
+ *    number rather than on a row of its own.
+ * 2. **The breakdowns**, in one card split by `border-t`, one section each.
+ *
+ * **Nothing is collapsed.** A version of this hid the four breakdowns behind
+ * disclosures on a phone, which had the gate rule backwards — forms and setup
+ * collapse, readings do not — and made the reader tap four times to see the
+ * analysis the tab exists for. Every row is on screen at every width now, and
+ * the height that costs is bought back from the rows: one line each, with the
+ * bar in a column between the label and the figure instead of on a line of its
+ * own. That is 26px a row against 48px, which over eighteen rows is worth more
+ * than the disclosures ever saved.
+ *
+ * The old "Smart read" panel is gone, folded into the sections its three lines
+ * belonged to: the top client and the best net/visit are read off the rankings
+ * they were duplicating, and the top-three concentration is now the rankings
+ * section's own headline.
+ */
+
 function TrendBadge({ trend }: { trend: Trend }) {
   const Icon = trend.direction === "up" ? ArrowUpRight : trend.direction === "down" ? ArrowDownRight : ArrowRight;
 
   return (
-    <div
+    <span
       className={cn(
-        "flex min-w-0 items-center gap-1.5 text-[11px] font-medium",
+        "inline-flex shrink-0 items-center gap-0.5 text-[11px] font-medium",
         trend.tone === "good" && "text-success",
         trend.tone === "bad" && "text-danger",
         trend.tone === "neutral" && "text-text-tertiary"
       )}
+      title={`Year on year · ${trend.reference}`}
+      aria-label={`${trend.label} year on year, ${trend.reference}`}
     >
-      <Icon className="shrink-0" size={13} strokeWidth={1.8} />
-      <span className="truncate">{trend.label}</span>
-      <span className="shrink-0 text-text-tertiary">· {trend.reference}</span>
+      <Icon className="shrink-0" size={12} strokeWidth={1.9} />
+      {trend.label}
+    </span>
+  );
+}
+
+/**
+ * One breakdown, as a row of the single card.
+ *
+ * **Never collapsed.** An earlier version put these behind a disclosure on a
+ * phone, which read the gate rule backwards: entry forms, history and setup
+ * collapse, and what the page exists to show does not. These rows *are* the
+ * reading. The height they cost is paid for by the rows themselves being one
+ * line each, not by hiding them.
+ *
+ * `summary` is for a figure the body does not already state — the top-three
+ * concentration, the count of mapped pins. It is deliberately absent from the
+ * blocks whose headline is just their own first row: "Fri busiest · 4" above a
+ * list in which Friday is plainly the longest bar states a thing twice.
+ */
+function Section({
+  title,
+  summary,
+  children
+}: {
+  title: string;
+  summary?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-border px-3.5 py-3 first:border-t-0">
+      <div className="flex items-baseline gap-3">
+        <h3 className="shrink-0 text-[13px] font-medium text-text-primary">{title}</h3>
+        {summary ? (
+          <span className="min-w-0 flex-1 truncate text-right text-[12px] text-text-secondary">{summary}</span>
+        ) : null}
+      </div>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
 
-function MetricCard({ label, value, detail, icon: Icon, emphasis = false, trend }: MetricCardProps) {
+/**
+ * The rows of one block, as a three-column grid.
+ *
+ * A grid rather than a row of flex items, because the three columns have to
+ * line up **down** the block and not just across each row. In the flex version
+ * the label was `flex-1`, so it swallowed all the slack and left the bar on a
+ * fixed 40px stub with 120px of dead space in front of it — the space was
+ * there, it was just being given to a label that did not want it.
+ *
+ * Now the label track is `max-content`: it sizes to the longest label in the
+ * block and no wider, and every remaining pixel goes to the bar. That is also
+ * what keeps the bars honest — a grid track is one width for the whole block,
+ * so every bar in it is drawn against the same length. Sizing each bar to its
+ * own row's slack would make a half-full bar in a short row look longer than a
+ * half-full bar in a long one, which is the comparison the bar exists to make.
+ *
+ * The figure track is a fixed 74px so the bars all end on one line too, and the
+ * bar track keeps a floor so a long label cannot squeeze it out of existence.
+ */
+function BarRows({ children }: { children: React.ReactNode }) {
   return (
-    <div className={cn("flex h-full flex-col justify-between rounded-[18px] border border-border bg-surface p-3.5 shadow-card", emphasis && "bg-[#FFFEFB]")}>
-      <div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">{label}</div>
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
-            <Icon size={16} strokeWidth={1.6} />
-          </span>
-        </div>
-        <div className="mt-1.5 whitespace-nowrap text-[22px] font-medium leading-none text-text-primary">{value}</div>
-      </div>
-      <div className="mt-2 space-y-1">
-        <div className="text-[12px] leading-snug text-text-secondary">{detail}</div>
-        {trend ? <TrendBadge trend={trend} /> : null}
-      </div>
+    <div className="grid grid-cols-[minmax(0,max-content)_minmax(32px,1fr)_74px] items-center gap-x-2 sm:gap-x-3">
+      {children}
     </div>
   );
 }
 
-function Panel({ title, icon: Icon, children }: PanelProps) {
-  return (
-    <section className="rounded-[18px] border border-border bg-surface p-4 shadow-card">
-      <div className="flex items-center gap-2 text-[14px] font-medium text-text-primary">
-        <Icon size={16} strokeWidth={1.6} className="text-accent" />
-        {title}
-      </div>
-      <div className="mt-4">{children}</div>
-    </section>
-  );
-}
-
+/**
+ * One measured row: what it is, how big, how big in words.
+ *
+ * Contributes its cells straight to the parent grid, so the three columns are
+ * shared with every other row in the block. `sub` spans all three for the one
+ * block that carries more than a line can hold — the client rankings, where the
+ * owner's name and the net per visit are not derivable from the row above.
+ */
 function BarRow({
   label,
-  value,
   detail,
+  value,
+  sub,
   amount,
   max,
   accent = false
 }: {
   label: string;
-  value: string;
+  /** Secondary fact, inline after the label — greyed, and truncated first. */
   detail?: string;
+  value: string;
+  /** A second line, for rows carrying more than one line can hold. */
+  sub?: string;
   amount: number;
   max: number;
   accent?: boolean;
 }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3 text-[12px] font-medium">
-        <span className="min-w-0 truncate text-text-secondary">{label}</span>
-        <span className="shrink-0 text-text-primary">{value}</span>
-      </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-subtle">
-        <div className={cn("h-full rounded-full", accent ? "bg-text-primary" : "bg-accent")} style={{ width: barWidth(amount, max) }} />
-      </div>
-      {detail ? <div className="mt-1 text-[11px] text-text-tertiary">{detail}</div> : null}
-    </div>
-  );
-}
-
-function InsightRow({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-2xl bg-subtle px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[12px] font-medium text-text-secondary">{label}</span>
-        <span className="text-[14px] font-medium text-text-primary">{value}</span>
-      </div>
-      <div className="mt-0.5 text-[11px] leading-snug text-text-tertiary">{detail}</div>
-    </div>
+    <>
+      <span className={cn("min-w-0 truncate text-[12px] font-medium text-text-secondary", sub ? "pt-1.5" : "py-[3px]")}>
+        {label}
+        {detail ? <span className="font-normal text-text-tertiary"> · {detail}</span> : null}
+      </span>
+      <span className={cn("h-1.5 overflow-hidden rounded-full bg-subtle", sub && "mt-1.5")}>
+        {/* No mark at all for a zero: an empty track is a bar drawn for a
+            quantity that does not exist. */}
+        {amount > 0 ? (
+          <span
+            className={cn("block h-full rounded-full", accent ? "bg-text-primary" : "bg-accent")}
+            style={{ width: barWidth(amount, max) }}
+          />
+        ) : null}
+      </span>
+      <span
+        className={cn(
+          "text-right text-[12px] font-medium tabular-nums text-text-primary",
+          sub ? "pt-1.5" : "py-[3px]"
+        )}
+      >
+        {value}
+      </span>
+      {sub ? (
+        <span className="col-span-3 truncate pb-1 text-[11px] leading-tight text-text-tertiary">{sub}</span>
+      ) : null}
+    </>
   );
 }
 
@@ -316,7 +380,6 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
 
   const sortedByWeekly = clientMetrics.slice().sort((a, b) => b.weeklyNet - a.weeklyNet);
   const sortedByEfficiency = clientMetrics.slice().filter((item) => item.netPerVisit > 0).sort((a, b) => b.netPerVisit - a.netPerVisit);
-  const topClient = sortedByWeekly[0] ?? null;
   const topThreeNet = sortedByWeekly.slice(0, 3).reduce((sum, item) => sum + item.monthlyNet, 0);
   const averageWeekly = clients.length > 0 ? totals.weeklyNet / clients.length : 0;
   const previousAverageWeekly = previousMetrics.length > 0 ? previousTotals.weeklyNet / previousMetrics.length : 0;
@@ -361,149 +424,142 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
   ).sort((a, b) => b.weeklyNet - a.weeklyNet);
   const maxServiceWeekly = Math.max(1, ...serviceBreakdown.map((item) => item.weeklyNet));
 
+  const mappable = clients.filter((client) => client.address.trim().length > 0).length;
+
   return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-[22px] font-medium leading-tight text-text-primary">Performance dashboard</h2>
-        <p className="max-w-2xl text-[14px] text-text-secondary">
-          Current prices, workload, payment exposure, platform costs, and client locations for the selected view.
-        </p>
-      </div>
+    <section className="space-y-3">
+      {/* No heading. The tab row above already says Performance, and the
+          paragraph that used to sit here described the page to the one person
+          who built it. */}
+      <FigureGrid columns="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+        <Figure
+          label="Weekly net"
+          value={formatCurrency(totals.weeklyNet)}
+          detail={`${totals.visitsPerWeek} ${totals.visitsPerWeek === 1 ? "visit" : "visits"}/wk`}
+          aside={<TrendBadge trend={metricTrend(totals.weeklyNet, previousTotals.weeklyNet)} />}
+        />
+        <Figure
+          label="Monthly net"
+          value={formatCurrency(totals.monthlyNet)}
+          detail={`${formatCompactCurrency(totals.annualNet)}/yr`}
+          aside={<TrendBadge trend={metricTrend(totals.monthlyNet, previousTotals.monthlyNet)} />}
+        />
+        <Figure
+          label="Avg/client"
+          value={formatCurrency(averageWeekly)}
+          detail={`${clients.length} ${clients.length === 1 ? "client" : "clients"}`}
+          aside={<TrendBadge trend={metricTrend(averageWeekly, previousAverageWeekly)} />}
+        />
+        <Figure
+          label="Net/visit"
+          value={formatCurrency(averagePerVisit)}
+          aside={<TrendBadge trend={metricTrend(averagePerVisit, previousAveragePerVisit)} />}
+        />
+        <Figure
+          label="Rover fees"
+          value={formatCurrency(totals.commission)}
+          detail={`${percent(platformRate)} of gross`}
+          aside={<TrendBadge trend={metricTrend(totals.commission, previousTotals.commission, { inverse: true })} />}
+        />
+        <Figure
+          label="Tax reserve"
+          value={formatCurrency(taxReserve)}
+          detail={`${Math.round(ESTIMATED_TAX_RATE * 100)}% non-cash`}
+          aside={<TrendBadge trend={metricTrend(taxReserve, previousTaxReserve, { inverse: true })} />}
+        />
+      </FigureGrid>
 
-      <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
-        <div className="grid gap-3 sm:grid-cols-2 sm:auto-rows-fr xl:h-full xl:grid-rows-3">
-          <MetricCard
-            label="Weekly net"
-            value={formatCurrency(totals.weeklyNet)}
-            detail={`${totals.visitsPerWeek} scheduled ${totals.visitsPerWeek === 1 ? "visit" : "visits"}/week`}
-            icon={CircleDollarSign}
-            trend={metricTrend(totals.weeklyNet, previousTotals.weeklyNet)}
-            emphasis
-          />
-          <MetricCard
-            label="Monthly net"
-            value={formatCurrency(totals.monthlyNet)}
-            detail={`${formatCurrency(totals.annualNet)} annual run rate`}
-            icon={CalendarDays}
-            trend={metricTrend(totals.monthlyNet, previousTotals.monthlyNet)}
-          />
-          <MetricCard
-            label="Avg/client"
-            value={formatCurrency(averageWeekly)}
-            detail={`${clients.length} ${clients.length === 1 ? "client" : "clients"} in this view`}
-            icon={Users}
-            trend={metricTrend(averageWeekly, previousAverageWeekly)}
-          />
-          <MetricCard
-            label="Net/visit"
-            value={formatCurrency(averagePerVisit)}
-            detail="Average weekly net divided by scheduled visits"
-            icon={Activity}
-            trend={metricTrend(averagePerVisit, previousAveragePerVisit)}
-          />
-          <MetricCard
-            label="Rover fees"
-            value={formatCurrency(totals.commission)}
-            detail={`${percent(platformRate)} of monthly gross`}
-            icon={ReceiptText}
-            trend={metricTrend(totals.commission, previousTotals.commission, { inverse: true })}
-          />
-          <MetricCard
-            label="Tax reserve"
-            value={formatCurrency(taxReserve)}
-            detail={`${Math.round(ESTIMATED_TAX_RATE * 100)}% estimate on non-cash monthly net`}
-            icon={Wallet}
-            trend={metricTrend(taxReserve, previousTaxReserve, { inverse: true })}
-          />
-        </div>
-
-        <ClientMap clients={clients} />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Panel title="Smart read" icon={TrendingUp}>
-          <div className="space-y-2.5">
-            <InsightRow
-              label="Top client"
-              value={topClient ? formatCurrency(topClient.weeklyNet) : formatCurrency(0)}
-              detail={topClient ? `${topClient.pets} brings ${percent(share(topClient.monthlyNet, totals.monthlyNet))} of monthly net.` : "No client income to rank yet."}
-            />
-            <InsightRow
-              label="Top 3 concentration"
-              value={percent(share(topThreeNet, totals.monthlyNet))}
-              detail="Shows how much monthly income depends on the largest clients."
-            />
-            <InsightRow
-              label="Best efficiency"
-              value={sortedByEfficiency[0] ? formatCurrency(sortedByEfficiency[0].netPerVisit) : formatCurrency(0)}
-              detail={sortedByEfficiency[0] ? `${sortedByEfficiency[0].pets} has the highest net per visit.` : "Add scheduled visits to compare efficiency."}
-            />
-          </div>
-        </Panel>
-
-        <Panel title="Payment mix" icon={PieChart}>
-          <div className="space-y-3">
-            {paymentBreakdown.map((item) => (
-              <BarRow
-                key={item.method}
-                label={`${item.method} · ${item.count}`}
-                value={percent(item.share)}
-                detail={`${formatCurrency(item.monthlyNet)} monthly net`}
-                amount={item.monthlyNet}
-                max={totals.monthlyNet}
-              />
-            ))}
-          </div>
-        </Panel>
-
-        <Panel title="Weekly workload" icon={Clock}>
-          <div className="space-y-2.5">
-            {dayBreakdown.map((item) => (
-              <BarRow
-                key={item.day}
-                label={item.day}
-                value={`${item.visits}`}
-                detail={`${formatCurrency(item.weeklyNet)} net scheduled`}
-                amount={item.visits}
-                max={maxDayVisits}
-                accent={item.visits === maxDayVisits && item.visits > 0}
-              />
-            ))}
-          </div>
-        </Panel>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Client rankings" icon={Crown}>
-          <div className="space-y-3">
+      {/* One card, five sections. On lg they lay out two-up, because the width
+          is there and a single column would leave half the card empty. */}
+      <div className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card md:grid md:grid-cols-2">
+        <Section
+          title="Top clients"
+          summary={
+            sortedByWeekly.length > 0
+              ? `Top 3 · ${percent(share(topThreeNet, totals.monthlyNet))}`
+              : "No income yet"
+          }
+        >
+          <BarRows>
             {sortedByWeekly.slice(0, 5).map((item, index) => (
               <BarRow
                 key={item.client.id}
                 label={`${index + 1}. ${item.pets}`}
-                value={`${formatCurrency(item.weeklyNet)} /wk`}
-                detail={`${item.client.name} · ${formatCurrency(item.netPerVisit)} net/visit`}
+                value={`${formatCurrency(item.weeklyNet)}/wk`}
+                sub={`${item.client.name} · ${formatCurrency(item.netPerVisit)}/visit`}
                 amount={item.weeklyNet}
                 max={Math.max(1, sortedByWeekly[0]?.weeklyNet ?? 1)}
                 accent={index === 0}
               />
             ))}
-          </div>
-        </Panel>
+            {sortedByWeekly.length === 0 ? (
+              <div className="col-span-3 text-[12px] text-text-tertiary">No client income to rank yet.</div>
+            ) : null}
+            {/* What the old Smart read panel said about efficiency, on the
+                block that already ranks the same people. */}
+            {sortedByEfficiency[0] ? (
+              <div className="col-span-3 mt-1.5 border-t border-border pt-1.5 text-[11px] text-text-tertiary">
+                Best net/visit: {sortedByEfficiency[0].pets} · {formatCurrency(sortedByEfficiency[0].netPerVisit)}
+              </div>
+            ) : null}
+          </BarRows>
+        </Section>
 
-        <Panel title="Service mix" icon={BarChart3}>
-          <div className="space-y-3">
+        {/* No summary on the header: "Cash · 51%" above a list in which Cash is
+            plainly the longest bar is the same fact written twice. */}
+        <Section title="Payment mix">
+          <BarRows>
+            {paymentBreakdown.map((item) => (
+              <BarRow
+                key={item.method}
+                label={`${item.method} · ${item.count}`}
+                detail={formatCurrency(item.monthlyNet)}
+                value={percent(item.share)}
+                amount={item.monthlyNet}
+                max={totals.monthlyNet}
+              />
+            ))}
+          </BarRows>
+        </Section>
+
+        <Section title="Weekly workload">
+          <BarRows>
+            {dayBreakdown.map((item) => (
+              <BarRow
+                key={item.day}
+                label={item.day}
+                detail={formatCurrency(item.weeklyNet)}
+                value={`${item.visits}`}
+                amount={item.visits}
+                max={maxDayVisits}
+                accent={item.visits === maxDayVisits && item.visits > 0}
+              />
+            ))}
+          </BarRows>
+        </Section>
+
+        <Section title="Service mix">
+          <BarRows>
             {serviceBreakdown.map((item) => (
               <BarRow
                 key={item.service}
                 label={`${item.service} · ${item.clients}`}
-                value={formatCurrency(item.weeklyNet)}
-                detail={`${item.visits} scheduled ${item.visits === 1 ? "visit" : "visits"}/week`}
+                detail={`${item.visits} ${item.visits === 1 ? "visit" : "visits"}`}
+                value={`${formatCurrency(item.weeklyNet)}/wk`}
                 amount={item.weeklyNet}
                 max={maxServiceWeekly}
               />
             ))}
-          </div>
-        </Panel>
+          </BarRows>
+        </Section>
+
+        {/* Full width beneath the two columns. Its pin count is on the header
+            because nothing in the body states it. */}
+        <div className="md:col-span-2">
+          <Section title="Client map" summary={`${mappable} of ${clients.length} mapped`}>
+            <ClientMap clients={clients} />
+          </Section>
+        </div>
       </div>
     </section>
   );

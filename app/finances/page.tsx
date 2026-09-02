@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
-import { Commitments, MoneyIn, WhereItGoes } from "@/components/finances/MonthBreakdown";
+import { MoneyIn, MoneyOut } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
 import { SetupSheet } from "@/components/finances/SetupSheet";
 import { YearList } from "@/components/finances/YearList";
@@ -214,13 +214,20 @@ export default function FinancesPage() {
                 <MonthSummary month={month} />
               </div>
 
-              <div className="order-3 space-y-3 lg:col-start-1 lg:row-start-2 lg:self-start">
-                <WhereItGoes month={month} />
+              {/* Money in first on a phone — it is the denominator every share
+                  below is measured against — then the blocks it is spent on,
+                  then the year. On a desktop the long sectioned card takes the
+                  left column for both rows and the two short blocks stack
+                  beside it. */}
+              <div className="order-3 lg:col-start-2 lg:row-start-2 lg:self-start">
                 <MoneyIn month={month} />
               </div>
 
-              <div className="order-4 space-y-3 lg:col-start-2 lg:row-start-2 lg:self-start">
-                <Commitments month={month} />
+              <div className="order-4 lg:col-start-1 lg:row-start-2 lg:row-span-2 lg:self-start">
+                <MoneyOut month={month} />
+              </div>
+
+              <div className="order-5 lg:col-start-2 lg:row-start-3 lg:self-start">
                 <YearList
                   months={months}
                   year={year}

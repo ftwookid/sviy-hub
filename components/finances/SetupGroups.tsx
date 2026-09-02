@@ -11,7 +11,9 @@ import {
   SECTION_STYLE,
   currentAmount,
   currentCadence,
-  monthlyFromCadence
+  monthlyFromCadence,
+  paydayWeekdayFor,
+  snapToPayday
 } from "@/lib/finances";
 import { formatCurrency, formatShortDate, parseLocalDate, todayInputValue } from "@/lib/formatters";
 import type { FinanceBucket, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
@@ -38,15 +40,25 @@ function parseAmount(value: string) {
  * What a non-monthly figure comes to a month, said before it is saved.
  *
  * The conversion is the whole point of the setting, so it is shown while the
- * amount is still being typed rather than only afterwards in the history — a
- * bi-weekly paycheck reaching the month at 2.17x is the number worth checking.
+ * amount is still being typed. It says **on average**, and it has to: the month
+ * itself counts the payments that actually land in it, so a fortnightly line
+ * pays twice in most months and three times in two of them. An average that
+ * reads as a promise about every month is exactly the misunderstanding this
+ * sentence exists to prevent.
  */
 function monthlyLine(amountValue: string, cadence: PayCadence) {
   const typed = parseAmount(amountValue);
-  if (!typed) return `Paid ${CADENCE_SUFFIX[cadence]}, spread evenly across the months.`;
-  return `${formatCurrency(typed)} ${CADENCE_SUFFIX[cadence]} is ${formatCurrency(
+  if (!typed) return `Paid ${CADENCE_SUFFIX[cadence]}. Each month counts the payments that land in it.`;
+  if (cadence === "Monthly") return `${formatCurrency(typed)} a month.`;
+  return `${formatCurrency(typed)} ${CADENCE_SUFFIX[cadence]} — ${formatCurrency(
     monthlyFromCadence(typed, cadence)
-  )} a month.`;
+  )} a month on average. Each month counts the payments that land in it.`;
+}
+
+/** "avg" beside a derived monthly figure, wherever the line is not actually monthly. */
+function AverageTag({ cadence }: { cadence: PayCadence }) {
+  if (cadence === "Monthly") return null;
+  return <span className="ml-1 text-[10px] font-normal text-text-tertiary">avg</span>;
 }
 
 /** A change being corrected: which row, and the three things it holds. */
@@ -145,14 +157,34 @@ function LineDetail({
   // raise, so the change being typed inherits the cadence already in force.
   const [cadence, setCadence] = useState<PayCadence>(() => currentCadence(line.rates));
 
-  const changeHint =
+  // A line with a fixed payday is saved on that payday, whatever date was picked
+  // — Ivan may type the Monday of the week his paycheck lands on. Snapping on
+  // save rather than only on read means the date shown in the history, the date
+  // stored, and the date the month counts are all the same one.
+  const payday = paydayWeekdayFor(line.label);
+  const paydayNote =
+    payday === null
+      ? null
+      : "Paid on Thursdays. A date anywhere in that week is saved as its Thursday.";
+
+  // Payments from this date on are worth the new amount; the ones before it keep
+  // the old one. That is not the same as the old wording, which said the month
+  // was "split across both amounts" — months are no longer averaged, they are a
+  // count of the payments that landed in them.
+  const changeHint = [
     cadence === "Monthly"
-      ? "A month the date lands inside is split across both amounts. To stop a line, change it to 0."
-      : `${monthlyLine(changeAmount, cadence)} A month the date lands inside is split across both amounts.`;
+      ? "Payments from this date on use the new amount. To stop a line, change it to 0."
+      : `${monthlyLine(changeAmount, cadence)} Payments from this date on use the new amount.`,
+    // Said where the date is being picked, not afterwards in a toast: the point
+    // is that Ivan does not have to know which Thursday it was.
+    paydayNote
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   function saveChange() {
     if (!changeAmount.trim()) return;
-    onSetRate(changeDate, parseAmount(changeAmount), cadence);
+    onSetRate(snapToPayday(changeDate, payday), parseAmount(changeAmount), cadence);
     setChangeAmount("");
   }
 
@@ -167,7 +199,7 @@ function LineDetail({
 
   function saveEditing() {
     if (!editing || !editing.amount.trim()) return;
-    onUpdateRate(editing.id, editing.date, parseAmount(editing.amount), editing.cadence);
+    onUpdateRate(editing.id, snapToPayday(editing.date, payday), parseAmount(editing.amount), editing.cadence);
     setEditing(null);
   }
 
@@ -277,6 +309,7 @@ function LineDetail({
                 </span>
                 <span className="shrink-0 text-right text-[13.5px] font-medium tabular-nums text-text-primary sm:w-[120px]">
                   {formatCurrency(rate.monthly_amount)}
+                  <AverageTag cadence={rate.cadence} />
                 </span>
                 <Pencil size={13} strokeWidth={1.7} className="shrink-0 text-text-tertiary" />
               </button>
@@ -521,6 +554,7 @@ export function SetupGroups({
                       </span>
                       <span className="shrink-0 text-right text-[14px] tabular-nums text-text-primary sm:w-[120px] sm:text-[15px]">
                         {formatCurrency(currentAmount(line.rates))}
+                        {line.rates.length > 0 ? <AverageTag cadence={currentCadence(line.rates)} /> : null}
                       </span>
                       <ChevronDown
                         size={15}

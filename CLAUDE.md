@@ -106,6 +106,26 @@ change instead. There is no hover lift left anywhere — the client cards deepen
 their shadow instead of rising, so a card never pulls its own delete button out
 from under the cursor.
 
+**The one exception, and its fence.** The mobile tab bar's selection pill
+(`components/MobileTabBar.tsx`) scales: it stretches along its direction of
+travel while being dragged, thins slightly across it, and springs back. Ivan
+asked for the bar to feel like Apple's, and squash-and-stretch is most of what
+makes that read as liquid rather than as a rectangle sliding; the request was
+explicit, so the exception is deliberate rather than a rule quietly broken.
+
+It is safe *there* for the reason the rule exists everywhere else: the scar
+behind the rule is a tile **inside a bordered card**, which kept its border
+while its contents scaled away from it. The pill carries its own ring and its
+own background and has nothing hugging it, so it deforms as one object and no
+gutter can open. Measured at 390/430/440: peak scale 1.14 × 0.92, and its
+closest approach to the bar's inner edge is 3.7px, so it never breaks out of
+the glass it sits in.
+
+The fence: this element, driven by a finger, and nothing else. It does not
+license a press-scale, a hover lift, or a scale on anything that sits inside
+another bordered container. A new interaction that wants a transform still
+wants a colour or an opacity change instead.
+
 **A control that changes what you are looking at shows you the options.** No
 blind toggles: tapping the person avatar opens the list of people, it does not
 silently swap to the other one. Cycling makes the reader check the screen
@@ -872,12 +892,36 @@ Two kinds of number meet on the page and they behave differently:
   - **Each change records how often it arrives.** Almost nothing is genuinely
     paid monthly: a W2 lands every second week, insurance goes out quarterly.
     A rate therefore stores three things — `entered_amount` (what was typed),
-    `cadence`, and `monthly_amount` **derived** from the pair. The derived
-    column is the one every reader spends, so the month build, the year rail and
-    the reports never convert anything and a cadence cannot be half-applied by a
-    reader that forgot. Bi-weekly is 26 paydays a year spread evenly across the
-    months, not 24 — `Semi-monthly` exists separately for figures that really do
-    arrive twice a month.
+    `cadence`, and `monthly_amount`, the monthly **average** derived from the
+    pair. `Semi-monthly` exists separately from `Bi-weekly` for figures that
+    really do arrive twice a month.
+  - **A month is the payments that actually land in it, not an average.** This is
+    the arithmetic the page lives or dies on. 26 fortnightly paydays do not
+    divide by 12: anchored on 21 December 2025, 2026 pays twice in most months
+    and **three times in March and August**. The first version spread 26/12
+    evenly, so those two months read about $4,100 light and the other ten read a
+    few hundred heavy, and nothing on the page said so. `occurrencesInMonth()`
+    now generates the real dates from the line's anchor and `amountForMonth()`
+    adds up what landed; the row says `3 payments · $4,159.62 every 2 weeks`, so
+    a bigger August explains itself. Weekly does the same across 4- and 5-week
+    months, a quarterly bill lands in the four months it is actually paid, and
+    an annual one in the single month it leaves the account.
+  - **A raise does not restart the cycle; a change of cadence does.** Payday is
+    payday whatever the figure on it, so the anchor stays the line's first rate
+    date and a later change only says what each payment is worth. Going monthly
+    → fortnightly is a new schedule and re-anchors on the date it was given.
+  - **The mid-month blend is gone.** `amountForMonth()` used to walk the days and
+    average a raise across the month, which is truthful about something that
+    accrues daily and wrong about a paycheck — a paycheck is paid at the old
+    figure or the new one, never at a weighted mean of the two. Each payment now
+    takes the rate in force on the day it landed, and a month holding both says
+    `2 payments · $4,038.46 then $4,159.62`.
+  - **The run rate on a row is the rate annualised, never the month × 12.** In a
+    three-paycheck August, month × 12 turned a $302.30 fortnightly tax into
+    "$10,883 a year" against a real $7,859.80. `FinanceRow.yearAmount` carries
+    `monthly_amount × 12` instead. `monthly_amount` survives for exactly this and
+    for Setup's column, where it is tagged **`avg`** so it cannot be read as a
+    claim about any single month.
   - The cadence is set from the **caption above the amount field** — the slot
     that used to read a dead "A MONTH". A setting most lines never touch costs
     no height that way, and tapping it shows the whole list with a tick rather
@@ -956,25 +1000,33 @@ come to, what is it made of, how does it compare with the year:
   version set the net two steps larger, which made the reader ask why the type
   kept changing. Emphasis is colour, per financial convention: **green in
   surplus, red in deficit**, which is also the only cue the sign needs.
-- **The month is three charts, not a table.** One table was being asked three
-  questions at once and answered none of them well, and every restyle of it lost
-  whichever question it was not built around. Each chart now has exactly one job,
-  chosen by what the data's job is rather than by what fits:
-  1. **How much is spoken for** — a single ratio against a limit, which is a
-     **meter**: one track, the committed part filled, both ends directly labelled
-     ("37% committed · $4,328.16" / "63% left · $7,485.08").
-  2. **Which blocks take it** — magnitude across seven named things, which is a
-     **sorted bar chart** (`WhereItGoes`). Sorted by size, not by the order the
-     buckets were declared, because the question is which is biggest.
-  3. **Which commitment to go after** — magnitude across *every line in the month*
-     on one shared scale, biggest first, regardless of block (`Commitments`).
-     Inside a block-by-block table this comparison was impossible: rent and a $15
-     subscription never appeared on the same axis. Each row carries its block name
-     and its **yearly run rate**, because $15 a month is a shrug and $180 a year
-     is a decision. Rounded (`formatCurrencyRounded`) — a run rate is an
-     extrapolation, not an amount anybody was charged.
-  `MoneyIn` is its own card, in green: it is not a competitor to the outflows, it
-  is the denominator every share on the page is measured against.
+- **The month reads by section, in the order the buckets are declared.** Two
+  cards — `Money in` and `Money out` — each split by `border-t` into its blocks:
+  a header row carrying the bucket's name, its share of money in and its total,
+  with that bucket's lines beneath it (biggest first inside the block). The
+  order is fixed rather than sorted by size, so a block sits in the same place
+  every month.
+  - The version before this one dissolved the sections: it sorted the blocks by
+    size in one card (`WhereItGoes`) and poured **every line in the month** into
+    another, biggest first, with its block written under it in 10px grey
+    (`Commitments`). That answered "which single commitment is largest" and lost
+    the question the page is opened with — what does each part of the month
+    cost — because a line could not be found where it lives, and tax withheld
+    sat three rows away from tax withheld. Neither card is coming back.
+  - **The meter stays**, at the top of `Money out`: how much of what came in is
+    spoken for is one ratio against a limit, both ends directly labelled
+    ("37% committed · $4,328.16" / "63% left · $7,485.08").
+  - **One scale across the whole card, not one per block.** Every bar in
+    `Money out` is measured against the largest line in the month, so a $15
+    subscription draws a $15 bar next to rent and the cross-block comparison the
+    flat list existed for survives the grouping. Per-block scaling is the
+    already-rejected trap that gave a $2.10 line a full-width bar.
+  - Each line keeps its **yearly run rate** — $15 a month is a shrug and $180 a
+    year is a decision. Rounded (`formatCurrencyRounded`), because a run rate is
+    an extrapolation, not an amount anybody was charged.
+  - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
+    own name. Nothing is titled with a phrase that has to be interpreted.
+  - An empty block is its header row and nothing else.
 - **Magnitude is length from a shared baseline, never colour.** The block palette
   (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
   checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under
@@ -1139,7 +1191,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/finances.ts`: The month's arithmetic. Pure; no queries.
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
-- `components/finances/MonthBreakdown.tsx`: The month's three charts.
+- `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
 - `components/finances/chart.tsx`: Bars, meter, chart ink and the mark spec.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
@@ -1420,10 +1472,34 @@ re-runnable. Before it ran, Finances read and saved monthly figures exactly as
 before, and choosing any other cadence reported the missing migration rather
 than silently dropping it.
 
-**Ivan's W2 line still needs correcting by hand**: it holds a bi-weekly paycheck
-in a column that meant a month, and no migration can know which lines those are.
-Open Setup → Ivan W2 → tap the change in its history, set the caption above the
-amount to Bi-weekly, and Save.
+**`Ivan W2` is paid on Thursdays, and the app enforces it.** `PAYDAY_WEEKDAY` in
+`lib/finances.ts` maps that one label to Thursday; `snapToPayday()` moves any
+date to the Thursday of the week it falls in (weeks run Sunday to Saturday, which
+is what makes Sunday 21 December mean the Thursday *after* it), and a date
+already on a Thursday is left exactly as it is. Setup snaps on save, so the date
+stored, the date shown in the history and the date the month counts are the same
+one, and the entry form says so under the field. `manualRows` snaps again on read
+as a backstop, so a row written any other way still cannot put the paycheck on a
+Sunday. The rule is keyed by label and deliberately applies to **nothing else** —
+not Rent, not the withholding lines. Renaming the line turns it off, which is the
+right failure: the app would then have no reason to believe anything about when
+it is paid.
+
+**The date on a line's first change is now its payday, so it has to be right.**
+It was only a "from when" while months were averaged; it is the anchor of the
+whole cycle now, and a wrong weekday is a wrong answer rather than a rounding
+error. Ivan W2 and the seven withholding lines were anchored 21 December 2025,
+**a Sunday** — the paycheck actually lands on Thursdays, so the app generated
+Sunday paydays and put the year's two extra paychecks in March and August. All
+eight were moved to **Thursday 25 December 2025** on 21 August 2026; 2026 now
+pays them 26 times with the third paycheck in **April and October**. The W2's
+raise is still dated 2 August 2026, which is not itself a payday: it applies from
+the Thursday 6 August paycheck, the same one it applied to before.
+
+`Rent` is anchored 21 September 2021, so it counts as paid on the 21st of each
+month; that does not change any total (a monthly line pays once a month whatever
+the day), it only decides which side of a mid-month change a payment falls on. If
+the real rent day is the 1st, fix it by editing the first change's date in Setup.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and

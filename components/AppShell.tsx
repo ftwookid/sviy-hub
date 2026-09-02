@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { HeartPulse, Receipt, UserRound, UsersRound, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
+import { MobileTabBar } from "@/components/MobileTabBar";
 import { cn } from "@/lib/cn";
 import { supabase } from "@/lib/supabase";
 
@@ -33,6 +34,10 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
   const router = useRouter();
   const initial = user.email?.[0]?.toUpperCase() ?? "S";
   const isClientDetailPage = /^\/clients\/[^/]+$/.test(pathname);
+  // The tab bar needs the selection as an index, since it positions one
+  // moving pill rather than tinting whichever cell matches. -1 while no
+  // section matches, which the bar reads as "no pill".
+  const activeNavIndex = navItems.findIndex((item) => isActive(pathname, item.href));
 
   async function signOut() {
     await supabase?.auth.signOut();
@@ -110,30 +115,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
         </main>
       </div>
 
-      <nav className="fixed inset-x-3 bottom-3 z-50 rounded-[24px] border border-white/70 bg-surface/78 px-2 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 shadow-[0_18px_48px_rgba(80,66,44,0.16)] backdrop-blur-2xl md:hidden">
-        <div className="grid grid-cols-5 gap-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] transition duration-150 ease-out",
-                  active
-                    ? "bg-accent-soft font-semibold text-accent ring-1 ring-inset ring-accent/45"
-                    : "font-medium text-text-tertiary hover:bg-subtle hover:text-text-secondary"
-                )}
-              >
-                <Icon size={21} strokeWidth={active ? 2.1 : 1.6} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <MobileTabBar items={navItems} activeIndex={activeNavIndex} />
     </div>
   );
 }
