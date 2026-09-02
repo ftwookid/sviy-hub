@@ -286,18 +286,39 @@ function Section({
 }
 
 /**
+ * The rows of one block, as a three-column grid.
+ *
+ * A grid rather than a row of flex items, because the three columns have to
+ * line up **down** the block and not just across each row. In the flex version
+ * the label was `flex-1`, so it swallowed all the slack and left the bar on a
+ * fixed 40px stub with 120px of dead space in front of it — the space was
+ * there, it was just being given to a label that did not want it.
+ *
+ * Now the label track is `max-content`: it sizes to the longest label in the
+ * block and no wider, and every remaining pixel goes to the bar. That is also
+ * what keeps the bars honest — a grid track is one width for the whole block,
+ * so every bar in it is drawn against the same length. Sizing each bar to its
+ * own row's slack would make a half-full bar in a short row look longer than a
+ * half-full bar in a long one, which is the comparison the bar exists to make.
+ *
+ * The figure track is a fixed 74px so the bars all end on one line too, and the
+ * bar track keeps a floor so a long label cannot squeeze it out of existence.
+ */
+function BarRows({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,max-content)_minmax(32px,1fr)_74px] items-center gap-x-2 sm:gap-x-3">
+      {children}
+    </div>
+  );
+}
+
+/**
  * One measured row: what it is, how big, how big in words.
  *
- * A single line, with the bar between the label and the figure rather than on a
- * line of its own beneath them. The three-line version — label row, full-width
- * bar, detail row — cost about 48px a row, and eighteen of those is most of a
- * phone screen spent on eighteen numbers. `sub` buys a second line back for the
- * one block that genuinely carries more than fits: the client rankings, where
- * the owner's name and the net per visit are not derivable from the row above.
- *
- * The bar is a fixed width in its own column, not a share of the row. Letting it
- * flex would give every block a different scale and make the lengths
- * incomparable between them, which is the trap already recorded on Finances.
+ * Contributes its cells straight to the parent grid, so the three columns are
+ * shared with every other row in the block. `sub` spans all three for the one
+ * block that carries more than a line can hold — the client rankings, where the
+ * owner's name and the net per visit are not derivable from the row above.
  */
 function BarRow({
   label,
@@ -319,35 +340,33 @@ function BarRow({
   accent?: boolean;
 }) {
   return (
-    <div className="py-[3px]">
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-text-secondary">
-          {label}
-          {detail ? <span className="font-normal text-text-tertiary"> · {detail}</span> : null}
-        </span>
-        {/* 40px on a phone: at 320px the 8px this gives back off a 48px column
-            is the difference between "Dog walking · 3 · 9 visits" reading in
-            full and clipping, and a bar this short is a comparison of lengths
-            either way. */}
-        <span className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-subtle sm:w-16">
-          {amount > 0 ? (
-            <span
-              className={cn("block h-full rounded-full", accent ? "bg-text-primary" : "bg-accent")}
-              style={{ width: barWidth(amount, max) }}
-            />
-          ) : null}
-        </span>
-        {/* A fixed figure column, so every bar in the card starts and ends on
-            the same two vertical lines. Letting the figure size itself moved
-            the bar with it — "$332.20/wk" and "$100.00/wk" are different
-            widths, so no two rows shared a baseline and the lengths stopped
-            being comparable at a glance, which is the whole job of a bar. */}
-        <span className="w-[74px] shrink-0 text-right text-[12px] font-medium tabular-nums text-text-primary">
-          {value}
-        </span>
-      </div>
-      {sub ? <div className="truncate text-[11px] leading-tight text-text-tertiary">{sub}</div> : null}
-    </div>
+    <>
+      <span className={cn("min-w-0 truncate text-[12px] font-medium text-text-secondary", sub ? "pt-1.5" : "py-[3px]")}>
+        {label}
+        {detail ? <span className="font-normal text-text-tertiary"> · {detail}</span> : null}
+      </span>
+      <span className={cn("h-1.5 overflow-hidden rounded-full bg-subtle", sub && "mt-1.5")}>
+        {/* No mark at all for a zero: an empty track is a bar drawn for a
+            quantity that does not exist. */}
+        {amount > 0 ? (
+          <span
+            className={cn("block h-full rounded-full", accent ? "bg-text-primary" : "bg-accent")}
+            style={{ width: barWidth(amount, max) }}
+          />
+        ) : null}
+      </span>
+      <span
+        className={cn(
+          "text-right text-[12px] font-medium tabular-nums text-text-primary",
+          sub ? "pt-1.5" : "py-[3px]"
+        )}
+      >
+        {value}
+      </span>
+      {sub ? (
+        <span className="col-span-3 truncate pb-1 text-[11px] leading-tight text-text-tertiary">{sub}</span>
+      ) : null}
+    </>
   );
 }
 
@@ -461,7 +480,7 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
               : "No income yet"
           }
         >
-          <div>
+          <BarRows>
             {sortedByWeekly.slice(0, 5).map((item, index) => (
               <BarRow
                 key={item.client.id}
@@ -474,22 +493,22 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
               />
             ))}
             {sortedByWeekly.length === 0 ? (
-              <div className="text-[12px] text-text-tertiary">No client income to rank yet.</div>
+              <div className="col-span-3 text-[12px] text-text-tertiary">No client income to rank yet.</div>
             ) : null}
             {/* What the old Smart read panel said about efficiency, on the
                 block that already ranks the same people. */}
             {sortedByEfficiency[0] ? (
-              <div className="mt-1.5 border-t border-border pt-1.5 text-[11px] text-text-tertiary">
+              <div className="col-span-3 mt-1.5 border-t border-border pt-1.5 text-[11px] text-text-tertiary">
                 Best net/visit: {sortedByEfficiency[0].pets} · {formatCurrency(sortedByEfficiency[0].netPerVisit)}
               </div>
             ) : null}
-          </div>
+          </BarRows>
         </Section>
 
         {/* No summary on the header: "Cash · 51%" above a list in which Cash is
             plainly the longest bar is the same fact written twice. */}
         <Section title="Payment mix">
-          <div>
+          <BarRows>
             {paymentBreakdown.map((item) => (
               <BarRow
                 key={item.method}
@@ -500,11 +519,11 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
                 max={totals.monthlyNet}
               />
             ))}
-          </div>
+          </BarRows>
         </Section>
 
         <Section title="Weekly workload">
-          <div>
+          <BarRows>
             {dayBreakdown.map((item) => (
               <BarRow
                 key={item.day}
@@ -516,11 +535,11 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
                 accent={item.visits === maxDayVisits && item.visits > 0}
               />
             ))}
-          </div>
+          </BarRows>
         </Section>
 
         <Section title="Service mix">
-          <div>
+          <BarRows>
             {serviceBreakdown.map((item) => (
               <BarRow
                 key={item.service}
@@ -531,7 +550,7 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
                 max={maxServiceWeekly}
               />
             ))}
-          </div>
+          </BarRows>
         </Section>
 
         {/* Full width beneath the two columns. Its pin count is on the header
