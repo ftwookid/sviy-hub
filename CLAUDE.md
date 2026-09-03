@@ -1179,6 +1179,38 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   own line and the amount stretches to the end of the next one; on a desktop the
   whole row — date, cadence, amount, Save, and the sentence explaining the
   conversion — fits across in one.
+- **On a phone, one field per row and every field the full 308px.** That rule
+  above was written and then only half kept, because fields were still sharing
+  rows with *buttons*: the amount measured **140px** of 308 (the Save square and
+  "Add an end date" had the rest), the end date **260** (a ✕ beside it), and the
+  line name **208** (two icon squares). The thing that got shortened was always
+  the field, which is the part that is read and typed into. Nothing but a field
+  is on a field's row now.
+- **Every committing action is a named button, and destructive is red at rest.**
+  Save, Cancel and Delete were three identical 44px grey squares told apart by an
+  icon and, for Delete, a red **hover** colour — and a phone has no hover, so on
+  the screen this panel is actually used on, the button that destroys a figure
+  typed months ago looked exactly like the one that closes the form.
+  `ActionButton` carries the tone at rest (accent / bordered / red) and
+  `FormActions` lays the three out: on a phone the primary takes the full width
+  on its own line and the other two split the line beneath, on a desktop all
+  three sit on one row with the destructive one at the far left, where it is not
+  on the way to Save. And they say which thing they take — `Delete change`
+  against `Delete line`, because both are on screen at once while a change is
+  open.
+- **44px is the floor for anything tappable**, including the bucket `+` (was 36)
+  and the two controls that live on a label line — the cadence caption and
+  `Remove`. Those two grow their hit area with padding and pull it back with an
+  equal negative margin, so the target is ~40px and the row keeps the height it
+  had. A control that looks like a label still has to be one to hit.
+- **The amount field says it is the amount.** Its caption was the cadence alone,
+  so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
+  and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
+  is plain text and only the cadence beside it opens anything.
+- `FieldShell` takes an **`action`** slot on the label line, right-aligned, for
+  whatever acts on the field as a whole — clearing an optional one, mostly. Put
+  beside the input instead, it eats the input's width, which is how the end date
+  came to be 260px of a 308px row.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It

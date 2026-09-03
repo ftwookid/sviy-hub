@@ -56,12 +56,15 @@ export function DateField({
   label,
   value,
   error,
+  action,
   dimFutureDates = true,
   onChange
 }: {
   label: string;
   value: string;
   error?: string;
+  /** A control on the label line — see `FieldShell`. Keeps the trigger full width. */
+  action?: React.ReactNode;
   dimFutureDates?: boolean;
   onChange: (value: string) => void;
 }) {
@@ -106,7 +109,7 @@ export function DateField({
   }
 
   return (
-    <FieldShell label={label} error={error}>
+    <FieldShell label={label} error={error} action={action}>
       <div className="relative">
         <button
           ref={triggerRef}

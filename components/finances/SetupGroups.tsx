@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, CircleSlash, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, CircleSlash, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { DateField } from "@/components/ui/DateField";
 import { CadencePicker } from "@/components/finances/CadencePicker";
@@ -56,6 +56,26 @@ function monthlyLine(amountValue: string, cadence: PayCadence) {
   )} a month on average. Each month counts the payments that land in it.`;
 }
 
+/**
+ * The amount field's label: what the number is, then how often it arrives.
+ *
+ * The cadence alone was the whole caption, so between `FROM` and `UNTIL` sat a
+ * field labelled `2 WEEKS` — which says when, and never says that the box under
+ * it is the amount. The word is plain text; only the cadence beside it opens
+ * anything.
+ */
+function AmountCaption({ value, onChange }: { value: PayCadence; onChange: (next: PayCadence) => void }) {
+  return (
+    <span className="mb-0.5 flex min-h-[18px] items-center gap-1">
+      <span className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Amount</span>
+      <span aria-hidden className="text-[12px] text-text-tertiary/60">
+        ·
+      </span>
+      <CadencePicker value={value} onChange={onChange} />
+    </span>
+  );
+}
+
 /** "avg" beside a derived monthly figure, wherever the line is not actually monthly. */
 function AverageTag({ cadence }: { cadence: PayCadence }) {
   if (cadence === "Monthly") return null;
@@ -71,7 +91,12 @@ type EditingRate = { id: string; date: string; amount: string; cadence: PayCaden
  * Absent until it is wanted — a permanent second date field on every entry row
  * would charge every raise for a setting most changes never use, and the common
  * case is a commitment that just keeps running. So it is a word until it is a
- * field, and the field carries its own way back to nothing.
+ * field.
+ *
+ * When it is a field it takes the whole row like every other field, and the way
+ * back to nothing sits on the label line. A ✕ beside the trigger left it 260px
+ * of a 308px phone row: the control that undoes the field was given more room
+ * than the field.
  */
 function EndDateField({
   value,
@@ -84,24 +109,34 @@ function EndDateField({
 }) {
   if (value === null) {
     return (
-      <button
-        className="focus-ring min-h-11 shrink-0 rounded-xl px-2 text-left text-[12.5px] text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary"
-        type="button"
+      <TextButton
+        className="w-full sm:w-auto"
         onClick={() => onChange(from > todayInputValue() ? from : todayInputValue())}
       >
         Add an end date
-      </button>
+      </TextButton>
     );
   }
 
   return (
-    <div className="flex min-w-0 basis-full items-end gap-1 sm:basis-auto sm:flex-1 sm:max-w-[230px]">
-      <div className="min-w-0 flex-1">
-        <DateField label="Until" value={value} dimFutureDates={false} onChange={(next) => onChange(next)} />
-      </div>
-      <IconButton label="Remove the end date" onClick={() => onChange(null)}>
-        <X size={16} strokeWidth={1.8} />
-      </IconButton>
+    <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[230px]">
+      <DateField
+        label="Until"
+        value={value}
+        dimFutureDates={false}
+        onChange={(next) => onChange(next)}
+        action={
+          <button
+            // Same trick as the cadence caption: a real target inside a label
+            // line that keeps its height.
+            className="focus-ring -my-3 rounded-lg px-2 py-3 text-[12px] font-medium text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary"
+            type="button"
+            onClick={() => onChange(null)}
+          >
+            Remove
+          </button>
+        }
+      />
     </div>
   );
 }
@@ -143,36 +178,132 @@ function AmountInput({
   );
 }
 
-function IconButton({
-  label,
-  tone = "plain",
-  disabled,
+/**
+ * A quiet, full-height text button — "Add an end date", and nothing louder.
+ *
+ * It is a word rather than a control on purpose, but it still has to be hittable:
+ * at 44px tall and the row's full width on a phone, the tap target matches every
+ * field above it instead of being a 112px sliver wedged beside the amount.
+ */
+function TextButton({
+  className,
   onClick,
   children
 }: {
-  label: string;
-  tone?: "plain" | "accent" | "danger";
-  disabled?: boolean;
+  className?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
       className={cn(
-        "focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-colors duration-200 ease-out disabled:opacity-40",
-        tone === "accent"
-          ? "bg-accent-soft text-text-primary hover:bg-accent"
-          : tone === "danger"
-            ? "text-text-tertiary hover:bg-danger-soft hover:text-danger"
-            : "text-text-tertiary hover:bg-subtle hover:text-text-secondary"
+        "focus-ring flex min-h-11 items-center rounded-xl px-2 text-left text-[13px] text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary",
+        className
       )}
       type="button"
-      aria-label={label}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The one shape every committing action in this panel wears.
+ *
+ * They were three identical 44px grey squares — delete, cancel, save — told
+ * apart only by their icon and, for delete, a red **hover** colour. A phone has
+ * no hover, so on the screen this panel is actually used on, the button that
+ * destroys a figure typed months ago looked exactly like the one that closes the
+ * form. Tone is now carried at rest, and every one of them says what it does.
+ */
+function ActionButton({
+  tone,
+  disabled,
+  onClick,
+  className,
+  children
+}: {
+  tone: "primary" | "quiet" | "danger";
+  disabled?: boolean;
+  onClick: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className={cn(
+        // px-3, not px-4: at 151px — half a 308px phone row — "Delete change"
+        // plus its icon needs 121px of the 127 that px-3 leaves, and wrapped to
+        // two lines at px-4, which made one of the two buttons on the row 3px
+        // taller than the other.
+        "focus-ring inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[14px] font-medium transition-colors duration-200 ease-out disabled:opacity-40 sm:px-4",
+        tone === "primary"
+          ? "bg-accent text-text-primary hover:brightness-95"
+          : tone === "danger"
+            ? "border border-danger/30 bg-danger-soft/50 text-danger hover:bg-danger-soft"
+            : "border border-border bg-surface text-text-secondary hover:bg-subtle hover:text-text-primary",
+        className
+      )}
+      type="button"
       disabled={disabled}
       onClick={onClick}
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Save, and whatever else the form offers — laid out for the screen it is on.
+ *
+ * On a phone the primary action takes the full width on its own line and the
+ * other two split the line under it, so nothing is a 44px square guessed at by
+ * its icon. On a desktop all three sit on one row, destructive at the far left
+ * where it cannot be hit on the way to Save.
+ */
+function FormActions({
+  saveLabel,
+  saveDisabled,
+  onSave,
+  onCancel,
+  onDelete,
+  deleteLabel
+}: {
+  saveLabel: string;
+  saveDisabled?: boolean;
+  onSave: () => void;
+  onCancel?: () => void;
+  onDelete?: () => void;
+  deleteLabel?: string;
+}) {
+  return (
+    <div className="mt-2 space-y-1.5 sm:flex sm:items-center sm:justify-end sm:gap-2 sm:space-y-0">
+      <ActionButton
+        tone="primary"
+        disabled={saveDisabled}
+        onClick={onSave}
+        className="w-full sm:order-3 sm:w-auto"
+      >
+        <Check size={16} strokeWidth={2} />
+        {saveLabel}
+      </ActionButton>
+      {onDelete || onCancel ? (
+        <div className="flex gap-1.5 sm:contents">
+          {onDelete ? (
+            <ActionButton tone="danger" onClick={onDelete} className="flex-1 sm:order-1 sm:mr-auto sm:flex-none">
+              <Trash2 size={15} strokeWidth={1.8} />
+              {deleteLabel ?? "Delete"}
+            </ActionButton>
+          ) : null}
+          {onCancel ? (
+            <ActionButton tone="quiet" onClick={onCancel} className="flex-1 sm:order-2 sm:flex-none">
+              Cancel
+            </ActionButton>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -303,6 +434,10 @@ function LineDetail({
                  else on the card would leave the reader checking which of two
                  identical forms belonged to the figure they tapped. */
               <div key={rate.id} className="py-2">
+                {/* Every field takes the whole row on a phone. They were sharing
+                    one: the amount came out 140px of 308 and the end date 260,
+                    because the buttons beside them were taking the width the
+                    fields needed. */}
                 <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
                   <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
                     <DateField
@@ -312,8 +447,8 @@ function LineDetail({
                       onChange={(date) => setEditing({ ...editing, date })}
                     />
                   </div>
-                  <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
-                    <CadencePicker
+                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-none sm:shrink-0">
+                    <AmountCaption
                       value={editing.cadence}
                       onChange={(next) => setEditing({ ...editing, cadence: next })}
                     />
@@ -336,35 +471,21 @@ function LineDetail({
                     {monthlyLine(editing.amount, editing.cadence)}
                   </p>
                 ) : null}
-                {/* Delete sits at the other end of the row from Save, and only
-                    while a change is open: a trash icon on every history row is
-                    a mis-tap away from losing a figure somebody typed months
-                    ago, and it was the only thing those rows offered. */}
-                <div className="mt-1.5 flex items-center justify-between">
-                  <IconButton
-                    label={`Remove the change from ${longDate(rate.effective_from)}`}
-                    tone="danger"
-                    onClick={() => {
-                      onDeleteRate(rate.id);
-                      setEditing(null);
-                    }}
-                  >
-                    <Trash2 size={16} strokeWidth={1.8} />
-                  </IconButton>
-                  <div className="flex items-center gap-1.5">
-                    <IconButton label="Stop editing this change" onClick={() => setEditing(null)}>
-                      <X size={16} strokeWidth={1.8} />
-                    </IconButton>
-                    <IconButton
-                      label="Save this change"
-                      tone="accent"
-                      disabled={!editing.amount.trim()}
-                      onClick={saveEditing}
-                    >
-                      <Check size={17} strokeWidth={2} />
-                    </IconButton>
-                  </div>
-                </div>
+                {/* Delete is only offered while a change is open — a trash icon
+                    on every history row is a mis-tap away from losing a figure
+                    somebody typed months ago — and it is the far end of the row
+                    from Save, so it is never on the way there. */}
+                <FormActions
+                  saveLabel="Save change"
+                  saveDisabled={!editing.amount.trim()}
+                  onSave={saveEditing}
+                  onCancel={() => setEditing(null)}
+                  deleteLabel="Delete change"
+                  onDelete={() => {
+                    onDeleteRate(rate.id);
+                    setEditing(null);
+                  }}
+                />
               </div>
             ) : (
               <button
@@ -425,8 +546,8 @@ function LineDetail({
         <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
-        <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
-          <CadencePicker value={cadence} onChange={setCadence} />
+        <div className="min-w-0 basis-full sm:basis-auto sm:flex-none sm:shrink-0">
+          <AmountCaption value={cadence} onChange={setCadence} />
           <AmountInput
             className="w-full sm:w-[150px]"
             label={`Amount ${CADENCE_SUFFIX[cadence]} from this date`}
@@ -436,9 +557,6 @@ function LineDetail({
           />
         </div>
         <EndDateField value={changeEnd} from={changeDate} onChange={setChangeEnd} />
-        <IconButton label="Save this change" tone="accent" disabled={!changeAmount.trim()} onClick={saveChange}>
-          <Check size={17} strokeWidth={2} />
-        </IconButton>
         {/* Beside the amount it is about, on a screen with room for it — the
             same sentence stacked underneath left the right half of an 880px row
             empty and cost a line of height. */}
@@ -447,12 +565,16 @@ function LineDetail({
         </p>
       </div>
       <p className="mt-1.5 text-[11px] text-text-tertiary sm:hidden">{changeHint}</p>
+      <FormActions saveLabel="Save change" saveDisabled={!changeAmount.trim()} onSave={saveChange} />
         </>
       )}
 
-      <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
+      {/* The name takes its own row on a phone. Sharing it with two icon
+          squares left the field 208px of 308, which is the wrong thing to
+          shorten: the buttons are tapped once, the name is read every time. */}
+      <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2.5 sm:flex sm:items-center sm:gap-1.5 sm:space-y-0">
         <input
-          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px]"
+          className="focus-ring min-h-11 w-full min-w-0 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px] sm:flex-1"
           value={label}
           aria-label="Line name"
           onChange={(event) => setLabel(event.target.value)}
@@ -461,20 +583,25 @@ function LineDetail({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
-        {/* Stopping and deleting are different acts and sit apart: one ends the
+        {/* Stopping and deleting are different acts and say so: one ends the
             commitment and keeps every month it ran, the other takes the history
-            with it. */}
-        {latest ? (
-          <IconButton
-            label={stopped ? `Let ${line.label} run again` : `Stop ${line.label} from a date`}
-            onClick={stopped ? resumeLine : stopLine}
-          >
-            {stopped ? <RotateCcw size={16} strokeWidth={1.8} /> : <CircleSlash size={16} strokeWidth={1.8} />}
-          </IconButton>
-        ) : null}
-        <IconButton label={`Delete ${line.label}`} tone="danger" onClick={onDeleteLine}>
-          <Trash2 size={16} strokeWidth={1.8} />
-        </IconButton>
+            with it. Only the second is red. */}
+        <div className="flex gap-1.5 sm:contents">
+          {latest ? (
+            <ActionButton
+              tone="quiet"
+              onClick={stopped ? resumeLine : stopLine}
+              className="flex-1 sm:order-1 sm:ml-auto sm:flex-none"
+            >
+              {stopped ? <RotateCcw size={15} strokeWidth={1.8} /> : <CircleSlash size={15} strokeWidth={1.8} />}
+              {stopped ? "Resume" : "Stop"}
+            </ActionButton>
+          ) : null}
+          <ActionButton tone="danger" onClick={onDeleteLine} className="flex-1 sm:order-2 sm:flex-none">
+            <Trash2 size={15} strokeWidth={1.8} />
+            Delete line
+          </ActionButton>
+        </div>
       </div>
     </div>
   );
@@ -574,8 +701,11 @@ export function SetupGroups({
               <span className="shrink-0 text-[15px] font-medium tabular-nums text-text-primary sm:text-[16px]">
                 {formatCurrency(inEffect)}
               </span>
+              {/* 44px, like every other control in the panel — but with the
+                  overflow pulled back off the layout box, so the tap target
+                  grows and the strip does not. */}
               <button
-                className="focus-ring -mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary"
+                className="focus-ring -my-1.5 -mr-1.5 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary"
                 type="button"
                 aria-label={`Add a line to ${style.title}`}
                 onClick={() => (addingBucket === bucket ? setAddingBucket(null) : startAdding(bucket))}
@@ -608,8 +738,8 @@ export function SetupGroups({
                   <div className="min-w-0 basis-full sm:basis-auto sm:w-[210px]">
                     <DateField label="Starting from" value={newFrom} dimFutureDates={false} onChange={setNewFrom} />
                   </div>
-                  <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
-                    <CadencePicker value={newCadence} onChange={setNewCadence} />
+                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-none sm:shrink-0">
+                    <AmountCaption value={newCadence} onChange={setNewCadence} />
                     <AmountInput
                       className="w-full sm:w-[150px]"
                       label={`New line amount ${CADENCE_SUFFIX[newCadence]}`}
@@ -622,21 +752,16 @@ export function SetupGroups({
                       sublet — can say so as it is typed, instead of coming back
                       later to stop it. */}
                   <EndDateField value={newUntil} from={newFrom} onChange={setNewUntil} />
-                  <IconButton
-                    label="Save new line"
-                    tone="accent"
-                    disabled={!newLabel.trim()}
-                    onClick={() => submitNew(bucket)}
-                  >
-                    <Check size={17} strokeWidth={2} />
-                  </IconButton>
-                  <IconButton label="Cancel new line" onClick={() => setAddingBucket(null)}>
-                    <X size={16} strokeWidth={1.8} />
-                  </IconButton>
                 </div>
                 {newCadence !== "Monthly" ? (
                   <p className="mt-1.5 text-[11px] text-text-tertiary">{monthlyLine(newAmount, newCadence)}</p>
                 ) : null}
+                <FormActions
+                  saveLabel="Add line"
+                  saveDisabled={!newLabel.trim()}
+                  onSave={() => submitNew(bucket)}
+                  onCancel={() => setAddingBucket(null)}
+                />
               </div>
             ) : null}
 
