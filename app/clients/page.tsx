@@ -9,6 +9,7 @@ import { ClientCard } from "@/components/ClientCard";
 import { ClientAnalyticsDashboard } from "@/components/ClientAnalyticsDashboard";
 import { ClientIncomeSummary } from "@/components/ClientIncomeSummary";
 import { ClientForm } from "@/components/ClientForm";
+import { ClientFilterMenu } from "@/components/clients/ClientFilterMenu";
 import { HouseSittingDashboard } from "@/components/HouseSittingDashboard";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
@@ -25,24 +26,36 @@ import type { ClientStatus, ClientWithPets } from "@/types/client";
 type ClientFilter = ClientStatus | "All";
 type ClientView = "performance" | "regular" | "house-sitting";
 
+/**
+ * `short` is what a 115px phone cell can hold on one line.
+ *
+ * "Regular customers" and "House Sitting" wrapped to two lines at 390px, which
+ * made the tab row 16px taller than it needed to be — before the second row of
+ * navigation underneath it was even counted. The full words are back from `sm`,
+ * where there is room for them.
+ */
 const clientViews: Array<{
   id: ClientView;
   label: string;
+  short: string;
   icon: typeof BarChart3;
 }> = [
   {
     id: "performance",
     label: "Performance",
+    short: "Performance",
     icon: BarChart3
   },
   {
     id: "regular",
     label: "Regular customers",
+    short: "Customers",
     icon: UsersRound
   },
   {
     id: "house-sitting",
     label: "House Sitting",
+    short: "Sitting",
     icon: Home
   }
 ];
@@ -161,22 +174,35 @@ function ClientsPageContent() {
       <PageHeader
         title="Clients"
         action={
-          <div className="hidden min-h-11 min-w-[132px] justify-end sm:flex">
-            <Button
-              className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
-              variant="accent"
-              onClick={openNewClient}
-              aria-hidden={activeView === "house-sitting"}
-              tabIndex={activeView === "house-sitting" ? -1 : 0}
-            >
-              <Plus size={18} strokeWidth={1.6} />
-              Add client
-            </Button>
+          <div className="flex min-h-11 items-center justify-end gap-2">
+            {/* House sitting has its own stays, not a client list, so the filter
+                is not rendered there rather than sitting inert. */}
+            {activeView !== "house-sitting" ? (
+              <ClientFilterMenu value={filter} counts={counts} onChange={setFilter} />
+            ) : null}
+            <div className="hidden min-w-[132px] justify-end sm:flex">
+              <Button
+                className={cn("transition-opacity", activeView === "house-sitting" && "pointer-events-none opacity-0")}
+                variant="accent"
+                onClick={openNewClient}
+                aria-hidden={activeView === "house-sitting"}
+                tabIndex={activeView === "house-sitting" ? -1 : 0}
+              >
+                <Plus size={18} strokeWidth={1.6} />
+                Add client
+              </Button>
+            </div>
           </div>
         }
       />
       <div className="space-y-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        {/* One row, at every width. This was two stacked segmented rows — the
+            single thing the space rules say never to do — costing 108px of an
+            844px phone screen, and staying stacked all the way through tablet
+            because they only sat side by side at `lg`. The filter is a chip in
+            the header now; what is left is navigation, which is what a row is
+            for. */}
+        <div>
           <nav
             className="grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1 lg:w-fit"
             aria-label="Client sections"
@@ -195,37 +221,21 @@ function ClientsPageContent() {
                   aria-pressed={selected}
                   onClick={() => changeClientView(view.id)}
                 >
-                  <Icon size={16} strokeWidth={1.6} className={selected ? "text-accent" : "text-text-tertiary"} />
-                  <span>{view.label}</span>
+                  {/* Not on a phone. Beside a text label the icon says nothing the
+                      word does not, and it was taking 22px of a ~103px cell —
+                      enough to truncate the selected tab to "Performan…". */}
+                  <Icon
+                    size={16}
+                    strokeWidth={1.6}
+                    className={cn("hidden sm:block", selected ? "text-accent" : "text-text-tertiary")}
+                  />
+                  <span className="truncate sm:hidden">{view.short}</span>
+                  <span className="hidden truncate sm:inline">{view.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          <div className={cn(activeView === "house-sitting" ? "hidden min-h-11 sm:block sm:w-[268px]" : "min-h-11 w-full sm:w-[268px]")}>
-            <div
-              className={cn(
-                "grid min-h-11 w-full grid-cols-3 rounded-2xl border border-border bg-subtle p-1 transition-opacity",
-                activeView === "house-sitting" && "pointer-events-none opacity-0"
-              )}
-              aria-hidden={activeView === "house-sitting"}
-            >
-              {(["Active", "Paused", "All"] as ClientFilter[]).map((item) => (
-                <button
-                  key={item}
-                  className={cn(
-                    "focus-ring flex min-h-9 min-w-0 items-center justify-center rounded-xl px-3 text-[13px] font-medium transition duration-150 ease-out",
-                    filter === item ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
-                  )}
-                  type="button"
-                  tabIndex={activeView === "house-sitting" ? -1 : 0}
-                  onClick={() => setFilter(item)}
-                >
-                  {item} {counts[item]}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {activeView === "house-sitting" ? (
