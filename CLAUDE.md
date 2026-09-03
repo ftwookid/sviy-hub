@@ -1135,27 +1135,43 @@ come to, what is it made of, how does it compare with the year:
     what this costs *this month*. That took the phone view from **1249px to
     1098px** and a detailed row from 66px to 51.
 
-    **What opens is a breakdown, not a tooltip.** The first version joined the
-    three facts into one grey sentence — `2 payments · $316.84 every 2 weeks ·
-    $8,238 a year` — and a sentence under a row reads as an annotation *on* the
-    row, when what a tap on a figure promises is its working. So the row opens a
-    two-column list of the payments the month's figure is a sum of, ruled off and
-    indented under the line it explains, with the run rate below a divider:
+    **It opens over the list, not inside it — a `ⓘ`, not a disclosure.** Two
+    attempts got here. Joining the facts into one grey sentence (`2 payments ·
+    $316.84 every 2 weeks · $8,238 a year`) read as an annotation *on* the row
+    rather than an answer to it. Expanding the row in place answered properly and
+    **moved the page**: this is a list read by scanning down a column of figures,
+    and pushing everything below the row down by four lines costs the reader
+    their place — for a glance that is over in a second. Reflow is the wrong
+    price for a peek.
+
+    So the row carries a small `ⓘ` and the detail opens in an `AnchoredPanel`,
+    the same primitive the pickers use: portalled clear of the card's
+    `overflow-hidden`, pinned under the icon, flipping above it near the bottom
+    of the screen. Measured at 390: page height is **identical open and closed**,
+    nothing scrolls, and dismissing puts the reader back exactly where they were.
 
     ```text
-    Federal Income Tax (Ivan)              $619.14  ⌃
-      │ Aug 6                              $302.30
-      │ Aug 20                             $316.84
-      │ ─────
-      │ $8,238 a year
+    Federal Income Tax (Ivan)     $619.14  ⓘ
+                        ┌───────────────────────┐
+                        │ FEDERAL INCOME TAX    │
+                        │ Aug 6         $302.30 │
+                        │ Aug 20        $316.84 │
+                        │ ───────────────────── │
+                        │ $8,238 a year         │
+                        └───────────────────────┘
     ```
 
-    The dates are the point, and August proves it: the raise lands mid-month, so
-    the two payments are worth different amounts and no sentence explains that as
-    well as printing both. `FinanceRow.payments` carries them straight off
+    The panel names its row, because it floats away from it. The dates are the
+    content, and August proves why: the raise lands mid-month, so the two
+    payments are worth different amounts and no sentence explains that as well as
+    printing both. `FinanceRow.payments` carries them straight off
     `occurrencesInMonth()`, which the month was already computing. A linked
     figure has no payments to list — it is an estimate off another table — so
     there the hint that used to sit on the row is the whole detail.
+
+    **The row stays a reading; only the icon is a control.** It grows its tap
+    target to 42×42 with padding pulled back by an equal negative margin, so the
+    row keeps the 51px it had.
 
     Nothing is deleted, and the **yearly run rate is still the reason the detail
     exists** — $15 a month is a shrug and $180 a year is a decision. It is still
@@ -1164,9 +1180,8 @@ come to, what is it made of, how does it compare with the year:
     own rate rather than this month × 12, which would annualise a three-paycheck
     August at 1.5×. It is simply not mandatory on every row.
 
-    The chevron is deliberate: 13px in the column the amount already occupies, so
-    the label keeps its width. A row that is secretly tappable is a row nobody
-    taps.
+    The icon is deliberate rather than a secretly-tappable row: a row nobody can
+    see is interactive is a row nobody taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
   - An empty block is its header row and nothing else.

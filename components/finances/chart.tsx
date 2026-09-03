@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useRef, useState } from "react";
+import { Info } from "lucide-react";
+import { AnchoredPanel } from "@/components/ui/AnchoredPanel";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
 
@@ -51,21 +52,24 @@ export type BarRowData = {
   label: string;
   amount: number;
   /**
-   * The row's working, opened by tapping it.
+   * The row's working, behind a `ⓘ` on the row.
    *
-   * These three facts — the payment count and cadence, the yearly run rate, the
+   * These facts — the payments the figure is a sum of, the yearly run rate, the
    * share of income — used to print on every line, so "Federal Income Tax
    * (Ivan)" came with "2 payments · $316.84 every 2 weeks" under it and "$8,238
    * a year" beside it, on each of a dozen rows: three facts competing with the
    * one the card exists to show.
    *
-   * Hiding them behind a tap was right; the first attempt at *showing* them was
-   * not. It joined them into one grey sentence, which reads as a tooltip — an
-   * annotation on the row — when what a tap on a figure promises is a
-   * **breakdown**. So `lines` is a real two-column list: the dates the month's
-   * figure is a sum of, and what each one was worth. In a month holding a raise
-   * that is the whole answer, because the two payments differ. `note` carries
-   * what is true of the line rather than of one payment — the run rate.
+   * Two attempts before this one. Joining them into a grey sentence read as an
+   * annotation *on* the row rather than an answer to it. Expanding the row in
+   * place answered properly but **moved the page**: this is a list read by
+   * scanning down a column of figures, and pushing everything below the row
+   * down by four lines costs the reader their place — for a glance that is over
+   * in a second.
+   *
+   * So it opens **over** the list, pinned to the icon, in the same
+   * `AnchoredPanel` the pickers use. Nothing reflows, nothing scrolls, and
+   * dismissing it puts the reader back exactly where they were.
    */
   detail?: { lines?: { label: string; value: string }[]; note?: string };
 };
@@ -91,9 +95,10 @@ export function BarRow({
   action?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const infoRef = useRef<HTMLButtonElement>(null);
   const detail = row.amount > 0 ? row.detail : undefined;
   const detailLines = detail?.lines ?? [];
-  const expandable = !action && Boolean(detail && (detailLines.length > 0 || detail.note));
+  const hasDetail = Boolean(detail && (detailLines.length > 0 || detail.note));
 
   const body = (
     <>
@@ -112,62 +117,61 @@ export function BarRow({
       <span className="shrink-0 text-right text-[13px] tabular-nums text-text-primary">
         {formatCurrency(row.amount)}
       </span>
-      {/* A small, real affordance rather than a row that is secretly tappable.
-          12px in the column the amount already occupies — the label keeps its
-          width. */}
-      {expandable ? (
-        <ChevronDown
-          size={13}
-          strokeWidth={2}
-          className={cn(
-            "mt-0.5 shrink-0 text-text-tertiary transition-transform duration-200 ease-out",
-            open && "rotate-180"
-          )}
-        />
-      ) : null}
     </>
   );
 
   const title = `${row.label} — ${formatCurrency(row.amount)}`;
   const padding = "px-3.5 py-2 sm:px-4";
 
-  if (expandable) {
+  if (hasDetail) {
     return (
-      <div>
+      /* The row itself stays a reading, not a control. Only the ⓘ is
+         interactive, and it grows its tap target with padding pulled back by an
+         equal negative margin, so the target is 40px and the row keeps the
+         height it had. */
+      <div className={cn("flex items-start gap-2.5", padding)} title={title}>
+        {body}
         <button
+          ref={infoRef}
           type="button"
-          title={title}
+          aria-label={`What ${row.label} is made of`}
           aria-expanded={open}
           onClick={() => setOpen((current) => !current)}
           className={cn(
-            "focus-ring flex w-full items-start gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
-            padding
+            "focus-ring -my-3 -mr-2.5 shrink-0 rounded-lg px-3.5 py-3.5 transition-colors duration-200 ease-out hover:bg-subtle",
+            open ? "text-text-secondary" : "text-text-tertiary"
           )}
         >
-          {body}
+          <Info size={14} strokeWidth={1.8} />
         </button>
-        {open ? (
-          /* Indented under the row it explains, and ruled off from it, so it
-             reads as this line's working rather than as another line. */
-          <div className="border-l-2 border-border pb-2.5 pl-3 ml-3.5 mr-3.5 sm:ml-4 sm:mr-4">
-            {detailLines.map((line) => (
-              <div key={line.label} className="flex items-baseline justify-between gap-3 py-0.5">
-                <span className="min-w-0 truncate text-[12px] text-text-secondary">{line.label}</span>
-                <span className="shrink-0 text-[12px] tabular-nums text-text-primary">{line.value}</span>
-              </div>
-            ))}
-            {detail?.note ? (
-              <p
-                className={cn(
-                  "text-[11px] text-text-tertiary",
-                  detailLines.length > 0 && "mt-1 border-t border-border/60 pt-1"
-                )}
-              >
-                {detail.note}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+
+        <AnchoredPanel
+          anchorRef={infoRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          width={240}
+          className="p-3"
+        >
+          <p className="mb-1.5 truncate text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+            {row.label}
+          </p>
+          {detailLines.map((line) => (
+            <div key={line.label} className="flex items-baseline justify-between gap-3 py-0.5">
+              <span className="min-w-0 truncate text-[12.5px] text-text-secondary">{line.label}</span>
+              <span className="shrink-0 text-[12.5px] tabular-nums text-text-primary">{line.value}</span>
+            </div>
+          ))}
+          {detail?.note ? (
+            <p
+              className={cn(
+                "text-[11.5px] text-text-tertiary",
+                detailLines.length > 0 && "mt-1.5 border-t border-border/60 pt-1.5"
+              )}
+            >
+              {detail.note}
+            </p>
+          ) : null}
+        </AnchoredPanel>
       </div>
     );
   }
