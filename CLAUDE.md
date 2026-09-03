@@ -932,6 +932,32 @@ Two kinds of number meet on the page and they behave differently:
     payday whatever the figure on it, so the anchor stays the line's first rate
     date and a later change only says what each payment is worth. Going monthly
     → fortnightly is a new schedule and re-anchors on the date it was given.
+  - **The rhythm is inferred, so it is printed.** `scheduleSummary()` says when a
+    line is paid — "Paid the 21st", "Paid every 2nd Thursday · next Sep 3",
+    "Paid the 15th of Feb, May, Aug, Nov" — at the top of the line in Setup,
+    where changes are typed. It has to be said out loud because the date on a
+    line's earliest change does **two** jobs: it records when the amount changed,
+    and it fixes which day of the cycle every payment lands on. Nothing said the
+    second one, so entering a change dated *before* the first one silently
+    re-timed the whole line — Rent moving off the 21st onto the 15th, or, on a
+    fortnightly line, every payday in the year shifting by up to 13 days and the
+    two months carrying a third paycheck moving with them.
+
+    The arithmetic was never wrong about this: a line whose history starts in
+    March really has been paid on the 15th since March, and the app is computing
+    on better information than it had before. It was *silent*, which on this page
+    is close enough to wrong — a year of months quietly restating themselves is
+    exactly what "did the family come out ahead" cannot survive. Phase is only
+    spelled out where a cadence can land on different days, so the fortnight
+    names its next date and a monthly line just names its day.
+
+    Still **not** done, and worth doing the day a quarterly bill or a backfill of
+    2025 appears: giving the line an explicit anchor column, so the payday is
+    edited directly rather than inferred from an amount's date. That is the
+    structurally correct fix — two facts, two fields — and it is a migration plus
+    a field in a panel that was just stripped down, for a failure the current
+    data cannot reach (every line is anchored 25 Dec 2025 or Sept 2021, and there
+    are no quarterly or annual lines).
   - **The mid-month blend is gone.** `amountForMonth()` used to walk the days and
     average a raise across the month, which is truthful about something that
     accrues daily and wrong about a paycheck — a paycheck is paid at the old

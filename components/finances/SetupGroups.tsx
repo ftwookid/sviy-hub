@@ -14,6 +14,7 @@ import {
   endedOn,
   monthlyFromCadence,
   paydayWeekdayFor,
+  scheduleSummary,
   snapToPayday
 } from "@/lib/finances";
 import { formatCurrency, formatShortDate, parseLocalDate, todayInputValue } from "@/lib/formatters";
@@ -415,8 +416,17 @@ function LineDetail({
     if (next !== line.label) onRename(next);
   }
 
+  const schedule = scheduleSummary(line);
+
   return (
     <div className="bg-subtle/50 px-3.5 py-2.5 sm:px-4 sm:py-3">
+      {/* What the app worked out about when this line is paid. It is inferred
+          from the date on the earliest change, and it used to be inferred
+          silently — so a change dated before that one re-timed every payment on
+          the line and nothing said so. Printed here, where changes are typed. */}
+      {schedule ? (
+        <p className="mb-2 text-[11.5px] text-text-tertiary">{schedule}</p>
+      ) : null}
       {line.rates.length > 0 ? (
         <div className="mb-2.5 divide-y divide-border/50">
           {/* Newest first: the change most likely being corrected is the last one

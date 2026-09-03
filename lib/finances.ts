@@ -350,6 +350,76 @@ function cadenceDatesInMonth(anchorValue: string, cadence: PayCadence, year: num
   return [dateValue(year, monthIndex, clampDay(year, monthIndex, anchor.getDate()))];
 }
 
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function ordinal(day: number) {
+  const teen = day % 100 >= 11 && day % 100 <= 13;
+  const suffix = teen ? "th" : ["th", "st", "nd", "rd"][day % 10] ?? "th";
+  return `${day}${suffix}`;
+}
+
+/**
+ * When this line is paid, in words.
+ *
+ * The rhythm of a line is **inferred** — from the date on its earliest change,
+ * which is doing two jobs at once: saying when the amount changed, and saying
+ * which day of the cycle it lands on. Nothing said the second thing out loud, so
+ * entering a change dated before the first one silently re-timed the whole line:
+ * a monthly bill moved off the 20th onto the 15th, and on a fortnightly line
+ * every payday in the year shifts by up to 13 days, which moves the two months
+ * that carry a third paycheck.
+ *
+ * The arithmetic was never wrong about it — a line whose history starts in March
+ * really has been paid on the 15th since March. It was silent about it. So the
+ * inference is printed at the top of the line, where changes are typed, and a
+ * re-timing announces itself instead of quietly restating a year of months.
+ *
+ * Phase only matters where a cadence can land on different days: the fortnight
+ * names its next date, a monthly line just names its day.
+ */
+export function scheduleSummary(line: FinanceLine): string | null {
+  const rates = onPaydays(line.rates, paydayWeekdayFor(line.label));
+  if (rates.length === 0) return null;
+
+  const last = rates[rates.length - 1];
+  const anchorValue = anchorFor(rates, rates.length - 1);
+  const anchor = parseLocalDate(anchorValue);
+  const day = anchor.getDate();
+  const weekday = WEEKDAY_NAMES[anchor.getDay()];
+
+  switch (last.cadence) {
+    case "Weekly":
+      return `Paid every ${weekday}`;
+    case "Bi-weekly": {
+      const next = nextOccurrence(anchorValue, 14, endedOn(rates));
+      return next ? `Paid every 2nd ${weekday} · next ${formatShortDate(next)}` : `Paid every 2nd ${weekday}`;
+    }
+    case "Semi-monthly": {
+      const second = Math.min(day + 15, 31);
+      return `Paid the ${ordinal(day)} and ${ordinal(second)}`;
+    }
+    case "Quarterly": {
+      const months = [0, 3, 6, 9].map((step) => MONTH_NAMES[(anchor.getMonth() + step) % 12]);
+      return `Paid the ${ordinal(day)} of ${months.sort((a, b) => MONTH_NAMES.indexOf(a) - MONTH_NAMES.indexOf(b)).join(", ")}`;
+    }
+    case "Annual":
+      return `Paid ${MONTH_NAMES[anchor.getMonth()]} ${day} each year`;
+    default:
+      return `Paid the ${ordinal(day)}`;
+  }
+}
+
+/** The first payment on or after today, for a cadence whose phase is not obvious. */
+function nextOccurrence(anchorValue: string, period: number, stops: string | null) {
+  const today = todayInputValue();
+  const anchor = parseLocalDate(anchorValue);
+  const steps = Math.max(0, Math.ceil((dayNumber(parseLocalDate(today)) - dayNumber(anchor)) / period));
+  const next = toInputDate(addDays(anchor, steps * period));
+  if (stops !== null && next > stops) return null;
+  return next;
+}
+
 export type PaymentOccurrence = { date: string; amount: number };
 
 /**
