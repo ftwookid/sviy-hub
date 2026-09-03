@@ -1132,9 +1132,30 @@ come to, what is it made of, how does it compare with the year:
     $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
     on `Money in` a share as well. Down a dozen rows that is two lines of grey
     between every figure, competing with the one thing the card exists to show —
-    what this costs *this month*. A row with details is a button and opens them
-    on one line: `2 payments · $316.84 every 2 weeks · $8,238 a year`. That took
-    the phone view from **1249px to 1098px** and a detailed row from 66px to 51.
+    what this costs *this month*. That took the phone view from **1249px to
+    1098px** and a detailed row from 66px to 51.
+
+    **What opens is a breakdown, not a tooltip.** The first version joined the
+    three facts into one grey sentence — `2 payments · $316.84 every 2 weeks ·
+    $8,238 a year` — and a sentence under a row reads as an annotation *on* the
+    row, when what a tap on a figure promises is its working. So the row opens a
+    two-column list of the payments the month's figure is a sum of, ruled off and
+    indented under the line it explains, with the run rate below a divider:
+
+    ```text
+    Federal Income Tax (Ivan)              $619.14  ⌃
+      │ Aug 6                              $302.30
+      │ Aug 20                             $316.84
+      │ ─────
+      │ $8,238 a year
+    ```
+
+    The dates are the point, and August proves it: the raise lands mid-month, so
+    the two payments are worth different amounts and no sentence explains that as
+    well as printing both. `FinanceRow.payments` carries them straight off
+    `occurrencesInMonth()`, which the month was already computing. A linked
+    figure has no payments to list — it is an estimate off another table — so
+    there the hint that used to sit on the row is the whole detail.
 
     Nothing is deleted, and the **yearly run rate is still the reason the detail
     exists** — $15 a month is a shrug and $180 a year is a decision. It is still

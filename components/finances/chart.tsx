@@ -51,18 +51,23 @@ export type BarRowData = {
   label: string;
   amount: number;
   /**
-   * What the figure says about itself — the payment count and cadence, the
-   * yearly run rate, the share of income. **Behind a tap, not on the row.**
+   * The row's working, opened by tapping it.
    *
-   * All three used to print on every line, so "Federal Income Tax (Ivan)" came
-   * with "2 payments · $316.84 every 2 weeks" under it and "$8,238 a year"
-   * beside it, on each of a dozen rows. That is three facts competing with the
-   * one the card exists to show — what this costs this month — and reading down
-   * a block meant skipping two lines of grey between every figure.
+   * These three facts — the payment count and cadence, the yearly run rate, the
+   * share of income — used to print on every line, so "Federal Income Tax
+   * (Ivan)" came with "2 payments · $316.84 every 2 weeks" under it and "$8,238
+   * a year" beside it, on each of a dozen rows: three facts competing with the
+   * one the card exists to show.
    *
-   * None of it is deleted. A row with details is a button, and it opens them.
+   * Hiding them behind a tap was right; the first attempt at *showing* them was
+   * not. It joined them into one grey sentence, which reads as a tooltip — an
+   * annotation on the row — when what a tap on a figure promises is a
+   * **breakdown**. So `lines` is a real two-column list: the dates the month's
+   * figure is a sum of, and what each one was worth. In a month holding a raise
+   * that is the whole answer, because the two payments differ. `note` carries
+   * what is true of the line rather than of one payment — the run rate.
    */
-  details?: string[];
+  detail?: { lines?: { label: string; value: string }[]; note?: string };
 };
 
 /**
@@ -86,8 +91,9 @@ export function BarRow({
   action?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const details = row.amount > 0 ? (row.details ?? []) : [];
-  const expandable = !action && details.length > 0;
+  const detail = row.amount > 0 ? row.detail : undefined;
+  const detailLines = detail?.lines ?? [];
+  const expandable = !action && Boolean(detail && (detailLines.length > 0 || detail.note));
 
   const body = (
     <>
@@ -141,7 +147,26 @@ export function BarRow({
           {body}
         </button>
         {open ? (
-          <p className="px-3.5 pb-2 text-[11px] leading-snug text-text-tertiary sm:px-4">{details.join(" · ")}</p>
+          /* Indented under the row it explains, and ruled off from it, so it
+             reads as this line's working rather than as another line. */
+          <div className="border-l-2 border-border pb-2.5 pl-3 ml-3.5 mr-3.5 sm:ml-4 sm:mr-4">
+            {detailLines.map((line) => (
+              <div key={line.label} className="flex items-baseline justify-between gap-3 py-0.5">
+                <span className="min-w-0 truncate text-[12px] text-text-secondary">{line.label}</span>
+                <span className="shrink-0 text-[12px] tabular-nums text-text-primary">{line.value}</span>
+              </div>
+            ))}
+            {detail?.note ? (
+              <p
+                className={cn(
+                  "text-[11px] text-text-tertiary",
+                  detailLines.length > 0 && "mt-1 border-t border-border/60 pt-1"
+                )}
+              >
+                {detail.note}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
     );

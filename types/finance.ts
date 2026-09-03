@@ -112,6 +112,9 @@ export type FinanceLine = {
   rates: FinanceRate[];
 };
 
+/** One payment: the day it lands and what it is worth. */
+export type FinancePayment = { date: string; amount: number };
+
 /** Where a figure on the page came from. Shown on the row, because a linked number is not editable. */
 export type FinanceRowSource = "Manual" | "Clients" | "House Sitting";
 
@@ -121,6 +124,14 @@ export type FinanceRow = {
   amount: number;
   source: FinanceRowSource;
   hint?: string;
+  /**
+   * The payments this month is actually made of.
+   *
+   * A month's figure is a sum, and the honest answer to "why is it that" is the
+   * dates and amounts that were added up — especially in a month holding a raise,
+   * where the two payments are worth different things. The row opens to these.
+   */
+  payments?: FinancePayment[];
   /**
    * What this line costs in a year at the rate in force — **not** the month
    * times twelve.

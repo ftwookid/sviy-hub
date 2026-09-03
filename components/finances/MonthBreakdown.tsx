@@ -2,10 +2,10 @@
 
 import { Fragment } from "react";
 
-import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
+import { formatCurrency, formatCurrencyRounded, formatShortDate } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
 import { BarRow, ChartCard, IN_INK, Meter, OUT_INK } from "@/components/finances/chart";
-import type { FinanceSection, MonthFinances } from "@/types/finance";
+import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
  * The month, read by section.
@@ -43,6 +43,24 @@ function yearly(yearAmount: number) {
 
 function percent(share: number) {
   return share >= 0.005 ? `${Math.round(share * 100)}%` : "under 1%";
+}
+
+/**
+ * A row's working: the payments the month's figure is a sum of, then what is
+ * true of the line rather than of one payment.
+ *
+ * The dates are the point. A month holding a raise has two payments worth
+ * different amounts, and no single sentence explains that as well as printing
+ * both. A linked figure has no payments to list — it is an estimate off another
+ * table — so there the hint that used to sit on the row is the whole detail.
+ */
+function detailFor(row: FinanceRow, extra?: string) {
+  const lines = (row.payments ?? []).map((payment) => ({
+    label: formatShortDate(payment.date),
+    value: formatCurrency(payment.amount)
+  }));
+  const note = [lines.length === 0 ? row.hint : undefined, extra].filter(Boolean).join(" · ");
+  return { lines, note: note || undefined };
 }
 
 /**
@@ -118,9 +136,7 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
                   // (which would annualise a three-paycheck August at 1.5x) —
                   // it is just no longer competing with the figure the card is
                   // there to show, on every one of a dozen rows.
-                  details: [row.hint, row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined].filter(
-                    (item): item is string => Boolean(item)
-                  )
+                  detail: detailFor(row, row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined)
                 }}
                 max={largest}
                 ink={OUT_INK}
@@ -155,10 +171,10 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
                   key: row.key,
                   label: row.label,
                   amount: row.amount,
-                  details: [
-                    row.hint,
+                  detail: detailFor(
+                    row,
                     row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
-                  ].filter((item): item is string => Boolean(item))
+                  )
                 }}
                 max={largest}
                 ink={IN_INK}

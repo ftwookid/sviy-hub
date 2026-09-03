@@ -5,6 +5,7 @@ import type {
   FinanceLine,
   FinanceRate,
   PayCadence,
+  FinancePayment,
   FinanceRow,
   FinanceSection,
   FinanceSectionKey,
@@ -420,7 +421,7 @@ function nextOccurrence(anchorValue: string, period: number, stops: string | nul
   return next;
 }
 
-export type PaymentOccurrence = { date: string; amount: number };
+export type PaymentOccurrence = FinancePayment;
 
 /**
  * Every payment a line makes in one month, with what each one is worth.
@@ -550,6 +551,8 @@ function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, m
       key: line.id,
       label: line.label,
       amount: amountForMonth(line.rates, year, monthIndex),
+      // What the month's figure is a sum of, so the row can show its working.
+      payments: occurrencesInMonth(line.rates, year, monthIndex),
       // The rate in force at the end of the month, annualised — 26 fortnightly
       // payments, not this month's two or three times twelve.
       yearAmount: rateOn(line.rates, monthRange(year, monthIndex).end) * 12,
