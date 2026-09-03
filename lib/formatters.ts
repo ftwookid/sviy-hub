@@ -21,6 +21,12 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric"
 });
 
+const dateWithYearFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+});
+
 export function formatCurrency(value: number | string) {
   return currencyFormatter.format(Number(value || 0));
 }
@@ -41,6 +47,17 @@ export function formatMonth(date: Date) {
 
 export function formatShortDate(dateValue: string) {
   return shortDateFormatter.format(parseLocalDate(dateValue));
+}
+
+/**
+ * A date that has to say how long ago it was, so it carries its year.
+ *
+ * "Since Sep 21" reads as this September on a rent line anchored in 2021, which
+ * is the opposite of the point — that row exists to say how long the figure has
+ * stood.
+ */
+export function formatDateWithYear(dateValue: string) {
+  return dateWithYearFormatter.format(parseLocalDate(dateValue));
 }
 
 export function todayInputValue() {

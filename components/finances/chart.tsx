@@ -54,11 +54,16 @@ export type BarRowData = {
   /**
    * The row's working, behind a `ⓘ` on the row.
    *
-   * These facts — the payments the figure is a sum of, the yearly run rate, the
-   * share of income — used to print on every line, so "Federal Income Tax
-   * (Ivan)" came with "2 payments · $316.84 every 2 weeks" under it and "$8,238
-   * a year" beside it, on each of a dozen rows: three facts competing with the
-   * one the card exists to show.
+   * These facts — what one payment is worth, how many landed, the yearly run
+   * rate, the share of income — used to print on every line, so "Federal Income
+   * Tax (Ivan)" came with "2 payments · $316.84 every 2 weeks" under it and
+   * "$8,238 a year" beside it, on each of a dozen rows: three facts competing
+   * with the one the card exists to show.
+   *
+   * What goes in here is decided by `lineDetail` in `lib/finances.ts`, against
+   * one test — does this say something the row cannot. The first version failed
+   * it by listing every payment by date, which on a line whose payments are all
+   * equal is one figure printed twice.
    *
    * Two attempts before this one. Joining them into a grey sentence read as an
    * annotation *on* the row rather than an answer to it. Expanding the row in
@@ -169,11 +174,16 @@ export function BarRow({
               <span className="shrink-0 text-[12.5px] tabular-nums text-text-primary">{line.value}</span>
             </div>
           ))}
+          {/* Under the rows the note is a footnote — the run rate, the share —
+              and it is set like one. With no rows above it the note *is* the
+              answer, and a single line of 11.5px grey under a heading reads as
+              a panel that failed to load. */}
           {detail?.note ? (
             <p
               className={cn(
-                "text-[11.5px] text-text-tertiary",
-                detailLines.length > 0 && "mt-1.5 border-t border-border/60 pt-1.5"
+                detailLines.length > 0
+                  ? "mt-1.5 border-t border-border/60 pt-1.5 text-[11.5px] text-text-tertiary"
+                  : "text-[12.5px] text-text-secondary"
               )}
             >
               {detail.note}

@@ -1151,23 +1151,60 @@ come to, what is it made of, how does it compare with the year:
     nothing scrolls, and dismissing puts the reader back exactly where they were.
 
     ```text
-    Federal Income Tax (Ivan)     $619.14  ⓘ
-                        ┌───────────────────────┐
-                        │ FEDERAL INCOME TAX    │
-                        │ Aug 6         $302.30 │
-                        │ Aug 20        $316.84 │
-                        │ ───────────────────── │
-                        │ $8,238 a year         │
-                        └───────────────────────┘
+    Federal Income Tax (Ivan)     $950.52  ⓘ
+                        ┌────────────────────────────┐
+                        │ FEDERAL INCOME TAX (IVAN)  │
+                        │ Every 2 weeks      $316.84 │
+                        │ Payments     3 · usually 2 │
+                        │ Since Aug 6, 2026  was $302.30 │
+                        │ ────────────────────────── │
+                        │ $8,238 a year              │
+                        └────────────────────────────┘
     ```
 
-    The panel names its row, because it floats away from it. The dates are the
-    content, and August proves why: the raise lands mid-month, so the two
-    payments are worth different amounts and no sentence explains that as well as
-    printing both. `FinanceRow.payments` carries them straight off
-    `occurrencesInMonth()`, which the month was already computing. A linked
-    figure has no payments to list — it is an estimate off another table — so
-    there the hint that used to sit on the row is the whole detail.
+    The panel names its row, because it floats away from it.
+
+    **Every row in it has to say something the month row cannot**, and the first
+    version failed that test badly enough to be worth recording: it listed every
+    payment by date. On a line whose payments are all worth the same — which is
+    almost every line, almost every month — "Sep 3 $302.30 / Sep 17 $302.30" is
+    one figure printed twice, and two lines of it made the panel look like it was
+    answering while it was padding. `lineDetail()` in `lib/finances.ts` decides
+    the contents now, and four things pass:
+
+    - **What one payment is worth**, when the month's figure is not simply it. A
+      monthly line's payment *is* the row, so it is left out; a fortnightly one's
+      is the actual paycheck, which is the figure a person recognises.
+    - **How many landed, against how many usually do.** This was missing, and it
+      is the answer to the only question a month total really raises — why is
+      this bigger than last month. `3 · usually 2` says it outright, and it is
+      stated even when the dates are listed above it, since the comparison is the
+      point and cannot be counted off them. Only Weekly and Bi-weekly have a
+      "usually" at all; every other cadence lands the same number of times in
+      every month it is due.
+    - **When the amount last moved, and what it was.** Nowhere else on the month
+      is a line's history visible, and "Since May 1, 2026 · was $10.99" is what
+      turns a subscription figure into a subscription that crept. Only across a
+      change of amount at the same cadence — monthly → fortnightly moves the unit
+      as well, so "was $2,600" would compare two different things — and never in
+      the month the change lands in, where the dated list already showed it
+      happening.
+    - **The dates**, only in that month, where the payments are worth different
+      amounts and nothing but the list says which is which.
+
+    Deliberately **not** in it: the date a line's first rate carries. For most
+    lines that is when the figure was typed into the app, not when the commitment
+    started, so "Since Dec 25, 2025" on a rent line running since 2021 would be a
+    claim the data cannot support.
+
+    A linked figure has no schedule to describe — it is an estimate off another
+    table — so there the hint that used to sit on the row is the whole detail.
+    **When the note is the only thing in the panel it is set as content**, not as
+    the 11.5px grey footnote it is under a list of rows: a single grey line under
+    a heading reads as a panel that failed to load. And a line that has ended is
+    worth 0 a year from the day after, so the run rate is dropped rather than
+    printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
+    catching itself doing.
 
     **The row stays a reading; only the icon is a control.** Its target is 42×42,
     bought with padding pulled back by an equal negative margin so the row keeps

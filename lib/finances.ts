@@ -2,6 +2,8 @@ import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
 import type {
   FinanceBucket,
+  FinanceDetail,
+  FinanceDetailRow,
   FinanceLine,
   FinanceRate,
   PayCadence,
@@ -13,7 +15,15 @@ import type {
 } from "@/types/finance";
 import { estimateClientMonthlyNet } from "@/lib/clients";
 import { addDays, activeBookings, estimateHouseSitting, nightsBetween } from "@/lib/houseSitting";
-import { formatCurrency, formatShortDate, monthRange, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
+import {
+  formatCurrency,
+  formatDateWithYear,
+  formatShortDate,
+  monthRange,
+  parseLocalDate,
+  todayInputValue,
+  toInputDate
+} from "@/lib/formatters";
 
 /**
  * The month, assembled.
@@ -529,6 +539,129 @@ function lineHint(line: FinanceLine, year: number, monthIndex: number) {
   return line.note ?? undefined;
 }
 
+/** How a cadence reads as the label on a unit amount. */
+const CADENCE_EVERY: Record<PayCadence, string> = {
+  Weekly: "Every week",
+  "Bi-weekly": "Every 2 weeks",
+  "Semi-monthly": "Twice a month",
+  Monthly: "Every month",
+  Quarterly: "Every 3 months",
+  Annual: "Every year"
+};
+
+/**
+ * How many payments an ordinary month gets, for the two cadences where it varies.
+ *
+ * A fortnightly line pays twice in ten months of the year and three times in
+ * two; a weekly one pays four times or five. Every other cadence lands the same
+ * number of times in every month it is due, so there is no "usually" to state.
+ */
+const USUAL_PER_MONTH: Partial<Record<PayCadence, number>> = { Weekly: 4, "Bi-weekly": 2 };
+
+/**
+ * What a line's `ⓘ` opens to: the facts the row's own figure cannot carry.
+ *
+ * The version this replaces printed every payment by date. On a line whose
+ * payments are all worth the same — almost every line, almost every month — that
+ * is one figure restated twice: "Sep 3 $302.30 / Sep 17 $302.30" says nothing
+ * the reader did not have from the row, and two lines of it made the panel look
+ * like it was answering while it was padding.
+ *
+ * So every row here has to pass one test: does it say something the month row
+ * cannot? Four things do.
+ *
+ * - **What one payment is worth**, when the month's figure is not simply it. A
+ *   monthly line's payment *is* the row, so it is left out; a fortnightly one's
+ *   is the actual paycheck, which is the figure a person recognises.
+ * - **How many landed, against how many usually do.** This is the one that was
+ *   missing, and it is the answer to the only question a month total really
+ *   raises — why is this bigger than last month. "3 · usually 2" says it
+ *   outright.
+ * - **When the amount last moved, and what it was.** Nowhere else on the month
+ *   is a line's history visible, and "since January, was $2,200" is what turns a
+ *   rent figure into a rent story.
+ * - **The dates**, only in the month a change lands in, where the payments are
+ *   worth different things and nothing but the list can say which is which.
+ *
+ * Everything that is true of the line rather than of this month — starting,
+ * ending — comes last, and the run rate is added by the caller as a footnote.
+ */
+function lineDetail(line: FinanceLine, year: number, monthIndex: number): FinanceDetail {
+  const rates = line.rates;
+  const rows: FinanceDetailRow[] = [];
+  if (rates.length === 0) return { rows };
+
+  const { start, end } = monthRange(year, monthIndex);
+  const occurrences = occurrencesInMonth(rates, year, monthIndex);
+  const amounts = Array.from(new Set(occurrences.map((occurrence) => occurrence.amount)));
+
+  // The rate in force at the end of the month, and the one it replaced.
+  let currentIndex = -1;
+  rates.forEach((rate, index) => {
+    if (rate.effective_from <= end) currentIndex = index;
+  });
+  const current = rates[Math.max(currentIndex, 0)];
+  const previous = currentIndex > 0 ? rates[currentIndex - 1] : null;
+
+  const usual = USUAL_PER_MONTH[current.cadence];
+  const unusual = usual !== undefined && occurrences.length !== usual;
+
+  if (amounts.length > 1) {
+    // The one month the dates are the answer: a change landed part-way through
+    // it, so the payments are worth different things and only the list says
+    // which is which.
+    occurrences.forEach((occurrence) =>
+      rows.push({ label: formatShortDate(occurrence.date), value: formatCurrency(occurrence.amount) })
+    );
+  } else if (occurrences.length > 0) {
+    // A single monthly payment is the row's own figure — printing it again under
+    // a label is the padding this panel was rebuilt to get rid of.
+    if (current.cadence !== "Monthly" || occurrences.length > 1) {
+      rows.push({ label: CADENCE_EVERY[current.cadence], value: formatCurrency(amounts[0]) });
+    }
+  }
+
+  // How many landed, against how many usually do. The count alone is worth
+  // stating once there is more than one, since it is what the row's figure is a
+  // multiple of; "usually 2" is worth stating even when the dates are listed
+  // above and the count can be counted off them, because the comparison is the
+  // whole reason a month reads bigger than the one before it.
+  if (occurrences.length > 1 && (amounts.length === 1 || unusual)) {
+    rows.push({
+      label: "Payments",
+      value: unusual ? `${occurrences.length} · usually ${usual}` : String(occurrences.length)
+    });
+  }
+
+  // What the figure was before, and since when — unless the dated list above
+  // already showed the change happening, which is the month it lands in. Only
+  // across a change of amount at the same cadence, too: monthly → fortnightly
+  // moves the unit as well as the figure, so "was $2,600" would be comparing two
+  // different things.
+  if (
+    amounts.length === 1 &&
+    previous &&
+    previous.cadence === current.cadence &&
+    previous.entered_amount !== current.entered_amount
+  ) {
+    rows.push({
+      label: `Since ${formatDateWithYear(current.effective_from)}`,
+      value: `was ${formatCurrency(previous.entered_amount)}`
+    });
+  }
+
+  const first = rates[0];
+  if (first.effective_from > start) {
+    rows.push({ label: "Starts", value: formatShortDate(first.effective_from) });
+  }
+  const stopped = endedOn(rates);
+  if (stopped !== null && stopped <= end) {
+    rows.push({ label: "Ends", value: formatShortDate(stopped) });
+  }
+
+  return { rows };
+}
+
 function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, monthIndex: number): FinanceRow[] {
   const { start: monthStart } = monthRange(year, monthIndex);
 
@@ -551,8 +684,8 @@ function manualRows(lines: FinanceLine[], bucket: FinanceBucket, year: number, m
       key: line.id,
       label: line.label,
       amount: amountForMonth(line.rates, year, monthIndex),
-      // What the month's figure is a sum of, so the row can show its working.
-      payments: occurrencesInMonth(line.rates, year, monthIndex),
+      // The row's working, built for reading rather than dumped: see `lineDetail`.
+      detail: lineDetail(line, year, monthIndex),
       // The rate in force at the end of the month, annualised — 26 fortnightly
       // payments, not this month's two or three times twelve.
       yearAmount: rateOn(line.rates, monthRange(year, monthIndex).end) * 12,

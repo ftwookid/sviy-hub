@@ -115,6 +115,20 @@ export type FinanceLine = {
 /** One payment: the day it lands and what it is worth. */
 export type FinancePayment = { date: string; amount: number };
 
+/** One fact about a line, read label-left, value-right. */
+export type FinanceDetailRow = { label: string; value: string };
+
+/**
+ * What a line's `ⓘ` opens to.
+ *
+ * Every row in here has to say something the month row cannot. That test threw
+ * out the first version, which listed every payment by date: on a line whose
+ * payments are all the same — which is almost every line, almost every month —
+ * "Sep 3 $302.30 / Sep 17 $302.30" is one fact printed twice, and the reader
+ * already had it from the row.
+ */
+export type FinanceDetail = { rows: FinanceDetailRow[] };
+
 /** Where a figure on the page came from. Shown on the row, because a linked number is not editable. */
 export type FinanceRowSource = "Manual" | "Clients" | "House Sitting";
 
@@ -125,13 +139,14 @@ export type FinanceRow = {
   source: FinanceRowSource;
   hint?: string;
   /**
-   * The payments this month is actually made of.
+   * The row's working — what the figure is made of, and what moved it.
    *
-   * A month's figure is a sum, and the honest answer to "why is it that" is the
-   * dates and amounts that were added up — especially in a month holding a raise,
-   * where the two payments are worth different things. The row opens to these.
+   * Dates are in here only when they carry the answer, which is the month a
+   * change lands in and no other. What is worth knowing the rest of the time is
+   * what one payment is worth, how many landed against how many usually do, and
+   * when the amount last moved.
    */
-  payments?: FinancePayment[];
+  detail?: FinanceDetail;
   /**
    * What this line costs in a year at the rate in force — **not** the month
    * times twelve.

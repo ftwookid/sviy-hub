@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 
-import { formatCurrency, formatCurrencyRounded, formatShortDate } from "@/lib/formatters";
+import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
 import { BarRow, ChartCard, IN_INK, Meter, OUT_INK } from "@/components/finances/chart";
 import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
@@ -37,8 +37,16 @@ import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance"
  * name. No card here is titled with a phrase you have to interpret.
  */
 
-function yearly(yearAmount: number) {
-  return `${formatCurrencyRounded(yearAmount)} a year`;
+/**
+ * The run rate, or nothing.
+ *
+ * A line that has ended is worth 0 from the day after, so a month that still
+ * shows it — the one it stopped in — would otherwise footnote it "$0 a year",
+ * which is a zero pretending to be a figure rather than an answer.
+ */
+function yearly(row: FinanceRow) {
+  const amount = row.yearAmount ?? row.amount * 12;
+  return amount > 0 ? `${formatCurrencyRounded(amount)} a year` : undefined;
 }
 
 function percent(share: number) {
@@ -46,19 +54,18 @@ function percent(share: number) {
 }
 
 /**
- * A row's working: the payments the month's figure is a sum of, then what is
- * true of the line rather than of one payment.
+ * A row's working: the facts `lineDetail` found worth stating, then the run rate.
  *
- * The dates are the point. A month holding a raise has two payments worth
- * different amounts, and no single sentence explains that as well as printing
- * both. A linked figure has no payments to list — it is an estimate off another
+ * The rows come from `lib/finances.ts`, which decides what is worth saying about
+ * a line in a given month — see `lineDetail` for the test each one has to pass.
+ * This adds only what is true of the row's place on the page rather than of the
+ * line: the yearly run rate, and on `Money in` the share of the month it is.
+ *
+ * A linked figure has no schedule to describe — it is an estimate off another
  * table — so there the hint that used to sit on the row is the whole detail.
  */
 function detailFor(row: FinanceRow, extra?: string) {
-  const lines = (row.payments ?? []).map((payment) => ({
-    label: formatShortDate(payment.date),
-    value: formatCurrency(payment.amount)
-  }));
+  const lines = row.detail?.rows ?? [];
   const note = [lines.length === 0 ? row.hint : undefined, extra].filter(Boolean).join(" · ");
   return { lines, note: note || undefined };
 }
@@ -136,7 +143,7 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
                   // (which would annualise a three-paycheck August at 1.5x) —
                   // it is just no longer competing with the figure the card is
                   // there to show, on every one of a dozen rows.
-                  detail: detailFor(row, row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined)
+                  detail: detailFor(row, yearly(row))
                 }}
                 max={largest}
                 ink={OUT_INK}
@@ -171,9 +178,17 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
                   key: row.key,
                   label: row.label,
                   amount: row.amount,
+                  // What it earns in a year is worth the same as what a
+                  // commitment costs in one; the share is what is particular to
+                  // this card.
                   detail: detailFor(
                     row,
-                    row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
+                    [
+                      yearly(row),
+                      row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
                   )
                 }}
                 max={largest}
