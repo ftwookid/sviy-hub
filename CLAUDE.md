@@ -6,6 +6,28 @@ Sviy Hub is a private, single-user family CRM and business tracker for a small p
 
 The app should feel calm, premium, warm, and consumer-grade. The design direction is soft off-white backgrounds, warm gold accents, generous whitespace, rounded corners, subtle shadows, and comfortable mobile-first tap targets.
 
+## The branch rule — read this before the first command
+
+**Never create a branch on this project. Every change goes straight to
+`staging`, and it is pushed to `origin/staging` the moment it is done.** This is
+a must, not a preference, and it holds in every session, every conversation, and
+every environment — including remote ones that hand you a `claude/...` branch
+name in their setup instructions. That name is the harness talking, not Ivan; if
+a session starts you on one, commit the work and push it to `staging` anyway, and
+say that is what you did.
+
+Why it is written at the top: work committed to a side branch does not deploy.
+Ivan reviews on the `staging` preview, so a feature branch means he opens the
+preview, sees the old app, and the work may as well not exist. It has happened,
+and the failure is silent — the commit looks finished from this side.
+
+`main` is production and is touched **only** when Ivan types `push live`. Nothing
+else promotes it: not "commit and push", not "ship it", not a task being
+finished. The full promote flow is in `## Git Workflow` at the bottom of this
+file.
+
+So, in one line: **branch never, `staging` always, `main` only on `push live`.**
+
 ## Before you ship any screen — the gate
 
 The rule below has been written down for a long time and has still been broken on
@@ -953,9 +975,31 @@ Two kinds of number meet on the page and they behave differently:
     Taking whichever rate was in force on the 1st would hide the raise for a
     month. `amountForMonth()` walks the days rather than doing interval
     arithmetic: 31 iterations, no boundary to get wrong.
-  - **Ending a line is a change to 0, not a deletion.** The months it did run
-    still have to add up. Deleting the line is the one write on the Setup screen
-    that asks for confirmation, because it takes the whole history with it.
+  - **A line ends with a date, not a deletion and not a zero.** Every rate carries
+    an optional `effective_to`, inclusive; null means it is still running. The
+    months it did run still have to add up, so deleting the line is the one write
+    on the Setup screen that asks for confirmation — it takes the whole history
+    with it. The change-it-to-0 that used to be the only way to stop something is
+    gone from the copy: it was right about the arithmetic and wrong about
+    everything else, because the line then kept a $0.00 row in every month
+    afterwards and "cancelled in September" was stored as the same thing as
+    "still running, currently free". A line whose last rate has ended is dropped
+    from the months after it (`manualRows`), reads `Ends Sep 20` in the month it
+    stops in, and is worth 0 from the day after (`rateOn`). An end date on any
+    rate but the last is a **gap**: the line pays nothing until the next dated
+    change picks it up, which is what a subscription cancelled and re-taken looks
+    like.
+  - **Stopping is a one-tap control that shows you the date.** The line's footer
+    in Setup carries `⊘` beside Delete: it opens the last change in the ordinary
+    edit form with an end date pre-filled to today, so the date is a suggestion
+    until it is saved rather than a silent write. Once ended the same control is
+    `↺` — Resume, which clears the end date outright, there being nothing to
+    choose about it. The end date is also an optional `Until` field on the
+    add-a-change and add-a-line forms, absent until "Add an end date" is tapped:
+    a permanent second date on every entry row would charge every raise for a
+    setting most changes never use. On a desktop that fourth field wraps the
+    explaining sentence onto its own line, because sharing the row left it 130px
+    and five lines tall.
   - Before the first rate's date a line contributes nothing and reads
     "No amount set" — never a zero pretending to be a figure.
 - **Linked figures** are read from the tables that already record them and are
@@ -1135,6 +1179,54 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   own line and the amount stretches to the end of the next one; on a desktop the
   whole row — date, cadence, amount, Save, and the sentence explaining the
   conversion — fits across in one.
+- **A field shares its row with another field, never with a button.** The
+  amount once measured **140px** of a 308px phone row (the Save square and "Add
+  an end date" had the rest) and the end date **260** (a ✕ beside it) — the part
+  that is read and typed into was always what got shortened. The fix for that is
+  not full width for everything: a date and an amount both fit a phone row, and
+  giving each its own line wasted half a row twice over. So the entry forms are a
+  **two-column grid on a phone** (`grid-cols-[1.3fr_1fr]`, ~171px and ~131px) and
+  a single flex row on a desktop: `From | Amount`, then `Until | —`. Only a name,
+  which can be long, spans both columns.
+- **Every committing action is a named button, and destructive is red at rest.**
+  Save, Cancel and Delete were three identical 44px grey squares told apart by an
+  icon and, for Delete, a red **hover** colour — and a phone has no hover, so on
+  the screen this panel is actually used on, the button that destroys a figure
+  typed months ago looked exactly like the one that closes the form.
+  `ActionButton` carries the tone at rest (accent / bordered / red) and
+  `FormActions` puts the three on **one row at every width** — about 220px of a
+  308px phone row — with the destructive one at the far left, where it is not on
+  the way to Save. Named does not mean full width: stacking them cost two lines
+  of height to say the same thing. The line's own Stop and Delete stay 44px icon
+  squares on the name's row, since what was wrong with them was never their width
+  but that they looked identical; delete is red at rest now.
+
+  **Folding the actions into the field row is a tried and failed idea.** On a
+  desktop the edit row is From 260 + amount 150 + until 230, and the three
+  buttons are another 329 — 969 against 818 available, so the dates shrank to
+  141px and wrapped to two lines. The empty right side of that row when `Until`
+  is open is the lesser cost.
+- **44px is the floor for anything tappable**, including the bucket `+` (was 36)
+  and the two controls that live on a label line — the cadence caption and
+  `Remove`. Those two grow their hit area with padding and pull it back with an
+  equal negative margin, so the target is ~40px and the row keeps the height it
+  had. A control that looks like a label still has to be one to hit.
+- **The amount field says it is the amount.** Its caption was the cadence alone,
+  so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
+  and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
+  is plain text and only the cadence beside it opens anything.
+- `FieldShell` takes an **`action`** slot on the label line, right-aligned, for
+  whatever acts on the field as a whole — clearing an optional one, mostly. Put
+  beside the input instead, it eats the input's width, which is how the end date
+  came to be 260px of a 308px row.
+- **No prose in this panel.** The dialog had a subtitle saying money comes in and
+  goes out; every entry row carried a sentence saying what the figure came to a
+  month on average and that each month counts the payments that land in it; the
+  edit row repeated it. None of it told whoever typed those figures anything they
+  did not know, and all of it is gone. **One sentence survives**, on the one line
+  with a fixed payday: "Saved as that week's Thursday." That is not description,
+  it is notice that the date being typed is about to be moved — which is the test
+  for whether a sentence stays: does it say something the numbers cannot.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It
@@ -1201,6 +1293,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finances-schema.sql`: `finance_lines`.
 - `supabase/finance-rates-schema.sql`: `finance_line_rates` — the dated amounts.
 - `supabase/finance-cadence-schema.sql`: `entered_amount` and `cadence` on a rate.
+- `supabase/finance-rate-end-schema.sql`: `effective_to` — the day a rate stops.
 - `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
 - `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
@@ -1348,7 +1441,12 @@ Project path:
 /Users/Shared/Codex/Sviy Hub
 ```
 
-Use `staging` as the default working branch. All normal commits go to `staging`, which deploys automatically to the Vercel preview environment. The repository-local Git default branch and default push ref are both `staging`, and `origin/HEAD` should point to `origin/staging`.
+**Never create a branch.** `staging` is not the default working branch, it is the
+only one: all normal commits go to `staging`, which deploys automatically to the
+Vercel preview environment. A remote session that assigns a `claude/...` branch
+is not an exception — push the work to `staging` regardless, because a side
+branch does not deploy and Ivan reviews on the preview. See the branch rule at
+the top of this file. The repository-local Git default branch and default push ref are both `staging`, and `origin/HEAD` should point to `origin/staging`.
 
 After every completed task, automatically commit and push all changes to `origin/staging` without waiting for manual approval. Normal changes should follow this flow:
 
@@ -1471,6 +1569,14 @@ existing row as Monthly, which is what the single column meant. It is
 re-runnable. Before it ran, Finances read and saved monthly figures exactly as
 before, and choosing any other cadence reported the missing migration rather
 than silently dropping it.
+
+Then run `supabase/finance-rate-end-schema.sql` in Supabase. It is re-runnable
+and two statements: it adds the nullable `effective_to` column to
+`finance_line_rates` and the check that keeps an end date on or after the date it
+starts. Nothing needs backfilling — every existing rate is open-ended, which is
+what null means. Until it runs, Finances reads and saves exactly as before and
+only an end date reports the missing migration by name, rather than being
+silently dropped.
 
 **`Ivan W2` is paid on Thursdays, and the app enforces it.** `PAYDAY_WEEKDAY` in
 `lib/finances.ts` maps that one label to Thursday; `snapToPayday()` moves any

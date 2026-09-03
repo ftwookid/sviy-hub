@@ -49,10 +49,23 @@ export function SetupSheet({
     amount: number;
     cadence: PayCadence;
     effectiveFrom: string;
+    effectiveTo: string | null;
   }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
-  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onSetRate: (
+    lineId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
+  onUpdateRate: (
+    rateId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (lineId: string) => void;
   notice?: string;
@@ -74,14 +87,12 @@ export function SetupSheet({
         aria-label="Standing figures"
       >
         <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
-          <div className="min-w-0">
-            <h2 className="text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[26px]">
-              Standing figures
-            </h2>
-            <p className="mt-1 text-[13px] text-text-secondary">
-              What comes in and goes out every month, and when each amount changed.
-            </p>
-          </div>
+          {/* The title and nothing under it. A subtitle explaining that money
+              comes in and goes out tells whoever typed these figures nothing,
+              and cost a line at the top of every visit. */}
+          <h2 className="min-w-0 text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[26px]">
+            Standing figures
+          </h2>
           <CloseButton onClick={onClose} />
         </div>
 
@@ -112,8 +123,8 @@ export function SetupSheet({
           title={`Delete ${deleting.label}?`}
           description={
             deleting.rates.length > 1
-              ? `Its ${deleting.rates.length} dated amounts go too, and every month that used them will change. To stop a line without losing its history, set it to 0 from a date instead.`
-              : "It will stop counting in every month. To stop a line from a date without losing its history, set it to 0 instead."
+              ? `Its ${deleting.rates.length} dated amounts go too. To stop it instead, give it an end date.`
+              : "To stop it instead, give it an end date."
           }
           confirmLabel="Delete it"
           onCancel={() => setDeleting(null)}

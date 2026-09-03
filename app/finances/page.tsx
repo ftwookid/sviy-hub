@@ -257,22 +257,23 @@ export default function FinancesPage() {
                   amount: input.amount,
                   cadence: input.cadence,
                   effectiveFrom: input.effectiveFrom,
+                  effectiveTo: input.effectiveTo,
                   existingCount: lines.filter((line) => line.bucket === input.bucket).length
                 }),
               `${input.label} added`
             )
           }
           onRename={(lineId, label) => runLineChange(() => renameFinanceLine(lineId, label), "Renamed")}
-          onSetRate={(lineId, effectiveFrom, amount, cadence) =>
+          onSetRate={(lineId, effectiveFrom, amount, cadence, effectiveTo) =>
             runLineChange(
-              () => setFinanceRate({ userId: user.id, lineId, effectiveFrom, amount, cadence }),
+              () => setFinanceRate({ userId: user.id, lineId, effectiveFrom, amount, cadence, effectiveTo }),
               "Change saved"
             )
           }
-          onUpdateRate={(rateId, effectiveFrom, amount, cadence) =>
+          onUpdateRate={(rateId, effectiveFrom, amount, cadence, effectiveTo) =>
             runLineChange(
-              () => updateFinanceRate({ id: rateId, effectiveFrom, amount, cadence }),
-              "Change updated"
+              () => updateFinanceRate({ id: rateId, effectiveFrom, amount, cadence, effectiveTo }),
+              effectiveTo ? "End date saved" : "Change updated"
             )
           }
           onDeleteRate={(rateId) => runLineChange(() => deleteFinanceRate(rateId), "Change removed")}

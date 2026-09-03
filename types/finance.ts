@@ -62,8 +62,9 @@ export const PAY_CADENCES: PayCadence[] = [
 /**
  * One change to a line: from this date, it is this much a month.
  *
- * `effective_from` is inclusive — the new amount applies on its own date. A line
- * that has stopped gets a rate of 0 rather than losing its history.
+ * `effective_from` is inclusive — the new amount applies on its own date, and so
+ * is `effective_to`, which is null while the line is still running. A line that
+ * has stopped keeps its history: it is ended, not deleted.
  */
 export type FinanceRate = {
   id: string;
@@ -84,6 +85,18 @@ export type FinanceRate = {
   /** What was actually typed: the paycheck, the quarterly bill. */
   entered_amount: number;
   cadence: PayCadence;
+  /**
+   * The last day this amount is paid, inclusive — or null while it is still
+   * running.
+   *
+   * Ending a line used to mean entering a change to 0, which is right about the
+   * arithmetic and wrong about everything else: the line kept a $0.00 row in
+   * every month afterwards, and a commitment that was cancelled read the same as
+   * one that happens to be free at the moment. An end date says the thing that
+   * was actually meant, and a line with one simply stops appearing in the months
+   * after it.
+   */
+  effective_to: string | null;
 };
 
 export type FinanceLine = {

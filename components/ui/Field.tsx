@@ -7,14 +7,25 @@ import { cn } from "@/lib/cn";
 type FieldShellProps = {
   label: string;
   error?: string;
+  /**
+   * A control on the label's own line, right-aligned.
+   *
+   * For the thing that acts on the field as a whole — clearing an optional one,
+   * most of it. Put beside the input instead, it eats the input's width: an end
+   * date with a 44px ✕ next to it measured 260px on a 308px phone row, so the
+   * field that mattered was the one that got squeezed. The label line is empty
+   * anyway.
+   */
+  action?: ReactNode;
   children: ReactNode;
 };
 
-export function FieldShell({ label, error, children }: FieldShellProps) {
+export function FieldShell({ label, error, action, children }: FieldShellProps) {
   return (
     <div className="block">
-      <span className="mb-2 block text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
-        {label}
+      <span className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">{label}</span>
+        {action}
       </span>
       {children}
       {error ? <span className="mt-1.5 block text-[12px] text-danger">{error}</span> : null}

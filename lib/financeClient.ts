@@ -25,6 +25,9 @@ const MIGRATIONS: Array<[table: string, file: string]> = [
 
 const CADENCE_MIGRATION = "The pay cadence needs its column. Run supabase/finance-cadence-schema.sql in Supabase.";
 
+const END_DATE_MIGRATION =
+  "An end date needs its column. Run supabase/finance-rate-end-schema.sql in Supabase.";
+
 /**
  * The bucket list lives in a check constraint, so every bucket the app learns
  * about arrives with a migration of its own — and the message has to name the
@@ -47,14 +50,29 @@ function isUnknownBucket(error: { code?: string; message?: string } | null) {
 }
 
 /** PostgREST rejects an unknown column with PGRST204 before the request reaches Postgres. */
-function isMissingCadenceColumn(error: { code?: string; message?: string } | null) {
+function isMissingColumn(error: { code?: string; message?: string } | null, pattern: RegExp) {
   if (!error) return false;
   const message = error.message ?? "";
   return (
-    (error.code === "PGRST204" || error.code === "42703" || /column/i.test(message)) &&
-    /cadence|entered_amount/.test(message)
+    (error.code === "PGRST204" || error.code === "42703" || /column/i.test(message)) && pattern.test(message)
   );
 }
+
+function isMissingCadenceColumn(error: { code?: string; message?: string } | null) {
+  return isMissingColumn(error, /cadence|entered_amount/);
+}
+
+function isMissingEndColumn(error: { code?: string; message?: string } | null) {
+  return isMissingColumn(error, /effective_to/);
+}
+
+/** The range check: an end date before the day the amount starts. */
+function isBackwardsRange(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return error.code === "23514" && /finance_line_rates_range_check/.test(error.message ?? "");
+}
+
+const BACKWARDS_RANGE = "An end date cannot come before the date the amount starts.";
 
 function setupMessageFor(error: { message?: string } | null) {
   const message = error?.message ?? "";
@@ -120,6 +138,7 @@ export async function addFinanceLine(input: {
   amount: number;
   cadence: PayCadence;
   effectiveFrom: string;
+  effectiveTo?: string | null;
   existingCount: number;
 }) {
   if (!supabase) return;
@@ -145,6 +164,7 @@ export async function addFinanceLine(input: {
     userId: input.userId,
     lineId: data.id as string,
     effectiveFrom: input.effectiveFrom,
+    effectiveTo: input.effectiveTo ?? null,
     amount: input.amount,
     cadence: input.cadence
   });
@@ -181,6 +201,8 @@ export async function setFinanceRate(input: {
   /** What was typed, at `cadence` — not the monthly figure, which is derived here. */
   amount: number;
   cadence: PayCadence;
+  /** The last day it is paid, inclusive. Null means the line is still running. */
+  effectiveTo?: string | null;
 }) {
   if (!supabase) return;
 
@@ -190,10 +212,20 @@ export async function setFinanceRate(input: {
     effective_from: input.effectiveFrom,
     monthly_amount: monthlyFromCadence(input.amount, input.cadence)
   };
+  const withCadence = { ...row, entered_amount: input.amount, cadence: input.cadence };
+  const options = { onConflict: "line_id,effective_from" };
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("finance_line_rates")
-    .upsert({ ...row, entered_amount: input.amount, cadence: input.cadence }, { onConflict: "line_id,effective_from" });
+    .upsert({ ...withCadence, effective_to: input.effectiveTo ?? null }, options);
+
+  // Same rule as the cadence column below: a figure with no end date loses
+  // nothing by being written to the older shape, and only an end date that
+  // would be silently dropped is refused.
+  if (isMissingEndColumn(error)) {
+    if (input.effectiveTo) throw new Error(END_DATE_MIGRATION);
+    ({ error } = await supabase.from("finance_line_rates").upsert(withCadence, options));
+  }
 
   if (isMissingCadenceColumn(error)) {
     // Before the cadence migration there is nowhere to record one, but a monthly
@@ -201,13 +233,10 @@ export async function setFinanceRate(input: {
     // amount still saves, and only a cadence that would be silently dropped is
     // refused.
     if (input.cadence !== "Monthly") throw new Error(CADENCE_MIGRATION);
-    const retry = await supabase
-      .from("finance_line_rates")
-      .upsert(row, { onConflict: "line_id,effective_from" });
-    const retryFailure = reportable(retry.error);
-    if (retryFailure) throw retryFailure;
-    return;
+    ({ error } = await supabase.from("finance_line_rates").upsert(row, options));
   }
+
+  if (isBackwardsRange(error)) throw new Error(BACKWARDS_RANGE);
 
   const failure = reportable(error);
   if (failure) throw failure;
@@ -226,6 +255,7 @@ export async function updateFinanceRate(input: {
   effectiveFrom: string;
   amount: number;
   cadence: PayCadence;
+  effectiveTo?: string | null;
 }) {
   if (!supabase) return;
 
@@ -236,13 +266,25 @@ export async function updateFinanceRate(input: {
     cadence: input.cadence
   };
 
-  const { error } = await supabase.from("finance_line_rates").update(patch).eq("id", input.id);
+  let { error } = await supabase
+    .from("finance_line_rates")
+    .update({ ...patch, effective_to: input.effectiveTo ?? null })
+    .eq("id", input.id);
+
+  // Clearing an end date that was never storable is a no-op, so it retries
+  // without the column rather than sending the reader to a migration for a
+  // change that does not need it.
+  if (isMissingEndColumn(error)) {
+    if (input.effectiveTo) throw new Error(END_DATE_MIGRATION);
+    ({ error } = await supabase.from("finance_line_rates").update(patch).eq("id", input.id));
+  }
 
   // One change per line per date, so moving a change onto a date that already
   // has one is a collision worth naming rather than a failed save.
   if (error?.code === "23505") {
     throw new Error("This line already has a change on that date. Edit that one instead.");
   }
+  if (isBackwardsRange(error)) throw new Error(BACKWARDS_RANGE);
   if (isMissingCadenceColumn(error)) throw new Error(CADENCE_MIGRATION);
 
   const failure = reportable(error);

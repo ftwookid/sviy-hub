@@ -39,7 +39,12 @@ export function CadencePicker({
         className={cn(
           "focus-ring flex items-center transition-colors duration-200 ease-out",
           variant === "caption"
-            ? "-ml-1 mb-1 gap-0.5 rounded-md px-1 py-0.5 text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary hover:bg-subtle hover:text-text-secondary"
+            // The hit area is grown with padding and pulled back with an equal
+            // negative margin: the caption keeps the ~23px slot it has always
+            // occupied above the amount, and the thumb gets a 39px target
+            // instead. A control that looks like a label still has to be one to
+            // hit.
+            ? "-my-2.5 -ml-1.5 gap-0.5 rounded-lg px-1.5 py-3 text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary hover:bg-subtle hover:text-text-secondary"
             : "h-11 gap-1 rounded-xl border border-border bg-subtle px-2.5 text-[13px] text-text-secondary hover:border-border-emphasis hover:text-text-primary",
           className
         )}

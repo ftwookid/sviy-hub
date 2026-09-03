@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, CircleSlash, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { DateField } from "@/components/ui/DateField";
 import { CadencePicker } from "@/components/finances/CadencePicker";
@@ -11,6 +11,7 @@ import {
   SECTION_STYLE,
   currentAmount,
   currentCadence,
+  endedOn,
   monthlyFromCadence,
   paydayWeekdayFor,
   snapToPayday
@@ -37,22 +38,22 @@ function parseAmount(value: string) {
 }
 
 /**
- * What a non-monthly figure comes to a month, said before it is saved.
+ * The amount field's label: what the number is, then how often it arrives.
  *
- * The conversion is the whole point of the setting, so it is shown while the
- * amount is still being typed. It says **on average**, and it has to: the month
- * itself counts the payments that actually land in it, so a fortnightly line
- * pays twice in most months and three times in two of them. An average that
- * reads as a promise about every month is exactly the misunderstanding this
- * sentence exists to prevent.
+ * The cadence alone was the whole caption, so between `FROM` and `UNTIL` sat a
+ * field labelled `2 WEEKS` — which says when, and never says what the number is.
+ * The word is plain text; only the cadence beside it opens anything.
  */
-function monthlyLine(amountValue: string, cadence: PayCadence) {
-  const typed = parseAmount(amountValue);
-  if (!typed) return `Paid ${CADENCE_SUFFIX[cadence]}. Each month counts the payments that land in it.`;
-  if (cadence === "Monthly") return `${formatCurrency(typed)} a month.`;
-  return `${formatCurrency(typed)} ${CADENCE_SUFFIX[cadence]} — ${formatCurrency(
-    monthlyFromCadence(typed, cadence)
-  )} a month on average. Each month counts the payments that land in it.`;
+function AmountCaption({ value, onChange }: { value: PayCadence; onChange: (next: PayCadence) => void }) {
+  return (
+    <span className="flex min-h-[19px] items-center gap-1">
+      <span className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Amount</span>
+      <span aria-hidden className="text-[12px] text-text-tertiary/60">
+        ·
+      </span>
+      <CadencePicker value={value} onChange={onChange} />
+    </span>
+  );
 }
 
 /** "avg" beside a derived monthly figure, wherever the line is not actually monthly. */
@@ -61,8 +62,64 @@ function AverageTag({ cadence }: { cadence: PayCadence }) {
   return <span className="ml-1 text-[10px] font-normal text-text-tertiary">avg</span>;
 }
 
-/** A change being corrected: which row, and the three things it holds. */
-type EditingRate = { id: string; date: string; amount: string; cadence: PayCadence };
+/** A change being corrected: which row, and the four things it holds. */
+type EditingRate = { id: string; date: string; amount: string; cadence: PayCadence; end: string | null };
+
+/**
+ * The optional last day an amount is paid.
+ *
+ * Absent until it is wanted — a permanent second date field on every entry row
+ * would charge every raise for a setting most changes never use, and the common
+ * case is a commitment that just keeps running. So it is a word until it is a
+ * field.
+ *
+ * When it is a field it takes the whole row like every other field, and the way
+ * back to nothing sits on the label line. A ✕ beside the trigger left it 260px
+ * of a 308px phone row: the control that undoes the field was given more room
+ * than the field.
+ */
+function EndDateField({
+  value,
+  from,
+  onChange
+}: {
+  value: string | null;
+  from: string;
+  onChange: (next: string | null) => void;
+}) {
+  if (value === null) {
+    return (
+      <TextButton
+        className="w-full self-center sm:w-auto"
+        onClick={() => onChange(from > todayInputValue() ? from : todayInputValue())}
+      >
+        Add an end date
+      </TextButton>
+    );
+  }
+
+  return (
+    <div className="min-w-0 sm:flex-1 sm:max-w-[230px]">
+      <DateField
+        label="Until"
+        value={value}
+        dimFutureDates={false}
+        onChange={(next) => onChange(next)}
+        action={
+          <button
+            // Same trick as the cadence caption: a real target inside a label
+            // line that keeps its height.
+            className="focus-ring -my-3 rounded-lg px-2 py-3 text-[12px] font-medium text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary"
+            type="button"
+            onClick={() => onChange(null)}
+          >
+            Remove
+          </button>
+        }
+      />
+    </div>
+  );
+}
 
 function longDate(dateValue: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
@@ -101,36 +158,158 @@ function AmountInput({
   );
 }
 
-function IconButton({
-  label,
-  tone = "plain",
-  disabled,
+/**
+ * A quiet, full-height text button — "Add an end date", and nothing louder.
+ *
+ * It is a word rather than a control on purpose, but it still has to be hittable:
+ * at 44px tall and the row's full width on a phone, the tap target matches every
+ * field above it instead of being a 112px sliver wedged beside the amount.
+ */
+function TextButton({
+  className,
   onClick,
   children
 }: {
-  label: string;
-  tone?: "plain" | "accent" | "danger";
-  disabled?: boolean;
+  className?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
       className={cn(
-        "focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-colors duration-200 ease-out disabled:opacity-40",
-        tone === "accent"
-          ? "bg-accent-soft text-text-primary hover:bg-accent"
-          : tone === "danger"
-            ? "text-text-tertiary hover:bg-danger-soft hover:text-danger"
-            : "text-text-tertiary hover:bg-subtle hover:text-text-secondary"
+        "focus-ring flex min-h-11 items-center rounded-xl px-2 text-left text-[13px] text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary",
+        className
       )}
       type="button"
-      aria-label={label}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The one shape every committing action in this panel wears.
+ *
+ * They were three identical 44px grey squares — delete, cancel, save — told
+ * apart only by their icon and, for delete, a red **hover** colour. A phone has
+ * no hover, so on the screen this panel is actually used on, the button that
+ * destroys a figure typed months ago looked exactly like the one that closes the
+ * form. Tone is now carried at rest, and every one of them says what it does.
+ */
+function ActionButton({
+  tone,
+  disabled,
+  onClick,
+  className,
+  children
+}: {
+  tone: "primary" | "quiet" | "danger";
+  disabled?: boolean;
+  onClick: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className={cn(
+        // px-3, not px-4: at 151px — half a 308px phone row — "Delete change"
+        // plus its icon needs 121px of the 127 that px-3 leaves, and wrapped to
+        // two lines at px-4, which made one of the two buttons on the row 3px
+        // taller than the other.
+        "focus-ring inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[14px] font-medium transition-colors duration-200 ease-out disabled:opacity-40 sm:px-4",
+        tone === "primary"
+          ? "bg-accent text-text-primary hover:brightness-95"
+          : tone === "danger"
+            ? "border border-danger/30 bg-danger-soft/50 text-danger hover:bg-danger-soft"
+            : "border border-border bg-surface text-text-secondary hover:bg-subtle hover:text-text-primary",
+        className
+      )}
+      type="button"
       disabled={disabled}
       onClick={onClick}
     >
       {children}
     </button>
+  );
+}
+
+/** A square control for the two utility actions that keep a row: stop, delete. */
+function IconButton({
+  label,
+  tone = "plain",
+  onClick,
+  children
+}: {
+  label: string;
+  tone?: "plain" | "danger";
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className={cn(
+        "focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition-colors duration-200 ease-out",
+        tone === "danger"
+          ? "border-danger/30 bg-danger-soft/50 text-danger hover:bg-danger-soft"
+          : "border-border bg-surface text-text-secondary hover:bg-subtle hover:text-text-primary"
+      )}
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Save, and whatever else the form offers — one row, at every width.
+ *
+ * Named rather than three identical grey squares, which is what made the button
+ * that destroys a figure indistinguishable from the one that closes the form on
+ * a screen with no hover. But named does not mean full width: "Delete Cancel
+ * Save" is about 220px of a 308px phone row, so stacking them cost two lines of
+ * height to say the same thing. Destructive sits at the far left, away from Save.
+ */
+function FormActions({
+  saveLabel,
+  saveDisabled,
+  onSave,
+  onCancel,
+  onDelete,
+  className
+}: {
+  saveLabel: string;
+  saveDisabled?: boolean;
+  onSave: () => void;
+  onCancel?: () => void;
+  onDelete?: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("mt-2 flex items-center gap-1.5", className)}>
+      {onDelete ? (
+        <ActionButton tone="danger" onClick={onDelete} className="mr-auto">
+          <Trash2 size={15} strokeWidth={1.8} />
+          Delete
+        </ActionButton>
+      ) : null}
+      {onCancel ? (
+        <ActionButton tone="quiet" onClick={onCancel} className={onDelete ? "" : "ml-auto"}>
+          Cancel
+        </ActionButton>
+      ) : null}
+      <ActionButton
+        tone="primary"
+        disabled={saveDisabled}
+        onClick={onSave}
+        className={onDelete || onCancel ? "" : "ml-auto"}
+      >
+        <Check size={16} strokeWidth={2} />
+        {saveLabel}
+      </ActionButton>
+    </div>
   );
 }
 
@@ -144,14 +323,21 @@ function LineDetail({
 }: {
   line: FinanceLine;
   onRename: (label: string) => void;
-  onSetRate: (effectiveFrom: string, amount: number, cadence: PayCadence) => void;
-  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onSetRate: (effectiveFrom: string, amount: number, cadence: PayCadence, effectiveTo: string | null) => void;
+  onUpdateRate: (
+    rateId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: () => void;
 }) {
   const [label, setLabel] = useState(line.label);
   const [changeDate, setChangeDate] = useState(todayInputValue());
   const [changeAmount, setChangeAmount] = useState("");
+  const [changeEnd, setChangeEnd] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditingRate | null>(null);
   // A line paid every second week is still paid every second week after a
   // raise, so the change being typed inherits the cadence already in force.
@@ -162,45 +348,62 @@ function LineDetail({
   // save rather than only on read means the date shown in the history, the date
   // stored, and the date the month counts are all the same one.
   const payday = paydayWeekdayFor(line.label);
-  const paydayNote =
-    payday === null
-      ? null
-      : "Paid on Thursdays. A date anywhere in that week is saved as its Thursday.";
-
-  // Payments from this date on are worth the new amount; the ones before it keep
-  // the old one. That is not the same as the old wording, which said the month
-  // was "split across both amounts" — months are no longer averaged, they are a
-  // count of the payments that landed in them.
-  const changeHint = [
-    cadence === "Monthly"
-      ? "Payments from this date on use the new amount. To stop a line, change it to 0."
-      : `${monthlyLine(changeAmount, cadence)} Payments from this date on use the new amount.`,
-    // Said where the date is being picked, not afterwards in a toast: the point
-    // is that Ivan does not have to know which Thursday it was.
-    paydayNote
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // The only sentence left in this panel, and only on the one line that has a
+  // fixed payday: it is not description, it is notice that the date typed is
+  // about to be moved. Everything else that used to sit under these fields —
+  // what the figure comes to a month, that later payments use the new amount —
+  // was restating what the row above and the month behind already say.
+  const paydayNote = payday === null ? null : "Saved as that week's Thursday.";
 
   function saveChange() {
     if (!changeAmount.trim()) return;
-    onSetRate(snapToPayday(changeDate, payday), parseAmount(changeAmount), cadence);
+    onSetRate(snapToPayday(changeDate, payday), parseAmount(changeAmount), cadence, changeEnd);
     setChangeAmount("");
+    setChangeEnd(null);
   }
 
-  function startEditing(rate: FinanceRate) {
+  function startEditing(rate: FinanceRate, end: string | null = rate.effective_to ?? null) {
     setEditing({
       id: rate.id,
       date: rate.effective_from,
       amount: String(rate.entered_amount),
-      cadence: rate.cadence
+      cadence: rate.cadence,
+      end
     });
   }
 
   function saveEditing() {
     if (!editing || !editing.amount.trim()) return;
-    onUpdateRate(editing.id, snapToPayday(editing.date, payday), parseAmount(editing.amount), editing.cadence);
+    onUpdateRate(
+      editing.id,
+      snapToPayday(editing.date, payday),
+      parseAmount(editing.amount),
+      editing.cadence,
+      editing.end
+    );
     setEditing(null);
+  }
+
+  /**
+   * Stopping a line is one tap that opens the date it stopped on, not a silent
+   * write of today.
+   *
+   * The last change is the one that is still running, so ending it ends the
+   * line; the form it opens in is the same one every other correction uses, and
+   * the date is a suggestion until it is saved. Resuming clears the end date
+   * outright, because there is nothing to choose about it.
+   */
+  const latest = line.rates[line.rates.length - 1];
+  const stopped = endedOn(line.rates);
+
+  function stopLine() {
+    if (!latest) return;
+    startEditing(latest, latest.effective_from > todayInputValue() ? latest.effective_from : todayInputValue());
+  }
+
+  function resumeLine() {
+    if (!latest) return;
+    onUpdateRate(latest.id, latest.effective_from, Number(latest.entered_amount), latest.cadence, null);
   }
 
   function commitLabel() {
@@ -224,8 +427,14 @@ function LineDetail({
                  else on the card would leave the reader checking which of two
                  identical forms belonged to the figure they tapped. */
               <div key={rate.id} className="py-2">
-                <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
-                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
+                {/* Every field takes the whole row on a phone. They were sharing
+                    one: the amount came out 140px of 308 and the end date 260,
+                    because the buttons beside them were taking the width the
+                    fields needed. */}
+                {/* Two per row on a phone: a date and an amount both fit, and
+                    giving each its own line cost a wasted half-row twice over. */}
+                <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
+                  <div className="min-w-0 sm:flex-1 sm:max-w-[260px]">
                     <DateField
                       label="From"
                       value={editing.date}
@@ -233,8 +442,8 @@ function LineDetail({
                       onChange={(date) => setEditing({ ...editing, date })}
                     />
                   </div>
-                  <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
-                    <CadencePicker
+                  <div className="min-w-0 sm:flex-none sm:shrink-0">
+                    <AmountCaption
                       value={editing.cadence}
                       onChange={(next) => setEditing({ ...editing, cadence: next })}
                     />
@@ -246,41 +455,26 @@ function LineDetail({
                       onEnter={saveEditing}
                     />
                   </div>
+                  <EndDateField
+                    value={editing.end}
+                    from={editing.date}
+                    onChange={(end) => setEditing({ ...editing, end })}
+                  />
+                  {/* Delete is only offered while a change is open — a trash
+                      icon on every history row is a mis-tap away from losing a
+                      figure somebody typed months ago — and it is the far end
+                      of the row from Save, so it is never on the way there. */}
                 </div>
-                {editing.cadence !== "Monthly" ? (
-                  <p className="mt-1.5 text-[11px] text-text-tertiary">
-                    {monthlyLine(editing.amount, editing.cadence)}
-                  </p>
-                ) : null}
-                {/* Delete sits at the other end of the row from Save, and only
-                    while a change is open: a trash icon on every history row is
-                    a mis-tap away from losing a figure somebody typed months
-                    ago, and it was the only thing those rows offered. */}
-                <div className="mt-1.5 flex items-center justify-between">
-                  <IconButton
-                    label={`Remove the change from ${longDate(rate.effective_from)}`}
-                    tone="danger"
-                    onClick={() => {
-                      onDeleteRate(rate.id);
-                      setEditing(null);
-                    }}
-                  >
-                    <Trash2 size={16} strokeWidth={1.8} />
-                  </IconButton>
-                  <div className="flex items-center gap-1.5">
-                    <IconButton label="Stop editing this change" onClick={() => setEditing(null)}>
-                      <X size={16} strokeWidth={1.8} />
-                    </IconButton>
-                    <IconButton
-                      label="Save this change"
-                      tone="accent"
-                      disabled={!editing.amount.trim()}
-                      onClick={saveEditing}
-                    >
-                      <Check size={17} strokeWidth={2} />
-                    </IconButton>
-                  </div>
-                </div>
+                <FormActions
+                  saveLabel="Save change"
+                  saveDisabled={!editing.amount.trim()}
+                  onSave={saveEditing}
+                  onCancel={() => setEditing(null)}
+                  onDelete={() => {
+                    onDeleteRate(rate.id);
+                    setEditing(null);
+                  }}
+                />
               </div>
             ) : (
               <button
@@ -291,7 +485,13 @@ function LineDetail({
                 onClick={() => startEditing(rate)}
               >
                 <span className="min-w-0 flex-1 text-[13px] text-text-secondary">
-                  <span className="block truncate">From {longDate(rate.effective_from)}</span>
+                  {/* The end date belongs on the same line as the start: they
+                      are one fact, and a stopped line has to say so where the
+                      dates are read rather than only in the month behind. */}
+                  <span className="block truncate">
+                    From {longDate(rate.effective_from)}
+                    {rate.effective_to ? ` → ${longDate(rate.effective_to)}` : ""}
+                  </span>
                   {/* Only where it says something: a monthly line's typed figure
                       and its monthly figure are the same number. Under the date
                       on a phone; in its own column once there is room, so the
@@ -327,12 +527,16 @@ function LineDetail({
           wrong one. */}
       {editing ? null : (
         <>
-      <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
-        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
+      {/* One row while it is the usual date-cadence-amount; two once an end date
+          is open, because a fourth field leaves the sentence about 130px and
+          five lines tall. The wrap point is explicit rather than the browser's
+          — nowrap is what keeps the sentence beside the amount it explains. */}
+      <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
+        <div className="min-w-0 sm:flex-1 sm:max-w-[260px]">
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
-        <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
-          <CadencePicker value={cadence} onChange={setCadence} />
+        <div className="min-w-0 sm:flex-none sm:shrink-0">
+          <AmountCaption value={cadence} onChange={setCadence} />
           <AmountInput
             className="w-full sm:w-[150px]"
             label={`Amount ${CADENCE_SUFFIX[cadence]} from this date`}
@@ -341,20 +545,18 @@ function LineDetail({
             onEnter={saveChange}
           />
         </div>
-        <IconButton label="Save this change" tone="accent" disabled={!changeAmount.trim()} onClick={saveChange}>
-          <Check size={17} strokeWidth={2} />
-        </IconButton>
-        {/* Beside the amount it is about, on a screen with room for it — the
-            same sentence stacked underneath left the right half of an 880px row
-            empty and cost a line of height. */}
-        <p className="hidden min-w-0 text-[11.5px] leading-snug text-text-tertiary sm:block sm:flex-1 sm:self-center sm:pl-1">
-          {changeHint}
-        </p>
+        <EndDateField value={changeEnd} from={changeDate} onChange={setChangeEnd} />
       </div>
-      <p className="mt-1.5 text-[11px] text-text-tertiary sm:hidden">{changeHint}</p>
+      {paydayNote ? <p className="mt-1 text-[11px] text-text-tertiary">{paydayNote}</p> : null}
+      <FormActions saveLabel="Save change" saveDisabled={!changeAmount.trim()} onSave={saveChange} />
         </>
       )}
 
+      {/* One row. The name field is what is read here, so it takes the space
+          the two buttons do not need — and what was actually wrong with these
+          buttons was never their width, it was that they looked identical.
+          Stopping keeps every month the line ran; deleting takes them, so only
+          deleting is red, at rest rather than on a hover a phone cannot do. */}
       <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         <input
           className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px]"
@@ -366,6 +568,14 @@ function LineDetail({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
+        {latest ? (
+          <IconButton
+            label={stopped ? `Let ${line.label} run again` : `Stop ${line.label} from a date`}
+            onClick={stopped ? resumeLine : stopLine}
+          >
+            {stopped ? <RotateCcw size={16} strokeWidth={1.8} /> : <CircleSlash size={16} strokeWidth={1.8} />}
+          </IconButton>
+        ) : null}
         <IconButton label={`Delete ${line.label}`} tone="danger" onClick={onDeleteLine}>
           <Trash2 size={16} strokeWidth={1.8} />
         </IconButton>
@@ -390,10 +600,23 @@ export function SetupGroups({
     amount: number;
     cadence: PayCadence;
     effectiveFrom: string;
+    effectiveTo: string | null;
   }) => void;
   onRename: (lineId: string, label: string) => void;
-  onSetRate: (lineId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
-  onUpdateRate: (rateId: string, effectiveFrom: string, amount: number, cadence: PayCadence) => void;
+  onSetRate: (
+    lineId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
+  onUpdateRate: (
+    rateId: string,
+    effectiveFrom: string,
+    amount: number,
+    cadence: PayCadence,
+    effectiveTo: string | null
+  ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (line: FinanceLine) => void;
 }) {
@@ -402,6 +625,7 @@ export function SetupGroups({
   const [newLabel, setNewLabel] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newFrom, setNewFrom] = useState(todayInputValue());
+  const [newUntil, setNewUntil] = useState<string | null>(null);
   const [newCadence, setNewCadence] = useState<PayCadence>("Monthly");
 
   function startAdding(bucket: FinanceBucket) {
@@ -410,13 +634,21 @@ export function SetupGroups({
     setNewLabel("");
     setNewAmount("");
     setNewFrom(todayInputValue());
+    setNewUntil(null);
     setNewCadence("Monthly");
   }
 
   function submitNew(bucket: FinanceBucket) {
     const label = newLabel.trim();
     if (!label) return;
-    onAddLine({ bucket, label, amount: parseAmount(newAmount), cadence: newCadence, effectiveFrom: newFrom });
+    onAddLine({
+      bucket,
+      label,
+      amount: parseAmount(newAmount),
+      cadence: newCadence,
+      effectiveFrom: newFrom,
+      effectiveTo: newUntil
+    });
     setAddingBucket(null);
   }
 
@@ -446,8 +678,11 @@ export function SetupGroups({
               <span className="shrink-0 text-[15px] font-medium tabular-nums text-text-primary sm:text-[16px]">
                 {formatCurrency(inEffect)}
               </span>
+              {/* 44px, like every other control in the panel — but with the
+                  overflow pulled back off the layout box, so the tap target
+                  grows and the strip does not. */}
               <button
-                className="focus-ring -mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary"
+                className="focus-ring -my-1.5 -mr-1.5 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary"
                 type="button"
                 aria-label={`Add a line to ${style.title}`}
                 onClick={() => (addingBucket === bucket ? setAddingBucket(null) : startAdding(bucket))}
@@ -464,9 +699,11 @@ export function SetupGroups({
                  with the buttons, which is the arrangement that fits 390px
                  without any field dropping below a comfortable width. */
               <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5 sm:px-4 sm:py-3">
-                <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
+                {/* Only the name spans the row — it is the one field that can be
+                    long. The date and the amount pair up like everywhere else. */}
+                <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
                   <input
-                    className="focus-ring min-h-11 min-w-0 basis-full rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary sm:basis-auto sm:flex-1"
+                    className="focus-ring col-span-2 min-h-11 min-w-0 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary sm:col-span-1 sm:flex-1"
                     value={newLabel}
                     aria-label="New line name"
                     placeholder="Name"
@@ -477,11 +714,11 @@ export function SetupGroups({
                       if (event.key === "Escape") setAddingBucket(null);
                     }}
                   />
-                  <div className="min-w-0 basis-full sm:basis-auto sm:w-[210px]">
+                  <div className="min-w-0 sm:w-[210px]">
                     <DateField label="Starting from" value={newFrom} dimFutureDates={false} onChange={setNewFrom} />
                   </div>
-                  <div className="min-w-0 flex-1 sm:flex-none sm:shrink-0">
-                    <CadencePicker value={newCadence} onChange={setNewCadence} />
+                  <div className="min-w-0 sm:flex-none sm:shrink-0">
+                    <AmountCaption value={newCadence} onChange={setNewCadence} />
                     <AmountInput
                       className="w-full sm:w-[150px]"
                       label={`New line amount ${CADENCE_SUFFIX[newCadence]}`}
@@ -490,21 +727,17 @@ export function SetupGroups({
                       onEnter={() => submitNew(bucket)}
                     />
                   </div>
-                  <IconButton
-                    label="Save new line"
-                    tone="accent"
-                    disabled={!newLabel.trim()}
-                    onClick={() => submitNew(bucket)}
-                  >
-                    <Check size={17} strokeWidth={2} />
-                  </IconButton>
-                  <IconButton label="Cancel new line" onClick={() => setAddingBucket(null)}>
-                    <X size={16} strokeWidth={1.8} />
-                  </IconButton>
+                  {/* A charge that is known to end — a twelve-month plan, a
+                      sublet — can say so as it is typed, instead of coming back
+                      later to stop it. */}
+                  <EndDateField value={newUntil} from={newFrom} onChange={setNewUntil} />
                 </div>
-                {newCadence !== "Monthly" ? (
-                  <p className="mt-1.5 text-[11px] text-text-tertiary">{monthlyLine(newAmount, newCadence)}</p>
-                ) : null}
+                <FormActions
+                  saveLabel="Add line"
+                  saveDisabled={!newLabel.trim()}
+                  onSave={() => submitNew(bucket)}
+                  onCancel={() => setAddingBucket(null)}
+                />
               </div>
             ) : null}
 
@@ -517,15 +750,20 @@ export function SetupGroups({
                 const open = openLineId === line.id;
                 const latest = line.rates[line.rates.length - 1];
                 const pending = latest && latest.effective_from > todayInputValue();
+                const stopped = endedOn(line.rates);
                 // What the line's last change was, said once and placed twice.
+                // An end date outranks the rest of it: "since December" is not
+                // the fact worth carrying about something that has stopped.
                 const meta =
                   line.rates.length === 0
                     ? "No amount set"
-                    : pending
-                      ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(latest.effective_from)}`
-                      : `Since ${formatShortDate(latest.effective_from)}${
-                          line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
-                        }`;
+                    : stopped
+                      ? `${stopped < todayInputValue() ? "Ended" : "Ends"} ${formatShortDate(stopped)}`
+                      : pending
+                        ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(latest.effective_from)}`
+                        : `Since ${formatShortDate(latest.effective_from)}${
+                            line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
+                          }`;
 
                 return (
                   <div key={line.id}>
@@ -570,7 +808,9 @@ export function SetupGroups({
                       <LineDetail
                         line={line}
                         onRename={(label) => onRename(line.id, label)}
-                        onSetRate={(effectiveFrom, amount, cadence) => onSetRate(line.id, effectiveFrom, amount, cadence)}
+                        onSetRate={(effectiveFrom, amount, cadence, effectiveTo) =>
+                          onSetRate(line.id, effectiveFrom, amount, cadence, effectiveTo)
+                        }
                         onUpdateRate={onUpdateRate}
                         onDeleteRate={onDeleteRate}
                         onDeleteLine={() => onDeleteLine(line)}
