@@ -8,6 +8,13 @@
  *
  *   node scripts/verify-ui.mjs <url> [more urls...] --selectors "h1,#first" --widths 390,1280
  *
+ * Add `--states` to walk each selector through rest, hover, press and focus and
+ * print, for each, the **hit area** against the box that is actually **painted**
+ * inside it. That distinction is the one a resting screenshot cannot make, and
+ * it is what shipped a 42px tinted square around a 14px ⓘ: the target was right,
+ * the paint filled all of it. Anything with a hover, press or focus treatment
+ * gets run through this before it is handed over.
+ *
  * Prints the bounding box of each selector, per URL, per viewport, and writes a
  * screenshot for each. Chromium ships with the container; playwright is not a
  * project dependency, so install it out of tree and point NODE_PATH at it:
@@ -28,6 +35,8 @@ const urls = args.filter((arg, index) => !arg.startsWith("--") && !args[index - 
 const selectors = flag("selectors", "h1").split(",").map((value) => value.trim());
 const widths = flag("widths", "390,1280").split(",").map(Number);
 const shots = flag("shots", "./ui-shots");
+/** Walk each selector through rest / hover / press / focus and measure what is painted. */
+const states = args.includes("--states");
 
 if (!urls.length) {
   console.error("Give at least one URL.");
@@ -70,6 +79,53 @@ for (const width of widths) {
         box.missing ? "MISSING" : `top ${box.top}  left ${box.left}  ${box.width}x${box.height}`
       )
     );
+
+    if (states) {
+      for (const selector of selectors) {
+        if (!(await page.locator(selector).count())) continue;
+        console.log(`   states of ${selector}`);
+        for (const state of ["rest", "hover", "press", "focus"]) {
+          if (state === "hover") await page.hover(selector).catch(() => {});
+          if (state === "press") {
+            const box = await page.locator(selector).boundingBox();
+            if (box) {
+              await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+              await page.mouse.down();
+            }
+          }
+          if (state === "focus") {
+            await page.mouse.up().catch(() => {});
+            await page.mouse.move(2, 2);
+            await page.evaluate((s) => document.querySelector(s)?.focus(), selector);
+          }
+          await page.waitForTimeout(140);
+          const measured = await page.evaluate((s) => {
+            const el = document.querySelector(s);
+            if (!el) return null;
+            const hit = el.getBoundingClientRect();
+            // The first descendant (or the control itself) carrying a real
+            // background is what the eye sees; everything else is hit area.
+            const painted = [el, ...el.querySelectorAll("*")].find((node) => {
+              const bg = getComputedStyle(node).backgroundColor;
+              return bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent";
+            });
+            const box = painted?.getBoundingClientRect();
+            return {
+              hit: `${hit.width.toFixed(0)}x${hit.height.toFixed(0)}`,
+              painted: box ? `${box.width.toFixed(0)}x${box.height.toFixed(0)}` : "none",
+              ring: getComputedStyle(el).boxShadow !== "none" ? "on hit area" : "not on hit area"
+            };
+          }, selector);
+          if (measured) {
+            console.log(
+              `      ${state.padEnd(6)} hit ${measured.hit.padEnd(8)} painted ${measured.painted.padEnd(8)} ring ${measured.ring}`
+            );
+          }
+        }
+        await page.mouse.up().catch(() => {});
+        await page.evaluate(() => document.activeElement?.blur());
+      }
+    }
 
     const name = encodeURIComponent(url.replace(/^https?:\/\//, "")).slice(0, 80);
     await page.screenshot({ path: `${shots}/${width}-${name}.png` });

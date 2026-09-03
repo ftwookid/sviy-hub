@@ -1,5 +1,8 @@
 "use client";
 
+import { useRef, useState } from "react";
+import { Info } from "lucide-react";
+import { AnchoredPanel } from "@/components/ui/AnchoredPanel";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
 
@@ -48,12 +51,32 @@ export type BarRowData = {
   key: string;
   label: string;
   amount: number;
-  /** Under the label: what the figure needs to say about itself. */
-  note?: string;
-  /** Right of the amount, on its own line: the yearly run rate. */
-  secondary?: string;
-  /** Printed in the share column when the card measures shares. */
-  share?: string;
+  /**
+   * The row's working, behind a `ⓘ` on the row.
+   *
+   * These facts — what one payment is worth, how many landed, the yearly run
+   * rate, the share of income — used to print on every line, so "Federal Income
+   * Tax (Ivan)" came with "2 payments · $316.84 every 2 weeks" under it and
+   * "$8,238 a year" beside it, on each of a dozen rows: three facts competing
+   * with the one the card exists to show.
+   *
+   * What goes in here is decided by `lineDetail` in `lib/finances.ts`, against
+   * one test — does this say something the row cannot. The first version failed
+   * it by listing every payment by date, which on a line whose payments are all
+   * equal is one figure printed twice.
+   *
+   * Two attempts before this one. Joining them into a grey sentence read as an
+   * annotation *on* the row rather than an answer to it. Expanding the row in
+   * place answered properly but **moved the page**: this is a list read by
+   * scanning down a column of figures, and pushing everything below the row
+   * down by four lines costs the reader their place — for a glance that is over
+   * in a second.
+   *
+   * So it opens **over** the list, pinned to the icon, in the same
+   * `AnchoredPanel` the pickers use. Nothing reflows, nothing scrolls, and
+   * dismissing it puts the reader back exactly where they were.
+   */
+  detail?: { lines?: { label: string; value: string }[]; note?: string };
 };
 
 /**
@@ -76,6 +99,12 @@ export function BarRow({
   ink: string;
   action?: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const infoRef = useRef<HTMLButtonElement>(null);
+  const detail = row.amount > 0 ? row.detail : undefined;
+  const detailLines = detail?.lines ?? [];
+  const hasDetail = Boolean(detail && (detailLines.length > 0 || detail.note));
+
   const body = (
     <>
       <span className="min-w-0 flex-1">
@@ -89,27 +118,90 @@ export function BarRow({
             <Bar share={max > 0 ? row.amount / max : 0} ink={ink} />
           </span>
         ) : null}
-        {row.note && row.amount > 0 ? (
-          <span className="mt-0.5 block truncate text-[10.5px] leading-tight text-text-tertiary">{row.note}</span>
-        ) : null}
       </span>
-      <span className="shrink-0 text-right">
-        <span className="block text-[13px] tabular-nums text-text-primary">{formatCurrency(row.amount)}</span>
-        {row.share ? (
-          <span className="block text-[10.5px] tabular-nums leading-tight text-text-tertiary">{row.share}</span>
-        ) : null}
-        {row.secondary ? (
-          <span className="block text-[10.5px] tabular-nums leading-tight text-text-tertiary">{row.secondary}</span>
-        ) : null}
+      <span className="shrink-0 text-right text-[13px] tabular-nums text-text-primary">
+        {formatCurrency(row.amount)}
       </span>
     </>
   );
 
-  const title = `${row.label} — ${formatCurrency(row.amount)}${row.share ? ` (${row.share})` : ""}`;
+  const title = `${row.label} — ${formatCurrency(row.amount)}`;
+  const padding = "px-3.5 py-2 sm:px-4";
+  // The figure and the ⓘ centre against the **whole** row, not against the
+  // label. The name and its bar are one stacked column, so aligning to the top
+  // of it put the amount level with the name and left it sitting high over the
+  // bar — reading as though it had drifted up rather than as a column of
+  // figures down the card.
+
+  if (hasDetail) {
+    return (
+      /* The row itself stays a reading, not a control. Only the ⓘ is
+         interactive, and it grows its tap target with padding pulled back by an
+         equal negative margin, so the target is 40px and the row keeps the
+         height it had. */
+      <div className={cn("flex items-center gap-2.5", padding)} title={title}>
+        {body}
+        {/* The target is 42px and invisible; the circle inside it is what is
+            seen. Painting the hover, press and focus on the button itself lit a
+            42px square around a 14px icon — the right hit area wearing the wrong
+            geometry. */}
+        <button
+          ref={infoRef}
+          type="button"
+          aria-label={`What ${row.label} is made of`}
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="focus-ring-child group -my-2 -mr-2 shrink-0 px-2 py-2"
+        >
+          <span
+            className={cn(
+              "grid h-[26px] w-[26px] place-items-center rounded-full transition-colors duration-200 ease-out",
+              open ? "bg-subtle text-text-secondary" : "text-text-tertiary group-hover:bg-subtle"
+            )}
+          >
+            <Info size={14} strokeWidth={1.8} />
+          </span>
+        </button>
+
+        <AnchoredPanel
+          anchorRef={infoRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          width={240}
+          className="p-3"
+        >
+          <p className="mb-1.5 truncate text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+            {row.label}
+          </p>
+          {detailLines.map((line) => (
+            <div key={line.label} className="flex items-baseline justify-between gap-3 py-0.5">
+              <span className="min-w-0 truncate text-[12.5px] text-text-secondary">{line.label}</span>
+              <span className="shrink-0 text-[12.5px] tabular-nums text-text-primary">{line.value}</span>
+            </div>
+          ))}
+          {/* Under the rows the note is a footnote — the run rate, the share —
+              and it is set like one. With no rows above it the note *is* the
+              answer, and a single line of 11.5px grey under a heading reads as
+              a panel that failed to load. */}
+          {detail?.note ? (
+            <p
+              className={cn(
+                detailLines.length > 0
+                  ? "mt-1.5 border-t border-border/60 pt-1.5 text-[11.5px] text-text-tertiary"
+                  : "text-[12.5px] text-text-secondary"
+              )}
+            >
+              {detail.note}
+            </p>
+          ) : null}
+        </AnchoredPanel>
+      </div>
+    );
+  }
 
   if (!action) {
     return (
-      <div className="flex items-start gap-3 px-3.5 py-2 sm:px-4" title={title}>
+      <div className={cn("flex items-center gap-2.5", padding)} title={title}>
         {body}
       </div>
     );
@@ -120,7 +212,10 @@ export function BarRow({
       type="button"
       title={title}
       onClick={action}
-      className="focus-ring flex w-full items-start gap-3 px-3.5 py-2 text-left transition-colors duration-200 ease-out hover:bg-subtle/60 sm:px-4"
+      className={cn(
+        "focus-ring flex w-full items-center gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
+        padding
+      )}
     >
       {body}
     </button>

@@ -43,8 +43,17 @@ export function YearList({
       {/* Two columns of six on a phone, one wide column in the desktop rail.
           With real width the bar earns its own column between the month and the
           figure, which is the version that reads across; squeezed into a phone
-          it drops under the row instead of shrinking to a stub. */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-px lg:grid-cols-1">
+          it drops under the row instead of shrinking to a stub.
+
+          **Column-major on the phone.** A CSS grid fills row by row by default,
+          which put Jan and Feb side by side and ran the year left-right,
+          left-right down the card — so reading it in order meant zig-zagging,
+          and neither column was a sequence on its own. `grid-flow-col` with six
+          fixed rows fills downwards instead: Jan–Jun in the left column, Jul–Dec
+          in the right, each column a half-year you can read straight down. The
+          desktop rail is a single column, where the question never arises, so
+          both are reset at `lg`. */}
+      <div className="grid grid-flow-col grid-cols-2 grid-rows-6 gap-x-3 gap-y-px lg:grid-flow-row lg:grid-cols-1 lg:grid-rows-none">
         {months.map((month, index) => {
           const width = (Math.abs(month.leftOver) / scale) * 100;
           const short = month.leftOver < 0;

@@ -5,7 +5,7 @@ import { Fragment } from "react";
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
 import { BarRow, ChartCard, IN_INK, Meter, OUT_INK } from "@/components/finances/chart";
-import type { FinanceSection, MonthFinances } from "@/types/finance";
+import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
  * The month, read by section.
@@ -37,12 +37,37 @@ import type { FinanceSection, MonthFinances } from "@/types/finance";
  * name. No card here is titled with a phrase you have to interpret.
  */
 
-function yearly(yearAmount: number) {
-  return `${formatCurrencyRounded(yearAmount)} a year`;
+/**
+ * The run rate, or nothing.
+ *
+ * A line that has ended is worth 0 from the day after, so a month that still
+ * shows it — the one it stopped in — would otherwise footnote it "$0 a year",
+ * which is a zero pretending to be a figure rather than an answer.
+ */
+function yearly(row: FinanceRow) {
+  const amount = row.yearAmount ?? row.amount * 12;
+  return amount > 0 ? `${formatCurrencyRounded(amount)} a year` : undefined;
 }
 
 function percent(share: number) {
   return share >= 0.005 ? `${Math.round(share * 100)}%` : "under 1%";
+}
+
+/**
+ * A row's working: the facts `lineDetail` found worth stating, then the run rate.
+ *
+ * The rows come from `lib/finances.ts`, which decides what is worth saying about
+ * a line in a given month — see `lineDetail` for the test each one has to pass.
+ * This adds only what is true of the row's place on the page rather than of the
+ * line: the yearly run rate, and on `Money in` the share of the month it is.
+ *
+ * A linked figure has no schedule to describe — it is an estimate off another
+ * table — so there the hint that used to sit on the row is the whole detail.
+ */
+function detailFor(row: FinanceRow, extra?: string) {
+  const lines = row.detail?.rows ?? [];
+  const note = [lines.length === 0 ? row.hint : undefined, extra].filter(Boolean).join(" · ");
+  return { lines, note: note || undefined };
 }
 
 /**
@@ -112,12 +137,13 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
                   key: row.key,
                   label: row.label,
                   amount: row.amount,
-                  note: row.hint,
-                  // A run rate is what turns a $15 line into a decision, so it
-                  // stays on the row even now the lines are grouped again. It
-                  // comes off the line's own rate rather than this month × 12,
-                  // which would annualise a three-paycheck August at 1.5x.
-                  secondary: row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined
+                  // Behind the row's own chevron, not printed on it. A run rate
+                  // is still what turns a $15 line into a decision, and it still
+                  // comes off the line's own rate rather than this month × 12
+                  // (which would annualise a three-paycheck August at 1.5x) —
+                  // it is just no longer competing with the figure the card is
+                  // there to show, on every one of a dozen rows.
+                  detail: detailFor(row, yearly(row))
                 }}
                 max={largest}
                 ink={OUT_INK}
@@ -152,9 +178,18 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
                   key: row.key,
                   label: row.label,
                   amount: row.amount,
-                  note: row.hint,
-                  share:
-                    row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
+                  // What it earns in a year is worth the same as what a
+                  // commitment costs in one; the share is what is particular to
+                  // this card.
+                  detail: detailFor(
+                    row,
+                    [
+                      yearly(row),
+                      row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  )
                 }}
                 max={largest}
                 ink={IN_INK}

@@ -1127,9 +1127,108 @@ come to, what is it made of, how does it compare with the year:
     subscription draws a $15 bar next to rent and the cross-block comparison the
     flat list existed for survives the grouping. Per-block scaling is the
     already-rejected trap that gave a $2.10 line a full-width bar.
-  - Each line keeps its **yearly run rate** — $15 a month is a shrug and $180 a
-    year is a decision. Rounded (`formatCurrencyRounded`), because a run rate is
-    an extrapolation, not an amount anybody was charged.
+  - **A line on the month is its name, its bar and its figure — the rest is
+    behind its chevron.** Every row used to print three more facts: "2 payments ·
+    $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
+    on `Money in` a share as well. Down a dozen rows that is two lines of grey
+    between every figure, competing with the one thing the card exists to show —
+    what this costs *this month*. That took the phone view from **1249px to
+    1098px** and a detailed row from 66px to 51.
+
+    **It opens over the list, not inside it — a `ⓘ`, not a disclosure.** Two
+    attempts got here. Joining the facts into one grey sentence (`2 payments ·
+    $316.84 every 2 weeks · $8,238 a year`) read as an annotation *on* the row
+    rather than an answer to it. Expanding the row in place answered properly and
+    **moved the page**: this is a list read by scanning down a column of figures,
+    and pushing everything below the row down by four lines costs the reader
+    their place — for a glance that is over in a second. Reflow is the wrong
+    price for a peek.
+
+    So the row carries a small `ⓘ` and the detail opens in an `AnchoredPanel`,
+    the same primitive the pickers use: portalled clear of the card's
+    `overflow-hidden`, pinned under the icon, flipping above it near the bottom
+    of the screen. Measured at 390: page height is **identical open and closed**,
+    nothing scrolls, and dismissing puts the reader back exactly where they were.
+
+    ```text
+    Federal Income Tax (Ivan)     $950.52  ⓘ
+                        ┌────────────────────────────┐
+                        │ FEDERAL INCOME TAX (IVAN)  │
+                        │ Every 2 weeks      $316.84 │
+                        │ Payments     3 · usually 2 │
+                        │ Since Aug 6, 2026  was $302.30 │
+                        │ ────────────────────────── │
+                        │ $8,238 a year              │
+                        └────────────────────────────┘
+    ```
+
+    The panel names its row, because it floats away from it.
+
+    **Every row in it has to say something the month row cannot**, and the first
+    version failed that test badly enough to be worth recording: it listed every
+    payment by date. On a line whose payments are all worth the same — which is
+    almost every line, almost every month — "Sep 3 $302.30 / Sep 17 $302.30" is
+    one figure printed twice, and two lines of it made the panel look like it was
+    answering while it was padding. `lineDetail()` in `lib/finances.ts` decides
+    the contents now, and four things pass:
+
+    - **What one payment is worth**, when the month's figure is not simply it. A
+      monthly line's payment *is* the row, so it is left out; a fortnightly one's
+      is the actual paycheck, which is the figure a person recognises.
+    - **How many landed, against how many usually do.** This was missing, and it
+      is the answer to the only question a month total really raises — why is
+      this bigger than last month. `3 · usually 2` says it outright, and it is
+      stated even when the dates are listed above it, since the comparison is the
+      point and cannot be counted off them. Only Weekly and Bi-weekly have a
+      "usually" at all; every other cadence lands the same number of times in
+      every month it is due.
+    - **When the amount last moved, and what it was.** Nowhere else on the month
+      is a line's history visible, and "Since May 1, 2026 · was $10.99" is what
+      turns a subscription figure into a subscription that crept. Only across a
+      change of amount at the same cadence — monthly → fortnightly moves the unit
+      as well, so "was $2,600" would compare two different things — and never in
+      the month the change lands in, where the dated list already showed it
+      happening.
+    - **The dates**, only in that month, where the payments are worth different
+      amounts and nothing but the list says which is which.
+
+    Deliberately **not** in it: the date a line's first rate carries. For most
+    lines that is when the figure was typed into the app, not when the commitment
+    started, so "Since Dec 25, 2025" on a rent line running since 2021 would be a
+    claim the data cannot support.
+
+    A linked figure has no schedule to describe — it is an estimate off another
+    table — so there the hint that used to sit on the row is the whole detail.
+    **When the note is the only thing in the panel it is set as content**, not as
+    the 11.5px grey footnote it is under a list of rows: a single grey line under
+    a heading reads as a panel that failed to load. And a line that has ended is
+    worth 0 a year from the day after, so the run rate is dropped rather than
+    printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
+    catching itself doing.
+
+    **The figure and the `ⓘ` centre against the whole row.** The row is a flex
+    line whose first child is a stacked column — the name above its bar — so
+    aligning to its top put the amount level with the name and left it sitting
+    high over the bar, reading as though it had drifted up rather than as a
+    column of figures down the card. `items-center` costs no height (the row
+    stays 51px) and lands both within 0.5px of the row's centre at 390 and 1280.
+
+    **The row stays a reading; only the icon is a control.** Its target is 42×42,
+    bought with padding pulled back by an equal negative margin so the row keeps
+    the 51px it had — and **only the 26px circle inside that target is painted**.
+    Hover, press and focus all landed on the 42px box first time out, which lit a
+    square three times the icon's size; `.focus-ring-child` and a `group-hover`
+    on the child are what keep the treatment the size of the thing being touched.
+
+    Nothing is deleted, and the **yearly run rate is still the reason the detail
+    exists** — $15 a month is a shrug and $180 a year is a decision. It is still
+    rounded (`formatCurrencyRounded`), because a run rate is an extrapolation
+    rather than an amount anybody was charged, and still taken from the line's
+    own rate rather than this month × 12, which would annualise a three-paycheck
+    August at 1.5×. It is simply not mandatory on every row.
+
+    The icon is deliberate rather than a secretly-tappable row: a row nobody can
+    see is interactive is a row nobody taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
   - An empty block is its header row and nothing else.
@@ -1179,7 +1278,14 @@ come to, what is it made of, how does it compare with the year:
   year was squeezed into a 240px rail.
 - `YearList` keeps **a figure against every month** — a wide rail of twelve on a
   desktop (month, bar, figure in three columns), two columns of six on a phone,
-  where a middle bar column would leave the bar about 40px wide. It was briefly twelve bare columns, and
+  where a middle bar column would leave the bar about 40px wide. Those two
+  columns are **column-major**: a CSS grid fills row by row by default, which put
+  Jan beside Feb and ran the year left-right, left-right down the card, so
+  reading it in order meant zig-zagging and neither column was a sequence on its
+  own. `grid-flow-col` over six fixed rows fills downwards instead — Jan–Jun in
+  the left column, Jul–Dec in the right, each a half-year read straight down —
+  and both are reset at `lg`, where the rail is one column and the question never
+  arises. It was briefly twelve bare columns, and
   that is the mistake to not repeat: a column chart with no numbers cannot answer
   "how much", so comparing two months meant tapping one, reading the headline,
   tapping the other and holding the first in your head. Month-over-month
@@ -1286,6 +1392,12 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   `Remove`. Those two grow their hit area with padding and pull it back with an
   equal negative margin, so the target is ~40px and the row keeps the height it
   had. A control that looks like a label still has to be one to hit.
+
+  **A big target is not a big control.** Both paint only the words inside them —
+  measured, the cadence caption is a 94×47 target painting 78×23, and `Remove` a
+  70×47 target painting 54×23. Left on the button, the hover filled the whole
+  inflated box and a 12px caption lit up a 47px block. Same rule, same helper
+  (`.focus-ring-child`), as the month's `ⓘ`.
 - **The amount field says it is the amount.** Its caption was the cadence alone,
   so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
   and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
@@ -1460,6 +1572,34 @@ It prints the bounding box of each selector at each viewport and writes
 screenshots — so "the titles line up" is a measurement (`top 31 left 16` on every
 section) rather than an opinion, and the screenshots get read back, not just
 saved. Measure at **390px first**: this app is used on a phone.
+
+**A resting screenshot is not the check for anything interactive.** Add
+`--states` and the script walks each selector through rest, hover, press and
+focus, printing the **hit area** against the box that is actually **painted**
+inside it:
+
+```bash
+node scripts/verify-ui.mjs "http://localhost:3000/x" \
+  --selectors 'button[aria-label^="What"]' --widths 390 --states
+```
+
+```text
+rest   hit 42x42  painted none    ring not on hit area
+hover  hit 42x42  painted 26x26   ring not on hit area
+press  hit 42x42  painted 26x26   ring not on hit area
+focus  hit 42x42  painted 26x26   ring not on hit area
+```
+
+This exists because of a real miss. A small control — a 14px `ⓘ`, a 12px caption
+— needs a 40px+ target, bought with padding and pulled back with an equal
+negative margin. That is right about the thumb and says nothing about the paint:
+a `hover:bg-subtle` on the button then fills the **whole** 42px box, so the icon
+lit up a square three times its size on every press. The resting screenshot was
+read and looked fine; the pressed state was never rendered. So: the button is a
+transparent target, its one child is the thing that is seen, and
+`.focus-ring-child` puts the focus ring on the child rather than the target.
+Anything with a hover, press or focus treatment goes through `--states` before it
+is handed over.
 
 When the change is behind auth and no session is available — the remote
 container has no `.env.local`, since it is gitignored and lives on Ivan's
