@@ -533,6 +533,42 @@ line on the page.
 
 ### Clients Section
 
+**One row of navigation, and the filter is a chip.** Performance / Regular
+customers / House Sitting sat above a second segmented row of Active / Paused /
+All — two stacked segmented rows, which is the single thing the space rules say
+never to do. Measured at 390x844 it cost **108px**, 12.8% of the fold, and the
+first figure on the page did not appear until y205: a quarter of the screen
+spent before a number. It stayed stacked through **tablet** too, because the two
+rows only sat side by side at `lg`.
+
+- The status filter is not navigation — it sits on `Active` almost always — so it
+  is a **chip in the page header** (`components/clients/ClientFilterMenu.tsx`)
+  reading `Active 5 ⌄`, opening the list with counts and a tick. That header row
+  was **empty on a phone**, since `Add client` is a floating button below `sm`.
+  It opens the options rather than cycling, and the count beside each answers
+  "is there anything in Paused?" without switching to find out. It is not
+  rendered at all on House Sitting, which has stays rather than a client list.
+- The view tabs keep the row, because they are the section's real navigation and
+  hiding three destinations behind a button costs a tap on every switch.
+- **Short labels on a phone**: "Customers" and "Sitting" against the full
+  "Regular customers" and "House Sitting" from `sm`. They wrapped to two lines at
+  390px and bought the row 16px. **The icons are gone below `sm`** — beside a
+  text label an icon says nothing the word does not, and 22px of a ~103px cell
+  was enough to truncate the selected tab to "Performan…".
+- Result: **108px → 50px** on a phone, 104 → 46 on a tablet, no truncation at
+  390/430/768.
+
+**The five analytics blocks are separated by a tinted header, not a hairline.**
+Top clients, Payment mix, Weekly workload, Service mix and Client map were
+divided only by a `border-t`, with a 13px title set at the same weight as the row
+labels beneath it — so the card read as one continuous slab and nothing said
+where a block ended. They are **not** five cards: that is the first item on the
+pre-ship gate, and five borders, five shadows and ten paddings would add roughly
+140px of scroll to a page already 1566px on a phone. Instead `Section` wears the
+same header strip the Finances Setup buckets use — tinted background, 15px
+primary title — which is a boundary you cannot miss for 18px total across all
+five.
+
 - Added `/clients`.
 - Added client list with Active / Paused / All filters and counts.
 - Added client cards showing:
@@ -1391,6 +1427,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
 - `components/ClientCard.tsx`: Client card UI.
+- `components/clients/ClientFilterMenu.tsx`: Active/Paused/All as a header chip.
 - `lib/useAuthUser.ts`: Auth user and profile role loading.
 - `lib/clients.ts`: Client constants and earnings calculations.
 - `types/client.ts`: Client and pet TypeScript types.

@@ -273,14 +273,25 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-t border-border px-3.5 py-3 first:border-t-0">
-      <div className="flex items-baseline gap-3">
-        <h3 className="shrink-0 text-[13px] font-medium text-text-primary">{title}</h3>
+    <div className="border-t border-border first:border-t-0">
+      {/* A tinted strip, not a 13px line of text.
+          The five blocks were separated by a hairline and a title set at the
+          same weight as the row labels underneath it, so the whole card read as
+          one continuous slab — nothing announced where one block ended.
+
+          The fix is not five cards: that is the first item on the pre-ship gate
+          ("more than two top-level cards on a screen is a failure"), and five
+          borders, five shadows and ten paddings would add about 140px of scroll
+          to a page already 1566px on a phone. It is the pattern the Finances
+          Setup buckets already use — one container, and a header that outranks
+          its rows loudly enough to be a boundary. */}
+      <div className="flex items-baseline gap-3 bg-[#F4F2EC] px-3.5 py-2.5">
+        <h3 className="shrink-0 text-[15px] font-medium tracking-[-0.01em] text-text-primary">{title}</h3>
         {summary ? (
           <span className="min-w-0 flex-1 truncate text-right text-[12px] text-text-secondary">{summary}</span>
         ) : null}
       </div>
-      <div className="mt-2">{children}</div>
+      <div className="px-3.5 py-3">{children}</div>
     </div>
   );
 }
