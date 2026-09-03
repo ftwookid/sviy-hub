@@ -1127,9 +1127,25 @@ come to, what is it made of, how does it compare with the year:
     subscription draws a $15 bar next to rent and the cross-block comparison the
     flat list existed for survives the grouping. Per-block scaling is the
     already-rejected trap that gave a $2.10 line a full-width bar.
-  - Each line keeps its **yearly run rate** — $15 a month is a shrug and $180 a
-    year is a decision. Rounded (`formatCurrencyRounded`), because a run rate is
-    an extrapolation, not an amount anybody was charged.
+  - **A line on the month is its name, its bar and its figure — the rest is
+    behind its chevron.** Every row used to print three more facts: "2 payments ·
+    $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
+    on `Money in` a share as well. Down a dozen rows that is two lines of grey
+    between every figure, competing with the one thing the card exists to show —
+    what this costs *this month*. A row with details is a button and opens them
+    on one line: `2 payments · $316.84 every 2 weeks · $8,238 a year`. That took
+    the phone view from **1249px to 1098px** and a detailed row from 66px to 51.
+
+    Nothing is deleted, and the **yearly run rate is still the reason the detail
+    exists** — $15 a month is a shrug and $180 a year is a decision. It is still
+    rounded (`formatCurrencyRounded`), because a run rate is an extrapolation
+    rather than an amount anybody was charged, and still taken from the line's
+    own rate rather than this month × 12, which would annualise a three-paycheck
+    August at 1.5×. It is simply not mandatory on every row.
+
+    The chevron is deliberate: 13px in the column the amount already occupies, so
+    the label keeps its width. A row that is secretly tappable is a row nobody
+    taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
   - An empty block is its header row and nothing else.

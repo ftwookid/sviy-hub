@@ -112,12 +112,15 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
                   key: row.key,
                   label: row.label,
                   amount: row.amount,
-                  note: row.hint,
-                  // A run rate is what turns a $15 line into a decision, so it
-                  // stays on the row even now the lines are grouped again. It
-                  // comes off the line's own rate rather than this month × 12,
-                  // which would annualise a three-paycheck August at 1.5x.
-                  secondary: row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined
+                  // Behind the row's own chevron, not printed on it. A run rate
+                  // is still what turns a $15 line into a decision, and it still
+                  // comes off the line's own rate rather than this month × 12
+                  // (which would annualise a three-paycheck August at 1.5x) —
+                  // it is just no longer competing with the figure the card is
+                  // there to show, on every one of a dozen rows.
+                  details: [row.hint, row.amount > 0 ? yearly(row.yearAmount ?? row.amount * 12) : undefined].filter(
+                    (item): item is string => Boolean(item)
+                  )
                 }}
                 max={largest}
                 ink={OUT_INK}
@@ -152,9 +155,10 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
                   key: row.key,
                   label: row.label,
                   amount: row.amount,
-                  note: row.hint,
-                  share:
+                  details: [
+                    row.hint,
                     row.amount > 0 ? `${percent(shareOfIncome(row.amount, month.moneyIn))} of money in` : undefined
+                  ].filter((item): item is string => Boolean(item))
                 }}
                 max={largest}
                 ink={IN_INK}

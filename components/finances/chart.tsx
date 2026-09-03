@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
 
@@ -48,12 +50,19 @@ export type BarRowData = {
   key: string;
   label: string;
   amount: number;
-  /** Under the label: what the figure needs to say about itself. */
-  note?: string;
-  /** Right of the amount, on its own line: the yearly run rate. */
-  secondary?: string;
-  /** Printed in the share column when the card measures shares. */
-  share?: string;
+  /**
+   * What the figure says about itself — the payment count and cadence, the
+   * yearly run rate, the share of income. **Behind a tap, not on the row.**
+   *
+   * All three used to print on every line, so "Federal Income Tax (Ivan)" came
+   * with "2 payments · $316.84 every 2 weeks" under it and "$8,238 a year"
+   * beside it, on each of a dozen rows. That is three facts competing with the
+   * one the card exists to show — what this costs this month — and reading down
+   * a block meant skipping two lines of grey between every figure.
+   *
+   * None of it is deleted. A row with details is a button, and it opens them.
+   */
+  details?: string[];
 };
 
 /**
@@ -76,6 +85,10 @@ export function BarRow({
   ink: string;
   action?: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const details = row.amount > 0 ? (row.details ?? []) : [];
+  const expandable = !action && details.length > 0;
+
   const body = (
     <>
       <span className="min-w-0 flex-1">
@@ -89,27 +102,54 @@ export function BarRow({
             <Bar share={max > 0 ? row.amount / max : 0} ink={ink} />
           </span>
         ) : null}
-        {row.note && row.amount > 0 ? (
-          <span className="mt-0.5 block truncate text-[10.5px] leading-tight text-text-tertiary">{row.note}</span>
-        ) : null}
       </span>
-      <span className="shrink-0 text-right">
-        <span className="block text-[13px] tabular-nums text-text-primary">{formatCurrency(row.amount)}</span>
-        {row.share ? (
-          <span className="block text-[10.5px] tabular-nums leading-tight text-text-tertiary">{row.share}</span>
-        ) : null}
-        {row.secondary ? (
-          <span className="block text-[10.5px] tabular-nums leading-tight text-text-tertiary">{row.secondary}</span>
-        ) : null}
+      <span className="shrink-0 text-right text-[13px] tabular-nums text-text-primary">
+        {formatCurrency(row.amount)}
       </span>
+      {/* A small, real affordance rather than a row that is secretly tappable.
+          12px in the column the amount already occupies — the label keeps its
+          width. */}
+      {expandable ? (
+        <ChevronDown
+          size={13}
+          strokeWidth={2}
+          className={cn(
+            "mt-0.5 shrink-0 text-text-tertiary transition-transform duration-200 ease-out",
+            open && "rotate-180"
+          )}
+        />
+      ) : null}
     </>
   );
 
-  const title = `${row.label} — ${formatCurrency(row.amount)}${row.share ? ` (${row.share})` : ""}`;
+  const title = `${row.label} — ${formatCurrency(row.amount)}`;
+  const padding = "px-3.5 py-2 sm:px-4";
+
+  if (expandable) {
+    return (
+      <div>
+        <button
+          type="button"
+          title={title}
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className={cn(
+            "focus-ring flex w-full items-start gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
+            padding
+          )}
+        >
+          {body}
+        </button>
+        {open ? (
+          <p className="px-3.5 pb-2 text-[11px] leading-snug text-text-tertiary sm:px-4">{details.join(" · ")}</p>
+        ) : null}
+      </div>
+    );
+  }
 
   if (!action) {
     return (
-      <div className="flex items-start gap-3 px-3.5 py-2 sm:px-4" title={title}>
+      <div className={cn("flex items-start gap-2.5", padding)} title={title}>
         {body}
       </div>
     );
@@ -120,7 +160,10 @@ export function BarRow({
       type="button"
       title={title}
       onClick={action}
-      className="focus-ring flex w-full items-start gap-3 px-3.5 py-2 text-left transition-colors duration-200 ease-out hover:bg-subtle/60 sm:px-4"
+      className={cn(
+        "focus-ring flex w-full items-start gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
+        padding
+      )}
     >
       {body}
     </button>
