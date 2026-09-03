@@ -448,7 +448,10 @@ function lineHint(line: FinanceLine, year: number, monthIndex: number) {
     )}`;
   }
 
-  if (occurrences.length > 1) return `${occurrences.length} payments · ${each}`;
+  // The count explains the figure; the end explains why there will not be one
+  // next month. Both fit, and the cadence is the one that gives way — it is
+  // repeated on every other month of the line.
+  if (occurrences.length > 1) return `${occurrences.length} payments · ${ending ?? each}`;
   if (ending) return `${ending}${cadence === "Monthly" ? "" : ` · ${each}`}`;
   if (cadence !== "Monthly") return `Paid ${formatShortDate(occurrences[0].date)} · ${each}`;
   if (first.effective_from > start) return `From ${formatShortDate(first.effective_from)}`;

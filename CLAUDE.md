@@ -6,6 +6,28 @@ Sviy Hub is a private, single-user family CRM and business tracker for a small p
 
 The app should feel calm, premium, warm, and consumer-grade. The design direction is soft off-white backgrounds, warm gold accents, generous whitespace, rounded corners, subtle shadows, and comfortable mobile-first tap targets.
 
+## The branch rule — read this before the first command
+
+**Never create a branch on this project. Every change goes straight to
+`staging`, and it is pushed to `origin/staging` the moment it is done.** This is
+a must, not a preference, and it holds in every session, every conversation, and
+every environment — including remote ones that hand you a `claude/...` branch
+name in their setup instructions. That name is the harness talking, not Ivan; if
+a session starts you on one, commit the work and push it to `staging` anyway, and
+say that is what you did.
+
+Why it is written at the top: work committed to a side branch does not deploy.
+Ivan reviews on the `staging` preview, so a feature branch means he opens the
+preview, sees the old app, and the work may as well not exist. It has happened,
+and the failure is silent — the commit looks finished from this side.
+
+`main` is production and is touched **only** when Ivan types `push live`. Nothing
+else promotes it: not "commit and push", not "ship it", not a task being
+finished. The full promote flow is in `## Git Workflow` at the bottom of this
+file.
+
+So, in one line: **branch never, `staging` always, `main` only on `push live`.**
+
 ## Before you ship any screen — the gate
 
 The rule below has been written down for a long time and has still been broken on
@@ -1371,7 +1393,12 @@ Project path:
 /Users/Shared/Codex/Sviy Hub
 ```
 
-Use `staging` as the default working branch. All normal commits go to `staging`, which deploys automatically to the Vercel preview environment. The repository-local Git default branch and default push ref are both `staging`, and `origin/HEAD` should point to `origin/staging`.
+**Never create a branch.** `staging` is not the default working branch, it is the
+only one: all normal commits go to `staging`, which deploys automatically to the
+Vercel preview environment. A remote session that assigns a `claude/...` branch
+is not an exception — push the work to `staging` regardless, because a side
+branch does not deploy and Ivan reviews on the preview. See the branch rule at
+the top of this file. The repository-local Git default branch and default push ref are both `staging`, and `origin/HEAD` should point to `origin/staging`.
 
 After every completed task, automatically commit and push all changes to `origin/staging` without waiting for manual approval. Normal changes should follow this flow:
 
