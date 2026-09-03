@@ -131,18 +131,26 @@ export function BarRow({
          height it had. */
       <div className={cn("flex items-start gap-2.5", padding)} title={title}>
         {body}
+        {/* The target is 42px and invisible; the circle inside it is what is
+            seen. Painting the hover, press and focus on the button itself lit a
+            42px square around a 14px icon — the right hit area wearing the wrong
+            geometry. */}
         <button
           ref={infoRef}
           type="button"
           aria-label={`What ${row.label} is made of`}
           aria-expanded={open}
           onClick={() => setOpen((current) => !current)}
-          className={cn(
-            "focus-ring -my-3 -mr-2.5 shrink-0 rounded-lg px-3.5 py-3.5 transition-colors duration-200 ease-out hover:bg-subtle",
-            open ? "text-text-secondary" : "text-text-tertiary"
-          )}
+          className="focus-ring-child group -my-2 -mr-2 shrink-0 px-2 py-2"
         >
-          <Info size={14} strokeWidth={1.8} />
+          <span
+            className={cn(
+              "grid h-[26px] w-[26px] place-items-center rounded-full transition-colors duration-200 ease-out",
+              open ? "bg-subtle text-text-secondary" : "text-text-tertiary group-hover:bg-subtle"
+            )}
+          >
+            <Info size={14} strokeWidth={1.8} />
+          </span>
         </button>
 
         <AnchoredPanel

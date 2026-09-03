@@ -37,15 +37,16 @@ export function CadencePicker({
       <button
         ref={triggerRef}
         className={cn(
-          "focus-ring flex items-center transition-colors duration-200 ease-out",
+          "flex items-center",
           variant === "caption"
             // The hit area is grown with padding and pulled back with an equal
             // negative margin: the caption keeps the ~23px slot it has always
             // occupied above the amount, and the thumb gets a 39px target
             // instead. A control that looks like a label still has to be one to
-            // hit.
-            ? "-my-2.5 -ml-1.5 gap-0.5 rounded-lg px-1.5 py-3 text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary hover:bg-subtle hover:text-text-secondary"
-            : "h-11 gap-1 rounded-xl border border-border bg-subtle px-2.5 text-[13px] text-text-secondary hover:border-border-emphasis hover:text-text-primary",
+            // hit — but only the words inside are painted, or a 12px caption
+            // lights up a 39px block on every hover.
+            ? "focus-ring-child group -my-2.5 -ml-2 px-2 py-3"
+            : "focus-ring h-11 gap-1 rounded-xl border border-border bg-subtle px-2.5 text-[13px] text-text-secondary transition-colors duration-200 ease-out hover:border-border-emphasis hover:text-text-primary",
           className
         )}
         type="button"
@@ -53,8 +54,17 @@ export function CadencePicker({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="truncate">{variant === "caption" ? CADENCE_TAG[value] : value}</span>
-        <ChevronDown size={variant === "caption" ? 12 : 14} strokeWidth={2} className="shrink-0" />
+        <span
+          className={cn(
+            "flex min-w-0 items-center rounded-md transition-colors duration-200 ease-out",
+            variant === "caption"
+              ? "gap-0.5 px-1 py-0.5 text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary group-hover:bg-subtle group-hover:text-text-secondary"
+              : "gap-1"
+          )}
+        >
+          <span className="truncate">{variant === "caption" ? CADENCE_TAG[value] : value}</span>
+          <ChevronDown size={variant === "caption" ? 12 : 14} strokeWidth={2} className="shrink-0" />
+        </span>
       </button>
 
       <AnchoredPanel anchorRef={triggerRef} open={open} onClose={() => setOpen(false)} width={208} className="p-1.5">

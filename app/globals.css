@@ -99,6 +99,24 @@ button:disabled {
 }
 
 /*
+ * The same ring, on the visible part of a control rather than on its hit area.
+ *
+ * A small control — a 14px ⓘ, a 12px caption — still needs a 40px+ target, which
+ * is bought with padding and pulled back with an equal negative margin. That is
+ * right about the thumb and wrong about the paint: a hover, press or focus
+ * treatment on the button then fills the whole 42px box, so a 14px icon lit up a
+ * square three times its size. So the button is a transparent target, its one
+ * child is the thing that is seen, and the ring lands on the child.
+ */
+.focus-ring-child {
+  outline: none;
+}
+
+.focus-ring-child:focus-visible > * {
+  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.28);
+}
+
+/*
  * The same ring, for a control whose focusable element is hidden inside it —
  * a label wrapping an sr-only file input. `.focus-ring` on the label does
  * nothing there: the label never receives focus, so its :focus-visible never

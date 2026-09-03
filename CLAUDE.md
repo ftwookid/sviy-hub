@@ -1169,9 +1169,12 @@ come to, what is it made of, how does it compare with the year:
     figure has no payments to list — it is an estimate off another table — so
     there the hint that used to sit on the row is the whole detail.
 
-    **The row stays a reading; only the icon is a control.** It grows its tap
-    target to 42×42 with padding pulled back by an equal negative margin, so the
-    row keeps the 51px it had.
+    **The row stays a reading; only the icon is a control.** Its target is 42×42,
+    bought with padding pulled back by an equal negative margin so the row keeps
+    the 51px it had — and **only the 26px circle inside that target is painted**.
+    Hover, press and focus all landed on the 42px box first time out, which lit a
+    square three times the icon's size; `.focus-ring-child` and a `group-hover`
+    on the child are what keep the treatment the size of the thing being touched.
 
     Nothing is deleted, and the **yearly run rate is still the reason the detail
     exists** — $15 a month is a shrug and $180 a year is a decision. It is still
@@ -1345,6 +1348,12 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   `Remove`. Those two grow their hit area with padding and pull it back with an
   equal negative margin, so the target is ~40px and the row keeps the height it
   had. A control that looks like a label still has to be one to hit.
+
+  **A big target is not a big control.** Both paint only the words inside them —
+  measured, the cadence caption is a 94×47 target painting 78×23, and `Remove` a
+  70×47 target painting 54×23. Left on the button, the hover filled the whole
+  inflated box and a 12px caption lit up a 47px block. Same rule, same helper
+  (`.focus-ring-child`), as the month's `ⓘ`.
 - **The amount field says it is the amount.** Its caption was the cadence alone,
   so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
   and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
@@ -1519,6 +1528,34 @@ It prints the bounding box of each selector at each viewport and writes
 screenshots — so "the titles line up" is a measurement (`top 31 left 16` on every
 section) rather than an opinion, and the screenshots get read back, not just
 saved. Measure at **390px first**: this app is used on a phone.
+
+**A resting screenshot is not the check for anything interactive.** Add
+`--states` and the script walks each selector through rest, hover, press and
+focus, printing the **hit area** against the box that is actually **painted**
+inside it:
+
+```bash
+node scripts/verify-ui.mjs "http://localhost:3000/x" \
+  --selectors 'button[aria-label^="What"]' --widths 390 --states
+```
+
+```text
+rest   hit 42x42  painted none    ring not on hit area
+hover  hit 42x42  painted 26x26   ring not on hit area
+press  hit 42x42  painted 26x26   ring not on hit area
+focus  hit 42x42  painted 26x26   ring not on hit area
+```
+
+This exists because of a real miss. A small control — a 14px `ⓘ`, a 12px caption
+— needs a 40px+ target, bought with padding and pulled back with an equal
+negative margin. That is right about the thumb and says nothing about the paint:
+a `hover:bg-subtle` on the button then fills the **whole** 42px box, so the icon
+lit up a square three times its size on every press. The resting screenshot was
+read and looked fine; the pressed state was never rendered. So: the button is a
+transparent target, its one child is the thing that is seen, and
+`.focus-ring-child` puts the focus ring on the child rather than the target.
+Anything with a hover, press or focus treatment goes through `--states` before it
+is handed over.
 
 When the change is behind auth and no session is available — the remote
 container has no `.env.local`, since it is gitignored and lives on Ivan's

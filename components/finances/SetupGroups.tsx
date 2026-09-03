@@ -109,12 +109,15 @@ function EndDateField({
         action={
           <button
             // Same trick as the cadence caption: a real target inside a label
-            // line that keeps its height.
-            className="focus-ring -my-3 rounded-lg px-2 py-3 text-[12px] font-medium text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary"
+            // line that keeps its height, with only the word painted.
+            className="focus-ring-child group -my-3 -mr-2 px-2 py-3"
             type="button"
+            aria-label="Remove the end date"
             onClick={() => onChange(null)}
           >
-            Remove
+            <span className="block rounded-md px-1 py-0.5 text-[12px] font-medium text-text-tertiary transition-colors duration-200 ease-out group-hover:bg-subtle group-hover:text-text-secondary">
+              Remove
+            </span>
           </button>
         }
       />
