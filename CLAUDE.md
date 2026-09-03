@@ -1179,25 +1179,33 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   own line and the amount stretches to the end of the next one; on a desktop the
   whole row — date, cadence, amount, Save, and the sentence explaining the
   conversion — fits across in one.
-- **On a phone, one field per row and every field the full 308px.** That rule
-  above was written and then only half kept, because fields were still sharing
-  rows with *buttons*: the amount measured **140px** of 308 (the Save square and
-  "Add an end date" had the rest), the end date **260** (a ✕ beside it), and the
-  line name **208** (two icon squares). The thing that got shortened was always
-  the field, which is the part that is read and typed into. Nothing but a field
-  is on a field's row now.
+- **A field shares its row with another field, never with a button.** The
+  amount once measured **140px** of a 308px phone row (the Save square and "Add
+  an end date" had the rest) and the end date **260** (a ✕ beside it) — the part
+  that is read and typed into was always what got shortened. The fix for that is
+  not full width for everything: a date and an amount both fit a phone row, and
+  giving each its own line wasted half a row twice over. So the entry forms are a
+  **two-column grid on a phone** (`grid-cols-[1.3fr_1fr]`, ~171px and ~131px) and
+  a single flex row on a desktop: `From | Amount`, then `Until | —`. Only a name,
+  which can be long, spans both columns.
 - **Every committing action is a named button, and destructive is red at rest.**
   Save, Cancel and Delete were three identical 44px grey squares told apart by an
   icon and, for Delete, a red **hover** colour — and a phone has no hover, so on
   the screen this panel is actually used on, the button that destroys a figure
   typed months ago looked exactly like the one that closes the form.
   `ActionButton` carries the tone at rest (accent / bordered / red) and
-  `FormActions` lays the three out: on a phone the primary takes the full width
-  on its own line and the other two split the line beneath, on a desktop all
-  three sit on one row with the destructive one at the far left, where it is not
-  on the way to Save. And they say which thing they take — `Delete change`
-  against `Delete line`, because both are on screen at once while a change is
-  open.
+  `FormActions` puts the three on **one row at every width** — about 220px of a
+  308px phone row — with the destructive one at the far left, where it is not on
+  the way to Save. Named does not mean full width: stacking them cost two lines
+  of height to say the same thing. The line's own Stop and Delete stay 44px icon
+  squares on the name's row, since what was wrong with them was never their width
+  but that they looked identical; delete is red at rest now.
+
+  **Folding the actions into the field row is a tried and failed idea.** On a
+  desktop the edit row is From 260 + amount 150 + until 230, and the three
+  buttons are another 329 — 969 against 818 available, so the dates shrank to
+  141px and wrapped to two lines. The empty right side of that row when `Until`
+  is open is the lesser cost.
 - **44px is the floor for anything tappable**, including the bucket `+` (was 36)
   and the two controls that live on a label line — the cadence caption and
   `Remove`. Those two grow their hit area with padding and pull it back with an
@@ -1211,6 +1219,14 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   whatever acts on the field as a whole — clearing an optional one, mostly. Put
   beside the input instead, it eats the input's width, which is how the end date
   came to be 260px of a 308px row.
+- **No prose in this panel.** The dialog had a subtitle saying money comes in and
+  goes out; every entry row carried a sentence saying what the figure came to a
+  month on average and that each month counts the payments that land in it; the
+  edit row repeated it. None of it told whoever typed those figures anything they
+  did not know, and all of it is gone. **One sentence survives**, on the one line
+  with a fixed payday: "Saved as that week's Thursday." That is not description,
+  it is notice that the date being typed is about to be moved — which is the test
+  for whether a sentence stays: does it say something the numbers cannot.
 
 The month is read-only throughout; every typed figure is written in Setup, where a
 line opens to its whole history and takes a change as a date plus an amount. It

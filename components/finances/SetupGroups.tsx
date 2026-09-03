@@ -38,35 +38,15 @@ function parseAmount(value: string) {
 }
 
 /**
- * What a non-monthly figure comes to a month, said before it is saved.
- *
- * The conversion is the whole point of the setting, so it is shown while the
- * amount is still being typed. It says **on average**, and it has to: the month
- * itself counts the payments that actually land in it, so a fortnightly line
- * pays twice in most months and three times in two of them. An average that
- * reads as a promise about every month is exactly the misunderstanding this
- * sentence exists to prevent.
- */
-function monthlyLine(amountValue: string, cadence: PayCadence) {
-  const typed = parseAmount(amountValue);
-  if (!typed) return `Paid ${CADENCE_SUFFIX[cadence]}. Each month counts the payments that land in it.`;
-  if (cadence === "Monthly") return `${formatCurrency(typed)} a month.`;
-  return `${formatCurrency(typed)} ${CADENCE_SUFFIX[cadence]} — ${formatCurrency(
-    monthlyFromCadence(typed, cadence)
-  )} a month on average. Each month counts the payments that land in it.`;
-}
-
-/**
  * The amount field's label: what the number is, then how often it arrives.
  *
  * The cadence alone was the whole caption, so between `FROM` and `UNTIL` sat a
- * field labelled `2 WEEKS` — which says when, and never says that the box under
- * it is the amount. The word is plain text; only the cadence beside it opens
- * anything.
+ * field labelled `2 WEEKS` — which says when, and never says what the number is.
+ * The word is plain text; only the cadence beside it opens anything.
  */
 function AmountCaption({ value, onChange }: { value: PayCadence; onChange: (next: PayCadence) => void }) {
   return (
-    <span className="mb-0.5 flex min-h-[18px] items-center gap-1">
+    <span className="flex min-h-[19px] items-center gap-1">
       <span className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Amount</span>
       <span aria-hidden className="text-[12px] text-text-tertiary/60">
         ·
@@ -110,7 +90,7 @@ function EndDateField({
   if (value === null) {
     return (
       <TextButton
-        className="w-full sm:w-auto"
+        className="w-full self-center sm:w-auto"
         onClick={() => onChange(from > todayInputValue() ? from : todayInputValue())}
       >
         Add an end date
@@ -119,7 +99,7 @@ function EndDateField({
   }
 
   return (
-    <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[230px]">
+    <div className="min-w-0 sm:flex-1 sm:max-w-[230px]">
       <DateField
         label="Until"
         value={value}
@@ -254,13 +234,43 @@ function ActionButton({
   );
 }
 
+/** A square control for the two utility actions that keep a row: stop, delete. */
+function IconButton({
+  label,
+  tone = "plain",
+  onClick,
+  children
+}: {
+  label: string;
+  tone?: "plain" | "danger";
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className={cn(
+        "focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition-colors duration-200 ease-out",
+        tone === "danger"
+          ? "border-danger/30 bg-danger-soft/50 text-danger hover:bg-danger-soft"
+          : "border-border bg-surface text-text-secondary hover:bg-subtle hover:text-text-primary"
+      )}
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
 /**
- * Save, and whatever else the form offers — laid out for the screen it is on.
+ * Save, and whatever else the form offers — one row, at every width.
  *
- * On a phone the primary action takes the full width on its own line and the
- * other two split the line under it, so nothing is a 44px square guessed at by
- * its icon. On a desktop all three sit on one row, destructive at the far left
- * where it cannot be hit on the way to Save.
+ * Named rather than three identical grey squares, which is what made the button
+ * that destroys a figure indistinguishable from the one that closes the form on
+ * a screen with no hover. But named does not mean full width: "Delete Cancel
+ * Save" is about 220px of a 308px phone row, so stacking them cost two lines of
+ * height to say the same thing. Destructive sits at the far left, away from Save.
  */
 function FormActions({
   saveLabel,
@@ -268,41 +278,37 @@ function FormActions({
   onSave,
   onCancel,
   onDelete,
-  deleteLabel
+  className
 }: {
   saveLabel: string;
   saveDisabled?: boolean;
   onSave: () => void;
   onCancel?: () => void;
   onDelete?: () => void;
-  deleteLabel?: string;
+  className?: string;
 }) {
   return (
-    <div className="mt-2 space-y-1.5 sm:flex sm:items-center sm:justify-end sm:gap-2 sm:space-y-0">
+    <div className={cn("mt-2 flex items-center gap-1.5", className)}>
+      {onDelete ? (
+        <ActionButton tone="danger" onClick={onDelete} className="mr-auto">
+          <Trash2 size={15} strokeWidth={1.8} />
+          Delete
+        </ActionButton>
+      ) : null}
+      {onCancel ? (
+        <ActionButton tone="quiet" onClick={onCancel} className={onDelete ? "" : "ml-auto"}>
+          Cancel
+        </ActionButton>
+      ) : null}
       <ActionButton
         tone="primary"
         disabled={saveDisabled}
         onClick={onSave}
-        className="w-full sm:order-3 sm:w-auto"
+        className={onDelete || onCancel ? "" : "ml-auto"}
       >
         <Check size={16} strokeWidth={2} />
         {saveLabel}
       </ActionButton>
-      {onDelete || onCancel ? (
-        <div className="flex gap-1.5 sm:contents">
-          {onDelete ? (
-            <ActionButton tone="danger" onClick={onDelete} className="flex-1 sm:order-1 sm:mr-auto sm:flex-none">
-              <Trash2 size={15} strokeWidth={1.8} />
-              {deleteLabel ?? "Delete"}
-            </ActionButton>
-          ) : null}
-          {onCancel ? (
-            <ActionButton tone="quiet" onClick={onCancel} className="flex-1 sm:order-2 sm:flex-none">
-              Cancel
-            </ActionButton>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -342,25 +348,12 @@ function LineDetail({
   // save rather than only on read means the date shown in the history, the date
   // stored, and the date the month counts are all the same one.
   const payday = paydayWeekdayFor(line.label);
-  const paydayNote =
-    payday === null
-      ? null
-      : "Paid on Thursdays. A date anywhere in that week is saved as its Thursday.";
-
-  // Payments from this date on are worth the new amount; the ones before it keep
-  // the old one. That is not the same as the old wording, which said the month
-  // was "split across both amounts" — months are no longer averaged, they are a
-  // count of the payments that landed in them.
-  const changeHint = [
-    cadence === "Monthly"
-      ? "Payments from this date on use the new amount. To stop a line, give it an end date."
-      : `${monthlyLine(changeAmount, cadence)} Payments from this date on use the new amount.`,
-    // Said where the date is being picked, not afterwards in a toast: the point
-    // is that Ivan does not have to know which Thursday it was.
-    paydayNote
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // The only sentence left in this panel, and only on the one line that has a
+  // fixed payday: it is not description, it is notice that the date typed is
+  // about to be moved. Everything else that used to sit under these fields —
+  // what the figure comes to a month, that later payments use the new amount —
+  // was restating what the row above and the month behind already say.
+  const paydayNote = payday === null ? null : "Saved as that week's Thursday.";
 
   function saveChange() {
     if (!changeAmount.trim()) return;
@@ -438,8 +431,10 @@ function LineDetail({
                     one: the amount came out 140px of 308 and the end date 260,
                     because the buttons beside them were taking the width the
                     fields needed. */}
-                <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
-                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
+                {/* Two per row on a phone: a date and an amount both fit, and
+                    giving each its own line cost a wasted half-row twice over. */}
+                <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
+                  <div className="min-w-0 sm:flex-1 sm:max-w-[260px]">
                     <DateField
                       label="From"
                       value={editing.date}
@@ -447,7 +442,7 @@ function LineDetail({
                       onChange={(date) => setEditing({ ...editing, date })}
                     />
                   </div>
-                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-none sm:shrink-0">
+                  <div className="min-w-0 sm:flex-none sm:shrink-0">
                     <AmountCaption
                       value={editing.cadence}
                       onChange={(next) => setEditing({ ...editing, cadence: next })}
@@ -465,22 +460,16 @@ function LineDetail({
                     from={editing.date}
                     onChange={(end) => setEditing({ ...editing, end })}
                   />
+                  {/* Delete is only offered while a change is open — a trash
+                      icon on every history row is a mis-tap away from losing a
+                      figure somebody typed months ago — and it is the far end
+                      of the row from Save, so it is never on the way there. */}
                 </div>
-                {editing.cadence !== "Monthly" ? (
-                  <p className="mt-1.5 text-[11px] text-text-tertiary">
-                    {monthlyLine(editing.amount, editing.cadence)}
-                  </p>
-                ) : null}
-                {/* Delete is only offered while a change is open — a trash icon
-                    on every history row is a mis-tap away from losing a figure
-                    somebody typed months ago — and it is the far end of the row
-                    from Save, so it is never on the way there. */}
                 <FormActions
                   saveLabel="Save change"
                   saveDisabled={!editing.amount.trim()}
                   onSave={saveEditing}
                   onCancel={() => setEditing(null)}
-                  deleteLabel="Delete change"
                   onDelete={() => {
                     onDeleteRate(rate.id);
                     setEditing(null);
@@ -542,11 +531,11 @@ function LineDetail({
           is open, because a fourth field leaves the sentence about 130px and
           five lines tall. The wrap point is explicit rather than the browser's
           — nowrap is what keeps the sentence beside the amount it explains. */}
-      <div className={cn("flex flex-wrap items-end gap-1.5 sm:gap-2", changeEnd === null && "sm:flex-nowrap")}>
-        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-[260px]">
+      <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
+        <div className="min-w-0 sm:flex-1 sm:max-w-[260px]">
           <DateField label="From" value={changeDate} dimFutureDates={false} onChange={setChangeDate} />
         </div>
-        <div className="min-w-0 basis-full sm:basis-auto sm:flex-none sm:shrink-0">
+        <div className="min-w-0 sm:flex-none sm:shrink-0">
           <AmountCaption value={cadence} onChange={setCadence} />
           <AmountInput
             className="w-full sm:w-[150px]"
@@ -557,24 +546,20 @@ function LineDetail({
           />
         </div>
         <EndDateField value={changeEnd} from={changeDate} onChange={setChangeEnd} />
-        {/* Beside the amount it is about, on a screen with room for it — the
-            same sentence stacked underneath left the right half of an 880px row
-            empty and cost a line of height. */}
-        <p className="hidden text-[11.5px] leading-snug text-text-tertiary sm:block sm:min-w-[240px] sm:flex-1 sm:self-center sm:pl-1">
-          {changeHint}
-        </p>
       </div>
-      <p className="mt-1.5 text-[11px] text-text-tertiary sm:hidden">{changeHint}</p>
+      {paydayNote ? <p className="mt-1 text-[11px] text-text-tertiary">{paydayNote}</p> : null}
       <FormActions saveLabel="Save change" saveDisabled={!changeAmount.trim()} onSave={saveChange} />
         </>
       )}
 
-      {/* The name takes its own row on a phone. Sharing it with two icon
-          squares left the field 208px of 308, which is the wrong thing to
-          shorten: the buttons are tapped once, the name is read every time. */}
-      <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2.5 sm:flex sm:items-center sm:gap-1.5 sm:space-y-0">
+      {/* One row. The name field is what is read here, so it takes the space
+          the two buttons do not need — and what was actually wrong with these
+          buttons was never their width, it was that they looked identical.
+          Stopping keeps every month the line ran; deleting takes them, so only
+          deleting is red, at rest rather than on a hover a phone cannot do. */}
+      <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         <input
-          className="focus-ring min-h-11 w-full min-w-0 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px] sm:flex-1"
+          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px]"
           value={label}
           aria-label="Line name"
           onChange={(event) => setLabel(event.target.value)}
@@ -583,25 +568,17 @@ function LineDetail({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
-        {/* Stopping and deleting are different acts and say so: one ends the
-            commitment and keeps every month it ran, the other takes the history
-            with it. Only the second is red. */}
-        <div className="flex gap-1.5 sm:contents">
-          {latest ? (
-            <ActionButton
-              tone="quiet"
-              onClick={stopped ? resumeLine : stopLine}
-              className="flex-1 sm:order-1 sm:ml-auto sm:flex-none"
-            >
-              {stopped ? <RotateCcw size={15} strokeWidth={1.8} /> : <CircleSlash size={15} strokeWidth={1.8} />}
-              {stopped ? "Resume" : "Stop"}
-            </ActionButton>
-          ) : null}
-          <ActionButton tone="danger" onClick={onDeleteLine} className="flex-1 sm:order-2 sm:flex-none">
-            <Trash2 size={15} strokeWidth={1.8} />
-            Delete line
-          </ActionButton>
-        </div>
+        {latest ? (
+          <IconButton
+            label={stopped ? `Let ${line.label} run again` : `Stop ${line.label} from a date`}
+            onClick={stopped ? resumeLine : stopLine}
+          >
+            {stopped ? <RotateCcw size={16} strokeWidth={1.8} /> : <CircleSlash size={16} strokeWidth={1.8} />}
+          </IconButton>
+        ) : null}
+        <IconButton label={`Delete ${line.label}`} tone="danger" onClick={onDeleteLine}>
+          <Trash2 size={16} strokeWidth={1.8} />
+        </IconButton>
       </div>
     </div>
   );
@@ -722,9 +699,11 @@ export function SetupGroups({
                  with the buttons, which is the arrangement that fits 390px
                  without any field dropping below a comfortable width. */
               <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5 sm:px-4 sm:py-3">
-                <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap sm:gap-2">
+                {/* Only the name spans the row — it is the one field that can be
+                    long. The date and the amount pair up like everywhere else. */}
+                <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
                   <input
-                    className="focus-ring min-h-11 min-w-0 basis-full rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary sm:basis-auto sm:flex-1"
+                    className="focus-ring col-span-2 min-h-11 min-w-0 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary sm:col-span-1 sm:flex-1"
                     value={newLabel}
                     aria-label="New line name"
                     placeholder="Name"
@@ -735,10 +714,10 @@ export function SetupGroups({
                       if (event.key === "Escape") setAddingBucket(null);
                     }}
                   />
-                  <div className="min-w-0 basis-full sm:basis-auto sm:w-[210px]">
+                  <div className="min-w-0 sm:w-[210px]">
                     <DateField label="Starting from" value={newFrom} dimFutureDates={false} onChange={setNewFrom} />
                   </div>
-                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-none sm:shrink-0">
+                  <div className="min-w-0 sm:flex-none sm:shrink-0">
                     <AmountCaption value={newCadence} onChange={setNewCadence} />
                     <AmountInput
                       className="w-full sm:w-[150px]"
@@ -753,9 +732,6 @@ export function SetupGroups({
                       later to stop it. */}
                   <EndDateField value={newUntil} from={newFrom} onChange={setNewUntil} />
                 </div>
-                {newCadence !== "Monthly" ? (
-                  <p className="mt-1.5 text-[11px] text-text-tertiary">{monthlyLine(newAmount, newCadence)}</p>
-                ) : null}
                 <FormActions
                   saveLabel="Add line"
                   saveDisabled={!newLabel.trim()}
