@@ -932,6 +932,32 @@ Two kinds of number meet on the page and they behave differently:
     payday whatever the figure on it, so the anchor stays the line's first rate
     date and a later change only says what each payment is worth. Going monthly
     → fortnightly is a new schedule and re-anchors on the date it was given.
+  - **The rhythm is inferred, so it is printed.** `scheduleSummary()` says when a
+    line is paid — "Paid the 21st", "Paid every 2nd Thursday · next Sep 3",
+    "Paid the 15th of Feb, May, Aug, Nov" — at the top of the line in Setup,
+    where changes are typed. It has to be said out loud because the date on a
+    line's earliest change does **two** jobs: it records when the amount changed,
+    and it fixes which day of the cycle every payment lands on. Nothing said the
+    second one, so entering a change dated *before* the first one silently
+    re-timed the whole line — Rent moving off the 21st onto the 15th, or, on a
+    fortnightly line, every payday in the year shifting by up to 13 days and the
+    two months carrying a third paycheck moving with them.
+
+    The arithmetic was never wrong about this: a line whose history starts in
+    March really has been paid on the 15th since March, and the app is computing
+    on better information than it had before. It was *silent*, which on this page
+    is close enough to wrong — a year of months quietly restating themselves is
+    exactly what "did the family come out ahead" cannot survive. Phase is only
+    spelled out where a cadence can land on different days, so the fortnight
+    names its next date and a monthly line just names its day.
+
+    Still **not** done, and worth doing the day a quarterly bill or a backfill of
+    2025 appears: giving the line an explicit anchor column, so the payday is
+    edited directly rather than inferred from an amount's date. That is the
+    structurally correct fix — two facts, two fields — and it is a migration plus
+    a field in a panel that was just stripped down, for a failure the current
+    data cannot reach (every line is anchored 25 Dec 2025 or Sept 2021, and there
+    are no quarterly or annual lines).
   - **The mid-month blend is gone.** `amountForMonth()` used to walk the days and
     average a raise across the month, which is truthful about something that
     accrues daily and wrong about a paycheck — a paycheck is paid at the old
@@ -1168,11 +1194,24 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
 - **No blurb under the name** — "Before anything is taken out" under Gross income
   tells whoever typed those figures nothing they did not know, and six of them
   cost about 96px on a phone for nothing.
-- **Three columns where there is width**: label, when it last changed, the
-  figure. Stacking the "Since Dec 21" under the name left 400px of nothing down
-  the middle of the dialog and made every row two lines tall for a fact that
-  fits on one. The history rows read the same way — date, the typed figure with
-  its cadence, the monthly figure — so each column runs down a straight edge.
+- **A line in the list is its name and its figure. Nothing else.** It carried a
+  third column too — "Since Aug 20 · 2 changes", "Ends Sep 30" — and that is the
+  history restated above itself, on every row of a list that is read to find a
+  name. Everything it said is in the expansion already: `scheduleSummary()` names
+  the rhythm and the dated rows name every change, in full, with the amounts.
+  Dropping it took the mobile row from **57px to 38px** — about 190px off a
+  ten-line list — and handed its 220px column to the label, which had been
+  truncating "OR Statewide Transit Tax (Ivan)" and now runs to 631px on a
+  desktop without cutting anything.
+
+  Two things it said that the dated rows do not, so both moved rather than
+  vanished: a change dated in the future is tagged **`Upcoming`** on its history
+  row, and a line with no rate yet reads **`—`** rather than `$0.00`, which is
+  the zero-pretending-to-be-a-figure the old "No amount set" was guarding
+  against.
+
+  The history rows still read in three columns — date, the typed figure with its
+  cadence, the monthly figure — so each runs down a straight edge.
 - **A field never shares a line it cannot fit on.** The date trigger needs about
   150px for "September 20, 2026"; sharing a 308px phone row with the amount and
   Save left it 93px and it wrapped to two lines. So on a phone the date takes its
