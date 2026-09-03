@@ -1206,6 +1206,13 @@ come to, what is it made of, how does it compare with the year:
     printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
     catching itself doing.
 
+    **The figure and the `ⓘ` centre against the whole row.** The row is a flex
+    line whose first child is a stacked column — the name above its bar — so
+    aligning to its top put the amount level with the name and left it sitting
+    high over the bar, reading as though it had drifted up rather than as a
+    column of figures down the card. `items-center` costs no height (the row
+    stays 51px) and lands both within 0.5px of the row's centre at 390 and 1280.
+
     **The row stays a reading; only the icon is a control.** Its target is 42×42,
     bought with padding pulled back by an equal negative margin so the row keeps
     the 51px it had — and **only the 26px circle inside that target is painted**.

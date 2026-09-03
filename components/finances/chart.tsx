@@ -127,6 +127,11 @@ export function BarRow({
 
   const title = `${row.label} — ${formatCurrency(row.amount)}`;
   const padding = "px-3.5 py-2 sm:px-4";
+  // The figure and the ⓘ centre against the **whole** row, not against the
+  // label. The name and its bar are one stacked column, so aligning to the top
+  // of it put the amount level with the name and left it sitting high over the
+  // bar — reading as though it had drifted up rather than as a column of
+  // figures down the card.
 
   if (hasDetail) {
     return (
@@ -134,7 +139,7 @@ export function BarRow({
          interactive, and it grows its tap target with padding pulled back by an
          equal negative margin, so the target is 40px and the row keeps the
          height it had. */
-      <div className={cn("flex items-start gap-2.5", padding)} title={title}>
+      <div className={cn("flex items-center gap-2.5", padding)} title={title}>
         {body}
         {/* The target is 42px and invisible; the circle inside it is what is
             seen. Painting the hover, press and focus on the button itself lit a
@@ -196,7 +201,7 @@ export function BarRow({
 
   if (!action) {
     return (
-      <div className={cn("flex items-start gap-2.5", padding)} title={title}>
+      <div className={cn("flex items-center gap-2.5", padding)} title={title}>
         {body}
       </div>
     );
@@ -208,7 +213,7 @@ export function BarRow({
       title={title}
       onClick={action}
       className={cn(
-        "focus-ring flex w-full items-start gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
+        "focus-ring flex w-full items-center gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
         padding
       )}
     >
