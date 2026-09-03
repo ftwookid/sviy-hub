@@ -1194,11 +1194,24 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
 - **No blurb under the name** — "Before anything is taken out" under Gross income
   tells whoever typed those figures nothing they did not know, and six of them
   cost about 96px on a phone for nothing.
-- **Three columns where there is width**: label, when it last changed, the
-  figure. Stacking the "Since Dec 21" under the name left 400px of nothing down
-  the middle of the dialog and made every row two lines tall for a fact that
-  fits on one. The history rows read the same way — date, the typed figure with
-  its cadence, the monthly figure — so each column runs down a straight edge.
+- **A line in the list is its name and its figure. Nothing else.** It carried a
+  third column too — "Since Aug 20 · 2 changes", "Ends Sep 30" — and that is the
+  history restated above itself, on every row of a list that is read to find a
+  name. Everything it said is in the expansion already: `scheduleSummary()` names
+  the rhythm and the dated rows name every change, in full, with the amounts.
+  Dropping it took the mobile row from **57px to 38px** — about 190px off a
+  ten-line list — and handed its 220px column to the label, which had been
+  truncating "OR Statewide Transit Tax (Ivan)" and now runs to 631px on a
+  desktop without cutting anything.
+
+  Two things it said that the dated rows do not, so both moved rather than
+  vanished: a change dated in the future is tagged **`Upcoming`** on its history
+  row, and a line with no rate yet reads **`—`** rather than `$0.00`, which is
+  the zero-pretending-to-be-a-figure the old "No amount set" was guarding
+  against.
+
+  The history rows still read in three columns — date, the typed figure with its
+  cadence, the monthly figure — so each runs down a straight edge.
 - **A field never shares a line it cannot fit on.** The date trigger needs about
   150px for "September 20, 2026"; sharing a 308px phone row with the amount and
   Save left it 93px and it wrapped to two lines. So on a phone the date takes its

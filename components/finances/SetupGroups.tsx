@@ -17,7 +17,7 @@ import {
   scheduleSummary,
   snapToPayday
 } from "@/lib/finances";
-import { formatCurrency, formatShortDate, parseLocalDate, todayInputValue } from "@/lib/formatters";
+import { formatCurrency, parseLocalDate, todayInputValue } from "@/lib/formatters";
 import type { FinanceBucket, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
 
 /**
@@ -501,6 +501,13 @@ function LineDetail({
                   <span className="block truncate">
                     From {longDate(rate.effective_from)}
                     {rate.effective_to ? ` → ${longDate(rate.effective_to)}` : ""}
+                    {/* The one thing the row's old subtitle said that the dates
+                        alone do not: this change has not happened yet. */}
+                    {rate.effective_from > todayInputValue() ? (
+                      <span className="ml-1.5 rounded-md bg-accent-soft px-1.5 py-0.5 text-[10.5px] font-medium text-text-secondary">
+                        Upcoming
+                      </span>
+                    ) : null}
                   </span>
                   {/* Only where it says something: a monthly line's typed figure
                       and its monthly figure are the same number. Under the date
@@ -758,23 +765,6 @@ export function SetupGroups({
             <div className="divide-y divide-border/60">
               {bucketLines.map((line) => {
                 const open = openLineId === line.id;
-                const latest = line.rates[line.rates.length - 1];
-                const pending = latest && latest.effective_from > todayInputValue();
-                const stopped = endedOn(line.rates);
-                // What the line's last change was, said once and placed twice.
-                // An end date outranks the rest of it: "since December" is not
-                // the fact worth carrying about something that has stopped.
-                const meta =
-                  line.rates.length === 0
-                    ? "No amount set"
-                    : stopped
-                      ? `${stopped < todayInputValue() ? "Ended" : "Ends"} ${formatShortDate(stopped)}`
-                      : pending
-                        ? `→ ${formatCurrency(latest.monthly_amount)} on ${formatShortDate(latest.effective_from)}`
-                        : `Since ${formatShortDate(latest.effective_from)}${
-                            line.rates.length > 1 ? ` · ${line.rates.length} changes` : ""
-                          }`;
-
                 return (
                   <div key={line.id}>
                     <button
@@ -786,23 +776,29 @@ export function SetupGroups({
                         setAddingBucket(null);
                       }}
                     >
-                      {/* Label, then when it last changed, then the figure —
-                          three columns once there is room for three. Stacking
-                          the "Since Dec 21" under the name left 400px of nothing
-                          down the middle of an 880px dialog, and made every row
-                          two lines tall for a fact that fits on one. */}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] text-text-secondary sm:text-[15px]">
-                          {line.label}
-                        </span>
-                        <span className="block truncate text-[11.5px] text-text-tertiary sm:hidden">{meta}</span>
-                      </span>
-                      <span className="hidden shrink-0 truncate text-right text-[12.5px] text-text-tertiary sm:block sm:w-[220px]">
-                        {meta}
+                      {/* The name and the figure, and nothing else. This row
+                          also carried "Since Aug 20 · 2 changes" — which is the
+                          history list, restated above itself, on every line of a
+                          list that is read to find a name. Everything it said is
+                          in the expansion already: the schedule line names the
+                          rhythm and the dated rows name every change. Dropping
+                          it also hands its 220px column back to the label, which
+                          was truncating "OR Statewide Transit Tax (Ivan)". */}
+                      <span className="min-w-0 flex-1 truncate text-[14px] text-text-secondary sm:text-[15px]">
+                        {line.label}
                       </span>
                       <span className="shrink-0 text-right text-[14px] tabular-nums text-text-primary sm:w-[120px] sm:text-[15px]">
-                        {formatCurrency(currentAmount(line.rates))}
-                        {line.rates.length > 0 ? <AverageTag cadence={currentCadence(line.rates)} /> : null}
+                        {/* A line with no rate yet is not worth $0.00 — that is a
+                            zero pretending to be a figure, which is what the
+                            "No amount set" in the old subtitle was guarding. */}
+                        {line.rates.length === 0 ? (
+                          <span className="text-text-tertiary">—</span>
+                        ) : (
+                          <>
+                            {formatCurrency(currentAmount(line.rates))}
+                            <AverageTag cadence={currentCadence(line.rates)} />
+                          </>
+                        )}
                       </span>
                       <ChevronDown
                         size={15}
