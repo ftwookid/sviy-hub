@@ -1231,7 +1231,14 @@ come to, what is it made of, how does it compare with the year:
   year was squeezed into a 240px rail.
 - `YearList` keeps **a figure against every month** — a wide rail of twelve on a
   desktop (month, bar, figure in three columns), two columns of six on a phone,
-  where a middle bar column would leave the bar about 40px wide. It was briefly twelve bare columns, and
+  where a middle bar column would leave the bar about 40px wide. Those two
+  columns are **column-major**: a CSS grid fills row by row by default, which put
+  Jan beside Feb and ran the year left-right, left-right down the card, so
+  reading it in order meant zig-zagging and neither column was a sequence on its
+  own. `grid-flow-col` over six fixed rows fills downwards instead — Jan–Jun in
+  the left column, Jul–Dec in the right, each a half-year read straight down —
+  and both are reset at `lg`, where the rail is one column and the question never
+  arises. It was briefly twelve bare columns, and
   that is the mistake to not repeat: a column chart with no numbers cannot answer
   "how much", so comparing two months meant tapping one, reading the headline,
   tapping the other and holding the first in your head. Month-over-month
