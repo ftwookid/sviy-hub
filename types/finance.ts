@@ -129,8 +129,15 @@ export type FinanceDetailRow = { label: string; value: string };
  */
 export type FinanceDetail = { rows: FinanceDetailRow[] };
 
-/** Where a figure on the page came from. Shown on the row, because a linked number is not editable. */
-export type FinanceRowSource = "Manual" | "Clients" | "House Sitting";
+/**
+ * Where a figure on the page came from. Shown on the row, because a linked number
+ * is not editable here.
+ *
+ * `Utilities` is linked like the other two: the amount lives in `utility_bills`,
+ * which is the only place it can be corrected, because that table is also where
+ * its history — the whole point of tracking a water bill — is kept.
+ */
+export type FinanceRowSource = "Manual" | "Clients" | "House Sitting" | "Utilities";
 
 export type FinanceRow = {
   key: string;

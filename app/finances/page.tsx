@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, Droplets, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
@@ -9,6 +9,7 @@ import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { MoneyIn, MoneyOut } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
 import { SetupSheet } from "@/components/finances/SetupSheet";
+import { UtilitiesSheet } from "@/components/finances/UtilitiesSheet";
 import { YearList } from "@/components/finances/YearList";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
@@ -23,12 +24,22 @@ import {
   setFinanceRate,
   updateFinanceRate
 } from "@/lib/financeClient";
+import { utilityBook } from "@/lib/utilities";
+import {
+  addUtilityAccount,
+  deleteUtilityAccount,
+  deleteUtilityBill,
+  loadUtilities,
+  setUtilityBill,
+  updateUtilityAccount
+} from "@/lib/utilityClient";
 import { parseLocalDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
 import type { FinanceBucket, FinanceLine } from "@/types/finance";
+import type { UtilityAccount, UtilityBill, UtilityBucket } from "@/types/utility";
 
 /**
  * Finances — the household month.
@@ -59,11 +70,18 @@ export default function FinancesPage() {
   const { user, authLoading } = useAuthUser();
   const [periodMonth, setPeriodMonth] = useState(() => currentPeriodMonth());
   const [lines, setLines] = useState<FinanceLine[]>([]);
-  const [notice, setNotice] = useState("");
+  const [accounts, setAccounts] = useState<UtilityAccount[]>([]);
+  const [bills, setBills] = useState<UtilityBill[]>([]);
+  // Two notices, kept apart. Either half of the page can be waiting on a
+  // migration the other does not need, and a save on one side must not wipe the
+  // other side's warning off the screen.
+  const [lineNotice, setLineNotice] = useState("");
+  const [utilityNotice, setUtilityNotice] = useState("");
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [utilitiesOpen, setUtilitiesOpen] = useState(false);
   const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
@@ -81,6 +99,27 @@ export default function FinancesPage() {
     } catch (error) {
       setLines([]);
       return error instanceof Error ? error.message : "Could not load your figures";
+    }
+  }, []);
+
+  /**
+   * The metered bills, every one of them, not just this year's.
+   *
+   * A utility is read against its own past — last month, the same month a year
+   * ago, the twelve-month average — so a year-scoped query would make January's
+   * comparison figures vanish. There is one row per account per month, so the
+   * whole history is a few hundred rows at worst.
+   */
+  const refreshUtilities = useCallback(async () => {
+    try {
+      const { accounts: nextAccounts, bills: nextBills, setupNeeded, setupMessage } = await loadUtilities();
+      setAccounts(nextAccounts);
+      setBills(nextBills);
+      return setupNeeded ? setupMessage : "";
+    } catch (error) {
+      setAccounts([]);
+      setBills([]);
+      return error instanceof Error ? error.message : "Could not load your utilities";
     }
   }, []);
 
@@ -112,13 +151,18 @@ export default function FinancesPage() {
         status: booking.status === "Cancelled" ? "Cancelled" : "Planned"
       }))
     );
-    setNotice(await refreshLines());
+    const [nextLineNotice, nextUtilityNotice] = await Promise.all([refreshLines(), refreshUtilities()]);
+    setLineNotice(nextLineNotice);
+    setUtilityNotice(nextUtilityNotice);
     setLoading(false);
-  }, [refreshLines, user, year]);
+  }, [refreshLines, refreshUtilities, user, year]);
 
   useEffect(() => {
     loadYear();
   }, [loadYear]);
+
+  // Grouped once, not once per month per bucket.
+  const book = useMemo(() => utilityBook(accounts, bills), [accounts, bills]);
 
   const months = useMemo(
     () =>
@@ -126,12 +170,16 @@ export default function FinancesPage() {
         year,
         lines,
         clientIncome: clientMonthlyIncome(clients),
-        houseSitting: houseSittingByMonth(bookings, year)
+        houseSitting: houseSittingByMonth(bookings, year),
+        utilities: book
       }),
-    [bookings, clients, lines, year]
+    [book, bookings, clients, lines, year]
   );
 
   const month = months[monthIndex];
+  // One box, not two stacked above the month: they are both "run this migration",
+  // and a second warning costs more height than the sentence is worth.
+  const notice = [lineNotice, utilityNotice].filter(Boolean).join(" ");
 
   function showToast(message: string) {
     setToast(message);
@@ -143,7 +191,17 @@ export default function FinancesPage() {
   async function runLineChange(action: () => Promise<void>, message: string) {
     try {
       await action();
-      setNotice(await refreshLines());
+      setLineNotice(await refreshLines());
+      showToast(message);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save that");
+    }
+  }
+
+  async function runUtilityChange(action: () => Promise<void>, message: string) {
+    try {
+      await action();
+      setUtilityNotice(await refreshUtilities());
       showToast(message);
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Could not save that");
@@ -157,17 +215,33 @@ export default function FinancesPage() {
     <AppShell user={user}>
       {/* Setup is visited a few times a year, so it is a control on a row that
           already exists rather than a tab holding half the width on every visit. */}
+      {/* Two panels, two chips, and no permanent row spent on either. Utilities
+          is the one that is opened often — a bill a week arrives — so it keeps
+          its word at every width; Setup is visited a few times a year and gives
+          its label up on a phone, where the two together would not fit beside a
+          30px title. */}
       <PageHeader
         title="Finances"
         action={
-          <button
-            type="button"
-            onClick={() => setSetupOpen(true)}
-            className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
-          >
-            <SlidersHorizontal size={16} strokeWidth={1.8} />
-            Setup
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setUtilitiesOpen(true)}
+              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
+            >
+              <Droplets size={16} strokeWidth={1.8} />
+              Utilities
+            </button>
+            <button
+              type="button"
+              aria-label="Setup"
+              onClick={() => setSetupOpen(true)}
+              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border sm:px-3.5"
+            >
+              <SlidersHorizontal size={16} strokeWidth={1.8} />
+              <span className="hidden sm:inline">Setup</span>
+            </button>
+          </div>
         }
       />
       <div className="space-y-3">
@@ -278,6 +352,38 @@ export default function FinancesPage() {
           }
           onDeleteRate={(rateId) => runLineChange(() => deleteFinanceRate(rateId), "Change removed")}
           onDeleteLine={(lineId) => runLineChange(() => deleteFinanceLine(lineId), "Line deleted")}
+        />
+      ) : null}
+
+      {utilitiesOpen ? (
+        <UtilitiesSheet
+          book={book}
+          periodMonth={periodMonth}
+          notice={utilityNotice}
+          onClose={() => setUtilitiesOpen(false)}
+          onAddAccount={({ name, bucket }) =>
+            runUtilityChange(
+              () => addUtilityAccount({ userId: user.id, name, bucket, existingCount: accounts.length }),
+              `${name} added`
+            )
+          }
+          onRename={(accountId, name) =>
+            runUtilityChange(() => updateUtilityAccount(accountId, { name }), "Renamed")
+          }
+          onSetBucket={(accountId, bucket: UtilityBucket) =>
+            runUtilityChange(
+              () => updateUtilityAccount(accountId, { bucket }),
+              `Counted in ${bucket}`
+            )
+          }
+          onDeleteAccount={(accountId) => runUtilityChange(() => deleteUtilityAccount(accountId), "Deleted")}
+          onSetBill={(accountId, billPeriodMonth, amount) =>
+            runUtilityChange(
+              () => setUtilityBill({ userId: user.id, accountId, periodMonth: billPeriodMonth, amount }),
+              "Bill saved"
+            )
+          }
+          onDeleteBill={(billId) => runUtilityChange(() => deleteUtilityBill(billId), "Bill removed")}
         />
       ) : null}
 

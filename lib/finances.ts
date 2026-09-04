@@ -1,5 +1,6 @@
 import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
+import type { UtilityBook } from "@/types/utility";
 import type {
   FinanceBucket,
   FinanceDetail,
@@ -14,6 +15,7 @@ import type {
   MonthFinances
 } from "@/types/finance";
 import { estimateClientMonthlyNet } from "@/lib/clients";
+import { utilityRowsForBucket } from "@/lib/utilities";
 import { addDays, activeBookings, estimateHouseSitting, nightsBetween } from "@/lib/houseSitting";
 import {
   formatCurrency,
@@ -722,11 +724,27 @@ export type MonthInputs = {
   lines: FinanceLine[];
   clientIncome: number;
   houseSitting: { net: number[]; nights: number[] };
+  /**
+   * The metered commitments, grouped by account.
+   *
+   * A separate input rather than more `FinanceLine`s because a utility is not a
+   * schedule: its amount changes every month and its history is the reason it is
+   * recorded at all. It still lands in an ordinary bucket — its own — so the
+   * month reads the same whether a row was typed once or billed twelve times.
+   */
+  utilities?: UtilityBook;
 };
 
 export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinances {
   const { lines, clientIncome, houseSitting, year } = inputs;
+  const utilities = inputs.utilities ?? [];
   const nights = houseSitting.nights[monthIndex] ?? 0;
+
+  /** A bucket's typed lines and its metered ones, in one list. */
+  const outRows = (bucket: FinanceBucket) => [
+    ...manualRows(lines, bucket, year, monthIndex),
+    ...utilityRowsForBucket(utilities, bucket, year, monthIndex)
+  ];
 
   const income = sectionOf("Gross Income", "in", [
     ...manualRows(lines, "Gross Income", year, monthIndex),
@@ -754,12 +772,12 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
   // to record the money that actually leaves the paycheck.
   const sections = [
     income,
-    sectionOf("Tax Withheld", "out", manualRows(lines, "Tax Withheld", year, monthIndex)),
-    sectionOf("Deductions", "out", manualRows(lines, "Deductions", year, monthIndex)),
-    sectionOf("Needs", "out", manualRows(lines, "Needs", year, monthIndex)),
-    sectionOf("Subscriptions", "out", manualRows(lines, "Subscriptions", year, monthIndex)),
-    sectionOf("Debt", "out", manualRows(lines, "Debt", year, monthIndex)),
-    sectionOf("Investments & Savings", "out", manualRows(lines, "Investments & Savings", year, monthIndex))
+    sectionOf("Tax Withheld", "out", outRows("Tax Withheld")),
+    sectionOf("Deductions", "out", outRows("Deductions")),
+    sectionOf("Needs", "out", outRows("Needs")),
+    sectionOf("Subscriptions", "out", outRows("Subscriptions")),
+    sectionOf("Debt", "out", outRows("Debt")),
+    sectionOf("Investments & Savings", "out", outRows("Investments & Savings"))
   ];
 
   const moneyIn = sections

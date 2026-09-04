@@ -36,7 +36,7 @@ export const IN_INK = "#4A8C6F";
 const TRACK = "#EDEAE3";
 
 /** A bar, grown from the left baseline. Never wider than its track. */
-function Bar({ share, ink }: { share: number; ink: string }) {
+export function Bar({ share, ink }: { share: number; ink: string }) {
   return (
     <span className="block h-2.5 w-full overflow-hidden rounded-[3px]" style={{ background: TRACK }}>
       <span

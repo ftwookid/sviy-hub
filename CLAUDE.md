@@ -941,7 +941,7 @@ deduction appears on Finances at all. Business spending is not subtracted here
 either, so a month with business purchases reads higher than the bank does; the
 figure has one home, and it is Reports.
 
-Two kinds of number meet on the page and they behave differently:
+Three kinds of number meet on the page and they behave differently:
 
 - **Standing figures** are typed once and carry forward. Each line owns a **dated
   schedule** (`finance_line_rates`), not a single amount: one row per change,
@@ -1068,6 +1068,68 @@ Two kinds of number meet on the page and they behave differently:
   not editable here. Regular clients, house sitting, business spending and miles
   each have one home; a second, editable copy on this page would be a figure that
   silently goes stale.
+- **Metered bills** — the utilities — are the third, and they are the reason
+  there is a third. See below.
+
+#### Utilities — the bill that is never the same twice
+
+Water, power and gas are exactly what this page is for: a commitment that
+arrives whether anybody thinks about it or not. But they do not fit a standing
+figure, and forcing them into one was never going to work. Rent is $2,395 from a
+date and stays $2,395 until somebody types a change; a water bill moves every
+single month, so recording it as a schedule means entering twelve dated
+"changes" a year — and even then the page could not answer the one question
+these bills actually raise, which is **whether it is creeping up**.
+
+So a utility is its own pair of tables (`supabase/utilities-schema.sql`). An
+**account** is the thing you pay — a name, and which bucket of the month it lands
+in. A **bill** is one month's actual amount, keyed `(account_id, period_month)`,
+so entering a month twice corrects it rather than doubling the month.
+
+- **The bucket is a column, not a constant.** `Needs` by default, because that is
+  what a utility is, and out-buckets only — a water bill is not gross income, and
+  offering a choice that cannot be right is worse than offering none. A metered
+  line somebody thinks of as a subscription can be filed where its owner looks
+  for it. It is set from `Counted in Needs ⌄` at the top of the opened row: the
+  caption slot, so a setting made once per account costs no height, and it shows
+  the whole list with a tick rather than cycling.
+- **A month with no bill yet carries the average of the last three, and says
+  so.** This is the one real decision in the arithmetic. Zero would be the
+  honest-looking answer and the wrong one: the water bill is certainly coming, and
+  a month that omits it understates what is already promised by exactly the amount
+  this section exists to track. The row wears a small `est`, and its `ⓘ` leads with
+  "Estimated · avg of last 3 bills". Before the **first** bill there is nothing to
+  average, so the account is worth nothing and reads `—` — a guess with no data
+  behind it is the zero-pretending-to-be-a-figure this page keeps catching.
+- **The run rate is the twelve-month average × 12, never this month × 12.** A
+  January heating bill annualised is a number nobody will ever pay.
+- **The rows are the chart, and the chart is the form.** There is no separate
+  entry field: twelve months, oldest at the top, each a label, a bar and a figure
+  — and tapping one turns that month's row into its own amount field with Save,
+  Cancel and, when a bill is already there, Delete. That is the same rule the
+  Setup panel arrived at the hard way: one form, in the place the figure is read,
+  so there are never two identical forms on a card to type a bill into the wrong
+  one of. It also means the month is never ambiguous — it is the row you tapped.
+  The rows are 44px, because they are the control as well as the reading.
+- **Three figures above the chart**: twelve-month average, the twelve before it,
+  and the change between them as a signed percentage. That is the answer to "is
+  it going up", stated as figures. **No prose verdict**, same as Mileage and the
+  rest of Finances — nothing says what to do about it, and neither window claims
+  a direction off fewer than three bills.
+- **Bars run from zero.** On a bill that moves between $101 and $131 they all
+  look similar, which is true — the trend is in the percentage above and in the
+  figures beside them. Cropping the axis to make the drift look dramatic is the
+  one thing that would make this chart lie.
+- **It is a panel, not a route and not a tab** (`UtilitiesSheet`), opened from a
+  chip beside Setup — same 880px centred dialog on a desktop, whole screen on a
+  phone. Same reasoning as Setup: it is opened *while* looking at a month, so a
+  route would mean a page load and a fresh set of queries for data the month
+  behind it already holds. A bill saved here lands on the month underneath while
+  the panel is still open. On a phone the Setup chip drops its word and keeps its
+  icon; Utilities keeps its label, because a bill arrives most weeks and Setup is
+  visited a few times a year.
+- Deleting an account takes every bill ever entered against it — the history the
+  whole section exists for — so it is the one write here that asks first.
 
 Rules the arithmetic follows:
 
@@ -1483,6 +1545,12 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finance-rate-end-schema.sql`: `effective_to` — the day a rate stops.
 - `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
 - `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
+- `components/finances/UtilitiesSheet.tsx`: The metered bills, over the month.
+- `components/finances/UtilityGroups.tsx`: One utility, its months, and where its bill is typed.
+- `lib/utilities.ts`: What a utility is worth in a month, and which way it is going. Pure.
+- `lib/utilityClient.ts`: Reads and writes for the accounts and their bills.
+- `supabase/utilities-schema.sql`: `utility_accounts` and `utility_bills`.
+- `types/utility.ts`: Accounts, bills, and the buckets a utility may land in.
 - `types/finance.ts`: Buckets, lines, and the shape of an assembled month.
 - `app/page.tsx`: Expenses page.
 - `app/reports/page.tsx`: Reports — the year's deductible total, spend and mileage.
@@ -1822,6 +1890,11 @@ the Thursday 6 August paycheck, the same one it applied to before.
 month; that does not change any total (a monthly line pays once a month whatever
 the day), it only decides which side of a mid-month change a payment falls on. If
 the real rent day is the 1st, fix it by editing the first change's date in Setup.
+
+Then run `supabase/utilities-schema.sql` in Supabase. It is re-runnable and
+creates `utility_accounts` and `utility_bills`. Until it runs, Finances still
+reads every other figure and the Utilities panel still opens, but it shows a
+setup notice instead of a list and saving a bill reports the table missing.
 
 Then run `supabase/shared-access-schema.sql` in Supabase. It is re-runnable. It
 rewrites RLS on every table so both accounts see and edit the same books, and
