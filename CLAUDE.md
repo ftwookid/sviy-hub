@@ -153,6 +153,38 @@ blind toggles: tapping the person avatar opens the list of people, it does not
 silently swap to the other one. Cycling makes the reader check the screen
 afterwards to find out what happened.
 
+**A form control is never under 16px on a phone.** iOS Safari zooms the whole
+page in the moment a field takes focus whose computed font-size is under 16px,
+and it does **not** zoom back out — not on blur, not on save, not on closing the
+panel. The reader is left on a magnified page, scrolling sideways to find the
+rest of the app, until they pinch it back by hand. It surfaced on the Utilities
+`+`, where the name field autofocuses so the zoom fires without even a tap on
+the input, but every field in the app under 16px had it: Setup, the vehicle cost
+ledger, the payment-card picker, the mileage paste box. They were 13–15px
+because that suited the desktop layout, and nothing said the size had a floor.
+
+The floor is one rule in `globals.css` rather than a size on eleven class lists,
+because the twelfth would be written at 13px and nobody would notice until it
+was on a phone. Two things about it are load-bearing:
+
+- It keys on **`pointer: coarse`**, not a width. A phone in landscape is 844px
+  wide and still zooms; a narrow desktop window does not.
+- Its selectors carry **one attribute each** (`input:not([type="checkbox"], …)`),
+  which puts them at 0,1,1 — a hair above a Tailwind `text-[15px]` at 0,1,0.
+  That is what lets the floor win without `!important`.
+
+Desktop sizes are untouched: measured at 1280 the fields still read 15, 13.5 and
+13px, and at 390 and 844-landscape every one of them reads 16 with nothing
+clipped and no horizontal overflow.
+
+The one deliberate exception is Health's weigh-in field, which is 26px and would
+be *shrunk* by a flat rule on the screen it matters most on. It opts out with
+`input-display` — not a utility, just the class the floor's carve-out looks for.
+
+`maximum-scale=1` on the viewport is the other way to stop the zoom, and it is
+not a fix: it works by taking pinch-zoom away from everybody, on every screen,
+permanently.
+
 ## Tech Stack
 
 - Next.js 14 App Router
@@ -1603,6 +1635,8 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/PageHeader.tsx`: The section title every page shares.
+- `app/globals.css`: Press, focus rings, panel motion, and the 16px phone floor
+  on form controls that stops iOS zooming the page and never zooming back.
 - `scripts/verify-ui.mjs`: Renders pages in Chromium and measures them.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
