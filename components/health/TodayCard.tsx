@@ -98,7 +98,10 @@ export function TodayCard({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <input
               ref={inputRef}
-              className="focus-ring w-[124px] shrink-0 rounded-xl border border-border bg-subtle px-3 py-2 text-[26px] font-medium leading-none tracking-[-0.01em] text-text-primary placeholder:text-text-tertiary/70"
+              // `input-display` is not a utility — it is the opt-out from the 16px
+              // phone floor in globals.css, which every other field wants and this
+              // one would be shrunk by.
+              className="focus-ring input-display w-[124px] shrink-0 rounded-xl border border-border bg-subtle px-3 py-2 text-[26px] font-medium leading-none tracking-[-0.01em] text-text-primary placeholder:text-text-tertiary/70"
               type="number"
               step="0.1"
               min="0"

@@ -34,6 +34,50 @@ textarea {
   font: inherit;
 }
 
+/*
+ * A form control on a phone is never smaller than 16px.
+ *
+ * iOS Safari zooms the whole page in the moment a field takes focus whose
+ * computed font-size is under 16px — and it does not zoom back out. Not on
+ * blur, not on save, not on closing the panel: the reader is left on a
+ * magnified page, scrolling sideways to find the rest of the app, until they
+ * pinch it back by hand. It showed up on the Utilities `+`, where the name
+ * field autofocuses, so the zoom fires without even a tap on the input, but
+ * every field under 16px in the app had it — Setup, the vehicle ledger, the
+ * payment picker, the mileage paste box.
+ *
+ * The sizes were 13–15px because that is what suited the desktop layout, and
+ * nothing anywhere said the size had a floor. So the floor lives here rather
+ * than on eleven separate class lists, where the twelfth would be written at
+ * 13px and nobody would notice until it was on a phone.
+ *
+ * Two details are load-bearing. It keys on **`pointer: coarse`**, not a width:
+ * a phone in landscape is 844px wide and still zooms, and a narrow desktop
+ * window does not. And the selectors carry **one attribute each**, which puts
+ * them at 0,1,1 — a hair above a Tailwind `text-[15px]` at 0,1,0, which is
+ * what lets the floor win without `!important`.
+ *
+ * The other way to stop the zoom is `maximum-scale=1` on the viewport, and it
+ * is not a fix: it works by taking pinch-zoom away from everybody, on every
+ * screen, permanently.
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select:not([multiple]),
+  textarea:not([hidden]) {
+    font-size: 16px;
+  }
+
+  /*
+   * The one control that is deliberately bigger than the floor. The weigh-in
+   * number *is* the Health page, and the rule above would shrink it to 16px on
+   * the very screen it matters most on. Two attributes, so it outranks it.
+   */
+  input.input-display:not([hidden]) {
+    font-size: 26px;
+  }
+}
+
 button {
   cursor: pointer;
   transition-duration: 180ms;
