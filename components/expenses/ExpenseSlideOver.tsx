@@ -246,10 +246,10 @@ export function ExpenseSlideOver({
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[28px]">
+            <h2 className="text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
               {isEditing ? "Edit transaction" : "Add transaction"}
             </h2>
-            <p className="mt-1 text-[14px] text-text-secondary">
+            <p className="mt-1 text-body text-text-secondary">
               {isEditing
                 ? "Update details or attach the proof you were missing."
                 : "Log it now — you can attach the receipt later."}
@@ -318,7 +318,7 @@ export function ExpenseSlideOver({
           {/* Proof of transaction */}
           <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-[13px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+              <h3 className="text-list font-semibold uppercase tracking-[0.04em] text-text-tertiary">
                 Proof of transaction
               </h3>
               <ProofBadge state={currentProof} />
@@ -329,10 +329,10 @@ export function ExpenseSlideOver({
                 <div className="flex min-w-0 items-center gap-2">
                   <Paperclip size={15} strokeWidth={1.7} className="shrink-0 text-text-tertiary" />
                   <div className="min-w-0">
-                    <div className="truncate text-[14px] font-medium text-text-primary">
+                    <div className="truncate text-body font-medium text-text-primary">
                       {attachedReceipt.filename}
                     </div>
-                    <div className="text-[12px] text-text-tertiary">
+                    <div className="text-meta text-text-tertiary">
                       {attachedReceipt.drive_synced_at ? "Archived in Drive" : "Waiting to archive"}
                     </div>
                   </div>
@@ -365,7 +365,7 @@ export function ExpenseSlideOver({
               <>
                 <label
                   className={cn(
-                    "focus-ring-within mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[14px] text-text-secondary transition hover:bg-border",
+                    "focus-ring-within mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-body text-text-secondary transition hover:bg-border",
                     uploading && "pointer-events-none opacity-60"
                   )}
                 >
@@ -381,7 +381,7 @@ export function ExpenseSlideOver({
                   />
                 </label>
 
-                <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-[13px] text-text-secondary">
+                <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-list text-text-secondary">
                   <input
                     type="checkbox"
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[#C9A96E]"
@@ -404,7 +404,7 @@ export function ExpenseSlideOver({
               </>
             )}
 
-            {uploadNote ? <p className="mt-2 text-[12px] text-text-tertiary">{uploadNote}</p> : null}
+            {uploadNote ? <p className="mt-2 text-meta text-text-tertiary">{uploadNote}</p> : null}
           </section>
 
           <Textarea
@@ -414,7 +414,7 @@ export function ExpenseSlideOver({
             onChange={(event) => update("notes", event.target.value)}
           />
 
-          {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}
+          {formError ? <p className="text-list text-danger">{formError}</p> : null}
 
           {isEditing ? (
             <Button

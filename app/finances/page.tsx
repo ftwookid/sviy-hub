@@ -227,7 +227,7 @@ export default function FinancesPage() {
             <button
               type="button"
               onClick={() => setUtilitiesOpen(true)}
-              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
+              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
             >
               <Droplets size={16} strokeWidth={1.8} />
               Utilities
@@ -236,7 +236,7 @@ export default function FinancesPage() {
               type="button"
               aria-label="Setup"
               onClick={() => setSetupOpen(true)}
-              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border sm:px-3.5"
+              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border sm:px-3.5"
             >
               <SlidersHorizontal size={16} strokeWidth={1.8} />
               <span className="hidden sm:inline">Setup</span>
@@ -246,7 +246,7 @@ export default function FinancesPage() {
       />
       <div className="space-y-3">
         {notice ? (
-          <div className="flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-[13px] text-text-primary">
+          <div className="flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-list text-text-primary">
             <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning" />
             <span>{notice}</span>
           </div>

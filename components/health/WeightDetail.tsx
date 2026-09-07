@@ -78,14 +78,14 @@ export function WeightDetail({
           <ul className="divide-y divide-border px-3">
             {history.map((entry) => (
               <li key={entry.id} className="flex items-center gap-3 py-2">
-                <span className="w-20 shrink-0 text-[12px] text-text-tertiary">
+                <span className="w-20 shrink-0 text-meta text-text-tertiary">
                   {formatShortDate(entry.recorded_on)}
                 </span>
-                <span className="text-[15px] font-medium text-text-primary">
+                <span className="text-label font-medium text-text-primary">
                   {Number(entry.weight_lb).toFixed(1)} lb
                 </span>
                 {entry.body_fat_pct != null ? (
-                  <span className="text-[12px] text-text-secondary">{Number(entry.body_fat_pct).toFixed(1)}% fat</span>
+                  <span className="text-meta text-text-secondary">{Number(entry.body_fat_pct).toFixed(1)}% fat</span>
                 ) : null}
                 <button
                   type="button"

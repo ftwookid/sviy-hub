@@ -267,3 +267,34 @@ button:disabled {
     transform: translateX(0);
   }
 }
+
+/*
+ * Full-viewport height that means the viewport you can actually see.
+ *
+ * `100vh` on iOS Safari is the **large** viewport — the height the page gets
+ * once the address bar has retracted — not the height visible while the bar is
+ * expanded, which is what you are looking at when a page loads. On a 844pt
+ * iPhone the visible strip is about 745pt, so a shell pinned to `min-h-screen`
+ * builds a document roughly **99px taller than the window on every page, with
+ * no content in it at all**.
+ *
+ * That phantom 99px is not harmless. Finances starts its first card at y84, so
+ * scrolling by it hides the title and the Utilities/Setup buttons exactly — and
+ * because the page is genuinely scrollable, Safari records the offset and
+ * restores it on the next refresh. The reader reloads and lands on the month
+ * cards with the header gone, having never scrolled on purpose.
+ *
+ * `dvh` is the same measurement against the viewport as it currently stands, so
+ * a page with nothing in it is exactly as tall as the window and there is
+ * nothing to scroll. The `vh` line stays as the fallback for anything without
+ * `dvh` (Safari below 15.4), where the old behaviour is no worse than it was.
+ */
+.min-h-viewport {
+  min-height: 100vh;
+}
+
+@supports (min-height: 100dvh) {
+  .min-h-viewport {
+    min-height: 100dvh;
+  }
+}

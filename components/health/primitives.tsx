@@ -20,16 +20,16 @@ export function Stat({
 }) {
   return (
     <div className="min-w-0 px-3 py-2.5 first:pl-0 last:pr-0">
-      <div className="truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
+      <div className="truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
       <div
         className={cn(
-          "mt-1.5 text-[21px] font-medium leading-none tracking-[-0.01em]",
+          "mt-1.5 text-figure font-semibold leading-none tracking-[-0.01em]",
           tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
         )}
       >
         {value}
       </div>
-      {detail ? <div className="mt-1 truncate text-[12px] text-text-tertiary">{detail}</div> : null}
+      {detail ? <div className="mt-1 truncate text-meta text-text-tertiary">{detail}</div> : null}
     </div>
   );
 }
@@ -45,7 +45,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
 export function Block({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <div className="border-t border-border first:border-t-0">
-      {title ? <h2 className="px-3 pt-3 text-[13px] font-medium leading-tight text-text-primary">{title}</h2> : null}
+      {title ? <h2 className="px-3 pt-3 text-list font-semibold leading-tight text-text-primary">{title}</h2> : null}
       {children}
     </div>
   );
@@ -81,18 +81,18 @@ export function Tile({
       className="focus-ring group flex min-w-0 items-center gap-2 px-3 py-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/50"
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+        <span className="block truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
           {label}
         </span>
         <span
           className={cn(
-            "mt-1.5 block truncate text-[19px] font-medium leading-none tracking-[-0.01em]",
+            "mt-1.5 block truncate text-figure font-semibold leading-none tracking-[-0.01em]",
             tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
           )}
         >
           {value}
         </span>
-        {detail ? <span className="mt-1 block truncate text-[12px] text-text-tertiary">{detail}</span> : null}
+        {detail ? <span className="mt-1 block truncate text-meta text-text-tertiary">{detail}</span> : null}
       </span>
       {accessory}
     </button>
@@ -117,7 +117,7 @@ export function DetailHeader({ title, onBack }: { title: string; onBack: () => v
       >
         <ChevronLeft size={20} strokeWidth={1.8} />
       </button>
-      <h1 className="text-[17px] font-medium leading-tight tracking-[-0.01em] text-text-primary">{title}</h1>
+      <h1 className="text-subhead font-semibold leading-tight tracking-[-0.01em] text-text-primary">{title}</h1>
     </div>
   );
 }
@@ -145,7 +145,7 @@ export function Sheet({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-4">
-          <h2 className="text-[16px] font-medium text-text-primary">{title}</h2>
+          <h2 className="text-label font-semibold text-text-primary">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -162,7 +162,7 @@ export function Sheet({
 }
 
 export const healthField =
-  "focus-ring h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] text-text-primary placeholder:text-text-tertiary";
+  "focus-ring h-10 w-full rounded-xl border border-border bg-subtle px-3 text-label text-text-primary placeholder:text-text-tertiary";
 
 export function NumberField({
   label,
@@ -181,7 +181,7 @@ export function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</span>
+      <span className="block text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</span>
       <input
         className={cn(healthField, "mt-1")}
         type="number"
@@ -198,7 +198,7 @@ export function NumberField({
 }
 
 export function Hint({ children }: { children: ReactNode }) {
-  return <p className="px-3 py-2.5 text-[13px] text-text-secondary">{children}</p>;
+  return <p className="px-3 py-2.5 text-list text-text-secondary">{children}</p>;
 }
 
 /** A trend small enough to sit inside a row: shape only, no axis, no labels. */
@@ -305,7 +305,7 @@ export function TrendChart({
         />
         <circle cx={last.x} cy={last.y} r="3" fill="#C8A86E" vectorEffect="non-scaling-stroke" />
       </svg>
-      <div className="mt-1 flex items-baseline justify-between text-[11px] text-text-tertiary">
+      <div className="mt-1 flex items-baseline justify-between text-caption text-text-tertiary">
         <span>
           {formatShortDate(points[0].date)} · {format(min)}–{format(max)} {unit}
         </span>

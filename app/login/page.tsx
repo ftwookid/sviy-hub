@@ -57,14 +57,14 @@ export default function LoginPage() {
   if (!isSupabaseConfigured) return <SetupNotice />;
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
+    <main className="grid min-h-viewport place-items-center px-4 py-10">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[400px] rounded-xl border border-border bg-surface p-5 shadow-card"
       >
         <div className="flex flex-col items-center text-center">
           <Image src="/Logo v2.png" alt="Sviy Hub" width={128} height={128} className="h-32 w-32 object-contain" priority />
-          <p className="mt-2 text-[15px] text-text-secondary">
+          <p className="mt-2 text-label text-text-secondary">
             {mode === "signup" ? "Create your private account." : "Clients, pets, and expenses, softly organized."}
           </p>
         </div>
@@ -85,13 +85,13 @@ export default function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             required
           />
-          {error ? <p className="text-[12px] text-danger">{error}</p> : null}
-          {message ? <p className="text-[12px] text-success">{message}</p> : null}
+          {error ? <p className="text-meta text-danger">{error}</p> : null}
+          {message ? <p className="text-meta text-success">{message}</p> : null}
           <Button className="w-full" type="submit" disabled={loading}>
             {loading ? (mode === "signup" ? "Creating account..." : "Signing in...") : mode === "signup" ? "Create account" : "Sign in"}
           </Button>
           <button
-            className="w-full rounded-xl px-3 py-2 text-[14px] font-medium text-text-secondary transition hover:bg-subtle"
+            className="w-full rounded-xl px-3 py-2 text-body font-medium text-text-secondary transition hover:bg-subtle"
             type="button"
             onClick={() => {
               setMode((current) => (current === "signin" ? "signup" : "signin"));

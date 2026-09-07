@@ -114,7 +114,7 @@ export function DateField({
         <button
           ref={triggerRef}
           className={cn(
-            "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+            "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-label text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
             error ? "border-danger" : "border-border"
           )}
           type="button"
@@ -139,7 +139,7 @@ export function DateField({
                 <ChevronLeft size={17} strokeWidth={1.7} />
               </button>
               <button
-                className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
+                className="focus-ring min-h-9 rounded-xl px-3 text-label font-medium text-text-primary transition hover:bg-subtle"
                 type="button"
                 onClick={(event) => {
                   event.preventDefault();
@@ -165,7 +165,7 @@ export function DateField({
 
             {mode === "days" ? (
               <>
-                <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
+                <div className="mt-2 grid grid-cols-7 gap-1 text-center text-caption font-medium text-text-tertiary">
                   {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
                     <span key={`${day}-${index}`}>{day}</span>
                   ))}
@@ -176,7 +176,7 @@ export function DateField({
                       <button
                         key={toInputDate(date)}
                         className={cn(
-                          "focus-ring relative grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                          "focus-ring relative grid h-9 place-items-center rounded-xl text-list font-medium transition",
                           value === toInputDate(date)
                             ? "bg-accent text-text-primary shadow-sm"
                             : "text-text-secondary hover:bg-subtle hover:text-text-primary",
@@ -211,7 +211,7 @@ export function DateField({
                     <button
                       key={year}
                       className={cn(
-                        "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                        "focus-ring min-h-9 rounded-xl text-list font-medium transition",
                         calendarMonth.getFullYear() === year
                           ? "bg-accent text-text-primary shadow-sm"
                           : "text-text-secondary hover:bg-subtle hover:text-text-primary"
@@ -228,7 +228,7 @@ export function DateField({
                     <button
                       key={month}
                       className={cn(
-                        "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                        "focus-ring min-h-9 rounded-xl text-list font-medium transition",
                         calendarMonth.getMonth() === index
                           ? "bg-accent text-text-primary shadow-sm"
                           : "text-text-secondary hover:bg-subtle hover:text-text-primary"

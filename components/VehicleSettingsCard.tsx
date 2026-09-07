@@ -136,7 +136,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
   }
 
   const field =
-    "focus-ring h-10 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] text-text-primary placeholder:text-text-tertiary";
+    "focus-ring h-10 w-full rounded-xl border border-border bg-subtle px-3 text-label text-text-primary placeholder:text-text-tertiary";
 
   return (
     // Mileage links straight here, so the card needs an anchor and room above it
@@ -146,16 +146,16 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
       className="scroll-mt-6 rounded-[20px] border border-border bg-surface p-3.5 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-medium leading-tight text-text-primary">Car</h2>
+        <h2 className="text-label font-semibold leading-tight text-text-primary">Car</h2>
       </div>
 
       {error ? (
-        <p className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-[12px] text-warning">{error}</p>
+        <p className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-meta text-warning">{error}</p>
       ) : null}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+          <span className="block text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary">
             Miles per gallon
           </span>
           <input
@@ -173,7 +173,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
           />
         </label>
         <label className="block">
-          <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+          <span className="block text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary">
             Fuel price per gallon
           </span>
           <input
@@ -197,7 +197,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
       <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_110px_auto]">
         <DateField label="Date" value={costDate} onChange={setCostDate} />
         <label className="block">
-          <span className="mb-2 block text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Kind</span>
+          <span className="mb-2 block text-meta font-medium uppercase tracking-[0.04em] text-text-tertiary">Kind</span>
           <select
             className={cn(field, "h-11 font-medium")}
             value={costKind}
@@ -211,7 +211,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
           </select>
         </label>
         <label className="block">
-          <span className="mb-2 block text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+          <span className="mb-2 block text-meta font-medium uppercase tracking-[0.04em] text-text-tertiary">
             Amount
           </span>
           <input
@@ -245,7 +245,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
             {costs.map((cost) => (
               <div
                 key={cost.id}
-                className="grid grid-cols-[58px_84px_minmax(0,1fr)_74px_30px] items-center gap-2 py-2 text-[13px]"
+                className="grid grid-cols-[58px_84px_minmax(0,1fr)_74px_30px] items-center gap-2 py-2 text-list"
               >
                 <span className="text-text-tertiary">
                   {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
@@ -255,7 +255,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
                 <span className="text-text-secondary">{cost.kind}</span>
                 <input
                   aria-label="Note"
-                  className="focus-ring min-w-0 rounded-lg bg-transparent px-1.5 py-1 text-[13px] text-text-primary placeholder:text-text-tertiary hover:bg-subtle"
+                  className="focus-ring min-w-0 rounded-lg bg-transparent px-1.5 py-1 text-list text-text-primary placeholder:text-text-tertiary hover:bg-subtle"
                   placeholder="Add a note"
                   defaultValue={cost.note ?? ""}
                   onBlur={(event) => {
@@ -274,10 +274,10 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-right text-[12px] text-text-tertiary">{formatCurrency(logged)} logged</p>
+          <p className="mt-2 text-right text-meta text-text-tertiary">{formatCurrency(logged)} logged</p>
         </>
       ) : (
-        <p className="mt-3 border-t border-border py-6 text-center text-[13px] text-text-tertiary">
+        <p className="mt-3 border-t border-border py-6 text-center text-list text-text-tertiary">
           Nothing logged. Fuel is worked out from the miles.
         </p>
       )}

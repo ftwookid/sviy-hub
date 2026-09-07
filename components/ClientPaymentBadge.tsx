@@ -7,7 +7,7 @@ export function ClientPaymentIcon({ method }: { method: ClientPaymentMethod }) {
   if (method === "Venmo") {
     return (
       <span className="grid h-5 w-5 shrink-0 place-items-center rounded-[6px] bg-[#008CFF]" aria-hidden="true">
-        <span className="text-[13px] font-black italic leading-none text-white">V</span>
+        <span className="text-list font-semibold italic leading-none text-white">V</span>
       </span>
     );
   }
@@ -68,7 +68,7 @@ export function ClientPaymentBadge({
   return (
     <span
       className={cn(
-        "inline-flex min-h-7 items-center gap-1.5 rounded-full px-2 py-1 pr-2.5 text-[11px] font-medium",
+        "inline-flex min-h-7 items-center gap-1.5 rounded-full px-2 py-1 pr-2.5 text-caption font-medium",
         paymentMethodTone(method),
         className
       )}

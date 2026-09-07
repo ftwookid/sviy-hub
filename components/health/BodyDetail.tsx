@@ -91,21 +91,21 @@ export function BodyDetail({
               const change = current && before ? current.value - before.value : null;
               return (
                 <li key={measurement.key} className="flex items-center gap-3 py-2">
-                  <span className="w-16 shrink-0 text-[13px] text-text-secondary">{measurement.label}</span>
-                  <span className="text-[15px] font-medium text-text-primary">
+                  <span className="w-16 shrink-0 text-list text-text-secondary">{measurement.label}</span>
+                  <span className="text-label font-medium text-text-primary">
                     {current ? `${current.value.toFixed(1)}"` : "—"}
                   </span>
                   {change != null ? (
                     <span
                       className={cn(
-                        "text-[12px]",
+                        "text-meta",
                         change < 0 ? "text-success" : change > 0 ? "text-danger" : "text-text-tertiary"
                       )}
                     >
                       {delta(change)}
                     </span>
                   ) : null}
-                  <span className="ml-auto text-[12px] text-text-tertiary">
+                  <span className="ml-auto text-meta text-text-tertiary">
                     {current ? formatShortDate(current.date) : ""}
                   </span>
                 </li>

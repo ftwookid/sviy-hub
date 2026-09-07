@@ -393,7 +393,7 @@ export function StatementReview({
   if (!statementImport) {
     return (
       <div className="rounded-[18px] border border-border bg-surface px-4 py-8 text-center">
-        <p className="text-[14px] text-text-secondary">That statement could not be opened.</p>
+        <p className="text-body text-text-secondary">That statement could not be opened.</p>
         <Button className="mt-4" variant="soft" type="button" onClick={onBack}>
           Back to transactions
         </Button>
@@ -404,7 +404,7 @@ export function StatementReview({
   return (
     <div className="space-y-3">
       <button
-        className="focus-ring inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition hover:text-text-primary"
+        className="focus-ring inline-flex items-center gap-1.5 text-list text-text-secondary transition hover:text-text-primary"
         type="button"
         onClick={onBack}
       >
@@ -415,7 +415,7 @@ export function StatementReview({
       <ImportSummaryCard statementImport={statementImport} ownerLabel={ownerLabel} />
 
       {statementImport.parse_error ? (
-        <p className="rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">
+        <p className="rounded-xl bg-danger-soft px-3 py-2 text-list text-danger">
           {statementImport.parse_error}
         </p>
       ) : null}
@@ -432,7 +432,7 @@ export function StatementReview({
               <button
                 key={option.key}
                 className={cn(
-                  "focus-ring inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition",
+                  "focus-ring inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-meta font-medium transition",
                   filter === option.key
                     ? "bg-text-primary text-white"
                     : "bg-subtle text-text-secondary hover:text-text-primary"
@@ -458,7 +458,7 @@ export function StatementReview({
           </div>
 
           <div className="flex items-center gap-2 border-t border-border px-2.5 py-1.5">
-            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] text-text-secondary">
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-meta text-text-secondary">
               <input
                 className="h-4 w-4 cursor-pointer accent-[#C9A96E]"
                 type="checkbox"
@@ -468,7 +468,7 @@ export function StatementReview({
               />
               {allVisibleSelected ? "Clear" : `Select all ${visibleRows.length}`}
             </label>
-            <span className="ml-auto truncate text-[12px] text-text-tertiary">
+            <span className="ml-auto truncate text-meta text-text-tertiary">
               {counts.include} to import
               <span className="hidden sm:inline">
                 {" "}
@@ -476,7 +476,7 @@ export function StatementReview({
               </span>
             </span>
             <button
-              className="focus-ring inline-flex min-h-7 shrink-0 items-center gap-1 rounded-lg bg-subtle px-2 text-[12px] font-medium text-text-primary transition hover:bg-border"
+              className="focus-ring inline-flex min-h-7 shrink-0 items-center gap-1 rounded-lg bg-subtle px-2 text-meta font-medium text-text-primary transition hover:bg-border"
               type="button"
               onClick={handleAddManual}
             >
@@ -490,7 +490,7 @@ export function StatementReview({
           <div className="divide-y divide-border">
             {visibleRows.length === 0 ? (
               <div className="px-4 py-8 text-center">
-                <p className="mx-auto max-w-sm text-[13.5px] text-text-secondary">
+                <p className="mx-auto max-w-sm text-list text-text-secondary">
                   {rows.length === 0
                     ? "The scan found no transactions on this statement. Add them by hand, or try a different PDF."
                     : filter === "Needs a look"
@@ -500,7 +500,7 @@ export function StatementReview({
               </div>
             ) : mainRows.length === 0 ? (
               <div className="px-4 py-6 text-center">
-                <p className="mx-auto max-w-sm text-[13.5px] text-text-secondary">
+                <p className="mx-auto max-w-sm text-list text-text-secondary">
                   Nothing to decide in this view — everything here was set aside below.
                 </p>
               </div>
@@ -526,10 +526,10 @@ export function StatementReview({
                   )}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-text-primary">
+                  <span className="block text-list font-medium text-text-primary">
                     Set aside · {visibleAside.count}
                   </span>
-                  <span className="block text-[11.5px] text-text-tertiary">
+                  <span className="block text-caption text-text-tertiary">
                     {[
                       visibleAside.pairs.length > 0
                         ? `${visibleAside.pairs.length} refunded charge${
@@ -571,7 +571,7 @@ export function StatementReview({
 
       <section className="space-y-2.5 rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+          <span className="text-meta font-medium uppercase tracking-[0.05em] text-text-tertiary">
             Paid with
           </span>
           <PaymentMethodPicker
@@ -582,7 +582,7 @@ export function StatementReview({
         </div>
 
         {blocked > 0 ? (
-          <p className="text-[13px] text-danger">
+          <p className="text-list text-danger">
             {blocked} transaction{blocked === 1 ? " is" : "s are"} missing something.{" "}
             <button
               className="focus-ring font-medium underline"
@@ -595,7 +595,7 @@ export function StatementReview({
         ) : null}
 
         {counts.flag > 0 ? (
-          <p className="text-[13px] text-text-secondary">
+          <p className="text-list text-text-secondary">
             {counts.flag} flagged transaction{counts.flag === 1 ? "" : "s"} will stay here until you
             decide. Importing now leaves them untouched.
           </p>

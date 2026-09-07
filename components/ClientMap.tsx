@@ -263,10 +263,10 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
         {status === "loading" || status === "empty" || status === "error" ? (
           <div className="absolute inset-0 grid place-items-center bg-subtle/80 px-5 text-center backdrop-blur-[1px]">
             <div>
-              <div className="text-[14px] font-medium text-text-primary">
+              <div className="text-body font-medium text-text-primary">
                 {status === "loading" ? "Building client map" : status === "empty" ? "No pins available" : "Map unavailable"}
               </div>
-              <div className="mt-1 max-w-sm text-[12px] text-text-secondary">{statusText}</div>
+              <div className="mt-1 max-w-sm text-meta text-text-secondary">{statusText}</div>
             </div>
           </div>
         ) : null}

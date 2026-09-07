@@ -23,7 +23,7 @@ export function CategoryTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium tracking-[0.04em]",
+        "inline-flex items-center rounded-md px-2 py-1 text-caption font-medium tracking-[0.04em]",
         fixedWidth ? "w-full justify-center truncate" : "",
         className
       )}

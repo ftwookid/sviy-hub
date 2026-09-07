@@ -45,7 +45,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-page text-text-primary md:grid md:grid-cols-[240px_1fr]">
+    <div className="min-h-viewport bg-page text-text-primary md:grid md:grid-cols-[240px_1fr]">
       <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-border bg-[#F7F4EE]/90 px-4 py-5 backdrop-blur-xl md:flex md:flex-col">
         <Link href="/" className="flex h-36 w-36 items-center justify-center self-center rounded-xl">
           <Image src="/Logo v2.png" alt="Sviy Hub" width={144} height={144} className="h-36 w-36 object-contain" priority />
@@ -60,7 +60,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group relative flex min-h-11 items-center gap-3 rounded-2xl py-2 pl-4 pr-3 text-[15px] transition duration-150 ease-out",
+                  "group relative flex min-h-11 items-center gap-3 rounded-2xl py-2 pl-4 pr-3 text-label transition duration-150 ease-out",
                   active
                     ? "bg-accent-soft font-semibold text-text-primary ring-1 ring-inset ring-accent/45"
                     : "font-medium text-text-secondary hover:bg-surface/80 hover:text-text-primary"
@@ -85,13 +85,13 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
         </nav>
         <div className="mt-auto rounded-2xl border border-border bg-surface/72 p-3">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-[14px] font-medium text-text-primary">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-body font-medium text-text-primary">
               {initial}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-[13px] font-medium text-text-primary">{user.email}</div>
+              <div className="truncate text-list font-medium text-text-primary">{user.email}</div>
               <button
-                className="mt-0.5 text-[12px] text-text-tertiary transition hover:text-text-secondary"
+                className="mt-0.5 text-meta text-text-tertiary transition hover:text-text-secondary"
                 onClick={signOut}
                 type="button"
               >
@@ -105,7 +105,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
       <div className="md:col-start-2">
         <main
           className={cn(
-            "mx-auto min-h-screen w-full max-w-[980px] px-4 pt-6 transition-opacity duration-200 ease-in-out sm:px-6 md:px-8 md:pb-10 md:pt-8",
+            "mx-auto min-h-viewport w-full max-w-[980px] px-4 pt-6 transition-opacity duration-200 ease-in-out sm:px-6 md:px-8 md:pb-10 md:pt-8",
             isClientDetailPage
               ? "pb-[calc(72px+env(safe-area-inset-bottom))]"
               : "pb-[calc(96px+env(safe-area-inset-bottom))]"

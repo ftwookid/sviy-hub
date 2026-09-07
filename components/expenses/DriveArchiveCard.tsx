@@ -37,8 +37,8 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
   if (!configured) {
     return (
       <section className="rounded-[20px] border border-warning/30 bg-warning-soft p-4">
-        <h3 className="text-[15px] font-medium text-text-primary">Drive archive not configured</h3>
-        <p className="mt-1 text-[13px] text-text-secondary">
+        <h3 className="text-label font-semibold text-text-primary">Drive archive not configured</h3>
+        <p className="mt-1 text-list text-text-secondary">
           Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, then redeploy.
         </p>
       </section>
@@ -72,9 +72,9 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
             <HardDrive size={18} strokeWidth={1.6} />
           </span>
           <div className="min-w-0">
-            <h3 className="text-[15px] font-medium text-text-primary">Google Drive archive</h3>
+            <h3 className="text-label font-semibold text-text-primary">Google Drive archive</h3>
             {connection.connected ? (
-              <p className="mt-0.5 truncate text-[13px] text-text-secondary">
+              <p className="mt-0.5 truncate text-list text-text-secondary">
                 {connection.rootFolderName ? (
                   <>
                     Filing into <span className="font-medium">{connection.rootFolderName}</span>
@@ -85,7 +85,7 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
                 )}
               </p>
             ) : (
-              <p className="mt-0.5 text-[13px] text-text-secondary">
+              <p className="mt-0.5 text-list text-text-secondary">
                 {isAdmin ? "Connect so every receipt is archived by year and month." : "Not connected yet."}
               </p>
             )}
@@ -93,7 +93,7 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
         </div>
 
         {readyToSync && pendingCount === 0 ? (
-          <span className="hidden shrink-0 items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-[11px] font-medium text-success sm:inline-flex">
+          <span className="hidden shrink-0 items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-caption font-medium text-success sm:inline-flex">
             <Check size={13} strokeWidth={2} />
             Synced
           </span>
@@ -101,20 +101,20 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
       </div>
 
       {connection.connected && pendingCount > 0 ? (
-        <p className="mt-3 rounded-xl bg-subtle px-3 py-2 text-[13px] text-text-secondary">
+        <p className="mt-3 rounded-xl bg-subtle px-3 py-2 text-list text-text-secondary">
           {pendingCount} receipt{pendingCount === 1 ? "" : "s"} waiting to archive
           {connection.lastSyncAt ? ` · last sync ${relativeTime(connection.lastSyncAt)}` : null}
         </p>
       ) : null}
 
       {error || connection.lastSyncError ? (
-        <p className="mt-3 flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2 text-list text-danger">
           <AlertCircle size={15} strokeWidth={1.8} className="mt-0.5 shrink-0" />
           <span>{error || connection.lastSyncError}</span>
         </p>
       ) : null}
 
-      {syncNote ? <p className="mt-3 text-[13px] text-text-secondary">{syncNote}</p> : null}
+      {syncNote ? <p className="mt-3 text-list text-text-secondary">{syncNote}</p> : null}
 
       {!connection.connected && !isAdmin ? null : (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">

@@ -48,12 +48,12 @@ export function MonthSummary({ month }: { month: MonthFinances }) {
     >
       {stats.map((stat) => (
         <div key={stat.label} className="flex min-w-0 flex-col justify-center px-3">
-          <div className="truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+          <div className="truncate text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary">
             {stat.label}
           </div>
           <div
             className={cn(
-              "mt-1 truncate text-[17px] font-medium leading-none tracking-[-0.01em]",
+              "mt-1 truncate text-subhead font-medium leading-none tracking-[-0.01em]",
               stat.tone === "bad" ? "text-danger" : stat.tone === "good" ? "text-success" : "text-text-primary"
             )}
           >

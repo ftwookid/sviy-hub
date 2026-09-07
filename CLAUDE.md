@@ -185,6 +185,164 @@ be *shrunk* by a flat rule on the screen it matters most on. It opts out with
 not a fix: it works by taking pinch-zoom away from everybody, on every screen,
 permanently.
 
+## The type scale — twelve steps, and never an arbitrary size again
+
+Colours have been tokens in `tailwind.config.ts` since the beginning, which is
+exactly why nobody has ever had to wonder which grey to use. **Sizes never
+were.** There was no `fontSize` in the theme at all, so every size in the app was
+written inline as an arbitrary value, and it accumulated to this, measured:
+
+- **26 distinct font sizes across 578 usages**, every one of them a `text-[…px]`.
+- **54 of them written at a half pixel** — 10.5, 11.5, 12.5, 13.5, 14.5.
+- Sizes one pixel apart doing unrelated jobs (16 and 15, 18 and 17, 20 and 19),
+  because each screen picked a number rather than a step.
+
+That is not a scale, it is a habit, and it produced the failure that started
+this: `Money out` set at 13px, containing block headings at 13.5px, containing
+lines at 13px. Three levels of structure inside half a pixel — not because
+anyone chose that, but because there was nothing to reach for that meant "the
+level below a card heading".
+
+The scale lives in `theme.extend.fontSize` and is named for **what a thing is**,
+not how big it is:
+
+| Token | px | What it is for |
+| --- | --- | --- |
+| `text-micro` | 10 | The smallest label that stays legible. Uppercase only. |
+| `text-caption` | 11 | Uppercase captions, badges, the `TOTAL` label. |
+| `text-meta` | 12 | A secondary note hung off a row. |
+| `text-list` | 13 | Dense list rows. The most-used size in the app. |
+| `text-body` | 14 | Running text, buttons, a block's total. |
+| `text-label` | 15 | Form controls, and a block heading inside a card. |
+| `text-subhead` | 17 | A card's own title, and the figure that totals it. |
+| `text-figure` | 19 | A standalone number in a tile. |
+| `text-figure-lg` | 22 | The number a card exists to show. |
+| `text-display-sm` | 26 | Panel titles, the Health weigh-in field. |
+| `text-display` | 30 | The page title. |
+| `text-display-lg` | 34 | The page title from `sm`. |
+
+**The rule: never write `text-[…px]` again.** If a size seems to be missing, the
+question is which of these twelve the thing actually is. If the honest answer is
+none of them, the step is added here **once, with a name**, so the next screen
+inherits the decision instead of inventing a thirteenth 14.5px.
+
+Two things about it that are deliberate:
+
+- **Size only — no paired line-height, yet.** A `fontSize` token can set both,
+  and pairing them is what a finished system does. It is not done here because
+  line-height currently comes from `body { line-height: 1.6 }` plus a scattering
+  of `leading-*` classes, so pairing it would silently change the height of
+  nearly every row in the app in the same commit that renamed the sizes — two
+  changes at once, one of them unverifiable screen by screen. **This is the next
+  pass**, and it should be done a surface at a time with the rendered geometry
+  measured, not in one sweep.
+- **`body` stays 16px** and is the inherited root, not a step. It is what
+  unstyled text falls back to and what the `pointer: coarse` form floor matches;
+  anything that matters opts into a step above.
+
+The migration itself was built to be provably safe: every one of the 26 old
+sizes maps to a step that is the **same size or smaller**, so nothing could
+newly overflow or truncate. The single exception is 9px → `micro` (10px), two
+labels in the Mileage bar chart, which was measured at its real month sizing —
+31 columns inside `minWidth: 820px` — and came back **0 wrapped, 0 clipped**.
+Renaming a size to a token of identical value is a visual no-op, so the only
+intended changes are the collapses.
+
+### Weight — three steps, and the font that has to be loaded for them
+
+Weight is the second half of the ramp, and it was worse off than size: **259 of
+269 size/weight pairings in the app were `font-medium`**, from `micro` to
+`display-lg`. Weight was not inconsistent, it was *constant*, which is worse —
+it meant size was carrying the hierarchy alone.
+
+**The font could not render the difference anyway.** `next/font` was asked for
+`Instrument_Sans({ weight: ["400", "500"] })`, but Instrument Sans is a
+**variable** font with a 400–700 axis, and naming two weights cuts it down to
+two static instances. So every weight above 500 was one that had never been
+downloaded. Measured in Chromium on the same string: `font-normal` 223.48px,
+`font-medium` 225.52px, `font-semibold` **225.52px**, `font-bold` **225.52px** —
+600 and 700 snapped back to the 500 face, identical to the pixel. Every heading
+that asked to outrank its lines silently did not, the Finances ramp included.
+
+Omitting `weight` loads the axis itself — **one file rather than two instances**
+— and the four weights then measure 223.48 / 225.52 / 227.44 / 229.48: real,
+distinct, evenly stepped.
+
+The three steps, and what each means:
+
+| Weight | Class | What it is for |
+| --- | --- | --- |
+| 400 | `font-normal` | Reading text: list rows, prose, a row's label. |
+| 500 | `font-medium` | Labels, captions, buttons, chips — "this is a label, not prose". |
+| 600 | `font-semibold` | Headings, and a figure that is the answer. |
+
+**Nothing goes above 600.** The two sites that did — a `font-bold` figure on the
+client detail page and a `font-black` payment badge — were rendering at 500 like
+everything else, so capping them was a no-op at the time and stops them jumping
+to 700/900 the moment the axis loads.
+
+Applied by rule rather than by taste, so it is checkable: **every `h1`/`h2`/`h3`
+in the app is `font-semibold`** (51 promoted — a heading governs what is under
+it, which is the whole job), and **every figure at `figure`, `figure-lg`,
+`display-sm` or `display` is `font-semibold`** (11 promoted — including the
+year's deductible total on Reports and the weigh-in on Health, each the answer
+its card exists to give). Everything else keeps `medium`, and reading text is
+`normal`.
+
+Measured after, at 390 **and** 1280: page title 30/34px·600, card title and its
+total 17px·600, block heading 15px·600, block total 14px·600, line 13px·400 —
+size and weight stepping together at every level, with no page errors and no
+horizontal overflow on any route rendered.
+
+### Two bugs the size migration shipped, and what caught them
+
+Both came from the sweep that removed responsive sizes made redundant by the
+collapse, and both are worth recording because the mistake is easy to repeat.
+
+The removal regex matched `sm:text-display` **inside** `sm:text-display-lg` —
+`\b` sits happily before a hyphen — so it ate the space and the base token and
+left `-lg` glued to whatever preceded it. Two sites ended up with
+`text-text-primary-lg`, a class that does not exist:
+
+- `PageHeader`'s `h1` lost its colour **and** its `sm:text-display-lg`, so every
+  page title in the app was 30px at all widths instead of stepping to 34.
+- `HouseSittingDashboard`'s `h2` lost the same way.
+
+The colour looked fine by luck — with no colour class the text inherits `body`,
+which is the same `#1A1916` it had asked for — so nothing looked broken.
+
+**What let it through: measuring at one width.** The rule in this file says
+"measure at 390px first", and the check stopped there; at 390 a title that has
+lost `sm:text-display-lg` is *correct*. So the rule is now: **anything carrying a
+responsive class is measured at both widths, and the check reads the computed
+colour as well as the size** — a class that silently does not exist still
+renders text, and the geometry alone will not tell you.
+
+**Full-height is `dvh`, never `vh`.** `100vh` on iOS Safari is the **large**
+viewport — the height the page gets once the address bar has retracted — not the
+height you can see while the bar is expanded, which is what you are looking at
+when a page loads. On an 844pt iPhone the visible strip is about 745pt, so the
+shell's `min-h-screen` built a document roughly **99px taller than the window on
+every page in the app, with no content in it at all**.
+
+That phantom 99px is not harmless, and Ivan hit it on Finances. Its first card
+starts at y84, so scrolling by it hides the title and the Utilities/Setup buttons
+exactly — and because the page is genuinely scrollable, Safari records the offset
+and restores it on the next refresh. So a reload landed on the month cards with
+the header gone, having never scrolled on purpose. Nothing in the app scrolls the
+page: there is no `scrollIntoView`, no `scrollTo` and no autofocus outside the
+panels, which is what ruled out every other explanation.
+
+The fix is `.min-h-viewport` in `globals.css` — `100vh` with a
+`@supports (min-height: 100dvh)` block above it — rather than `min-h-screen` on
+the two shell elements and the three centred screens (login, onboarding, the
+setup notice). `dvh` measures the viewport as it currently stands, so a page with
+nothing in it is exactly as tall as the window and there is nothing to scroll;
+the `vh` line stays as the fallback below Safari 15.4, where the behaviour is no
+worse than it was. Measured at 390x844 and 1280x800: the document is exactly the
+window height on a short page, the desktop sidebar still fills it, and a tall
+page scrolls exactly as before.
+
 ## Tech Stack
 
 - Next.js 14 App Router
@@ -1348,10 +1506,57 @@ come to, what is it made of, how does it compare with the year:
   surplus, red in deficit**, which is also the only cue the sign needs.
 - **The month reads by section, in the order the buckets are declared.** Two
   cards — `Money in` and `Money out` — each split by `border-t` into its blocks:
-  a header row carrying the bucket's name, its share of money in and its total,
-  with that bucket's lines beneath it (biggest first inside the block). The
-  order is fixed rather than sorted by size, so a block sits in the same place
-  every month.
+  a header row carrying the bucket's name, that bucket's lines beneath it
+  (biggest first inside the block), and the block's **total at the foot of it**.
+  The order is fixed rather than sorted by size, so a block sits in the same
+  place every month.
+  - **Three sizes, and they step.** The card is **17px**, a block heading inside
+    it **15px**, a line inside that **13px** — with weight and colour stepping
+    alongside (semibold primary for both headings, regular secondary for a
+    line). The figures ramp with them: **17px** for the card's total, **14.5px**
+    for a block's, **13px** for a line's.
+
+    It was 13 / 13.5 / 13, which is not a hierarchy, it is three rows of similar
+    text: `Money out` was set *smaller* than the blocks it contained, and a line
+    sat half a pixel under the heading that governed it. Ivan could not tell
+    which level he was looking at, which is the whole job those sizes do. The
+    card's own total was worse — a 10px uppercase whisper in tertiary grey, the
+    smallest thing in the card and the sum of everything in it.
+
+    Size is deliberately not carrying this alone: two pixels is easy to miss on
+    a phone, and three cues agreeing are not. And the near-miss is the failure
+    mode to watch — 15px was tried for the card's total first, which put it half
+    a pixel from a section total and repeated the exact mistake the ramp exists
+    to fix.
+  - **The heading band is `bg-subtle` at full strength and 10px of padding**, up
+    from half-strength and 6px. It is what says a new block has started, and at
+    13.5px on a 50% tint it was reading as a slightly bolder line.
+  - **The total closes the block; it does not title it.** The heading used to
+    carry the total and the share of income, so the card read answer-then-
+    working: you took a figure off a title, dropped into a list, and climbed
+    back out to a title for the next block. The six figures a person actually
+    compares — the block totals — were in a differently-styled row from every
+    figure they are made of, and lined up with none of them. A total belongs at
+    the foot of the column it totals, which is where a ledger, a receipt and a
+    bank statement all put it. Three things make `SectionTotal` read as a sum:
+    it sits on the **same right edge** as the lines above it, it carries a
+    **full-weight rule** where the lines are divided by `border-border/40`, and
+    it is **not tinted** — the tint is the heading's, and is what says a new
+    block has started. The share of income comes down with the total, since
+    "22% of money in" is only meaningful beside the figure it is 22% of.
+  - **The figure column has one right edge, always.** A row with no `ⓘ` used to
+    skip the icon entirely, which pushed that row's figure 44px further right
+    than its neighbours — two right edges in the one card that exists to be read
+    straight down. `ROW_END_SLOT` in `chart.tsx` is that 34px permanently: the
+    icon where there is something to open, empty space where there is not, and
+    matched by the total beneath so the sum lands under the numbers it adds up.
+    Measured at 390 and 1280, every line figure and every total share one edge.
+  - Measured at 390 and 1280, `Money out` with twelve lines is **1102px**: 757
+    before the totals, +189 for them, +37 for the ramp and the roomier bands,
+    +37 for the empty block's dash row. That is the price of the two things
+    Ivan asked for — a sum at the foot of each block, and levels you can tell
+    apart — and it is worth paying, but it is the number to check before adding
+    anything else to this card.
   - The version before this one dissolved the sections: it sorted the blocks by
     size in one card (`WhereItGoes`) and poured **every line in the month** into
     another, biggest first, with its block written under it in 10px grey
@@ -1359,15 +1564,41 @@ come to, what is it made of, how does it compare with the year:
     the question the page is opened with — what does each part of the month
     cost — because a line could not be found where it lives, and tax withheld
     sat three rows away from tax withheld. Neither card is coming back.
-  - **The meter stays**, at the top of `Money out`: how much of what came in is
-    spoken for is one ratio against a limit, both ends directly labelled
-    ("37% committed · $4,328.16" / "63% left · $7,485.08").
-  - **One scale across the whole card, not one per block.** Every bar in
-    `Money out` is measured against the largest line in the month, so a $15
-    subscription draws a $15 bar next to rent and the cross-block comparison the
-    flat list existed for survives the grouping. Per-block scaling is the
-    already-rejected trap that gave a $2.10 line a full-width bar.
-  - **A line on the month is its name, its bar and its figure — the rest is
+  - **The meter is gone**, and is not coming back. A single bar sat at the top
+    of `Money out` splitting money in into committed and left over, both ends
+    directly labelled ("37% committed · $4,328.16" / "63% left · $7,485.08") —
+    and labelling both ends is not the same as being readable. It was one bar in
+    a card full of bars, drawn against a different denominator than every other
+    bar beneath it, so its length meant something none of theirs did; and both
+    its figures are already stated, as figures, in `MonthSummary` immediately
+    above the card. A ratio the reader cannot name is noise however carefully it
+    is annotated. Each block's share of income stays on that block's header row,
+    where it is a number rather than a length.
+  - **A line carries no bar, and none is coming back.** Every row had one under
+    its name, on one scale across the whole card (measured against the largest
+    line in the month, so a $15 subscription drew a $15 bar next to rent rather
+    than a full-width one). The scale was the right answer to the wrong
+    question. What this card is read for is the figures — is the rent what it
+    was, what is the tax, how big is the subscription pile — and they are
+    already printed down a column, exact to the cent. A length next to an exact
+    number answers nothing extra, and it answered it badly: against a $2,395
+    rent, the small lines this page exists to make killable ($15.99 Spotify,
+    $2.99 iCloud, a $2.20 workers' fund) drew stubs two or three pixels long,
+    indistinguishable from each other and from nothing at all.
+
+    It also simply read as a **progress bar** — a filled track looks like
+    something advancing toward a target, and none of these lines are going
+    anywhere. That is what Ivan called it, twice; the first time it was read as
+    the `Money out` meter and the meter was removed instead, which is why the
+    row bars are named here explicitly.
+
+    Rows went **51px → 42.5px** (the `ⓘ`'s 42px tap target is the floor now,
+    not the bar) — about 100px off a twelve-line `Money out`. The comparison
+    the bars were for survives where it belongs: each block's share of income
+    on its header row, and `YearList` for month against month. `Bar` and
+    `OUT_INK` stay in `chart.tsx` for the utility grid, where twelve cells of
+    one account is a shape worth seeing; `IN_INK` went with the money-in bars.
+  - **A line on the month is its name and its figure — the rest is
     behind its chevron.** Every row used to print three more facts: "2 payments ·
     $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
     on `Money in` a share as well. Down a dozen rows that is two lines of grey
@@ -1446,12 +1677,11 @@ come to, what is it made of, how does it compare with the year:
     printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
     catching itself doing.
 
-    **The figure and the `ⓘ` centre against the whole row.** The row is a flex
-    line whose first child is a stacked column — the name above its bar — so
-    aligning to its top put the amount level with the name and left it sitting
-    high over the bar, reading as though it had drifted up rather than as a
-    column of figures down the card. `items-center` costs no height (the row
-    stays 51px) and lands both within 0.5px of the row's centre at 390 and 1280.
+    **The figure and the `ⓘ` centre against the whole row.** This mattered more
+    when the row's first child was a stacked column — the name above its bar —
+    where aligning to the top put the amount level with the name and left it
+    sitting high over the bar. The row is one line now and `items-center` lands
+    all three on the same centre, measured identical at 390 and 1280.
 
     **The row stays a reading; only the icon is a control.** Its target is 42×42,
     bought with padding pulled back by an equal negative margin so the row keeps
@@ -1471,7 +1701,16 @@ come to, what is it made of, how does it compare with the year:
     see is interactive is a row nobody taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
-  - An empty block is its header row and nothing else.
+  - **An empty block gets no total and one dash.** Nothing in it means nothing
+    to add up, and `Total $0.00` is the zero-pretending-to-be-a-figure this page
+    keeps catching. It does still get a row: with the heading alone, empty
+    `Debt` sat straight against `Investments & savings`, and two tinted bands
+    with a single hairline between them read as one double-height band rather
+    than as an empty block followed by a full one. A `—` is what this app says
+    when there is no figure, and the white row it sits on is what keeps the two
+    bands apart. (`Money out`'s own total sits in the card's header, and
+    `Money in`'s single block shows no total of its own, since it would restate
+    that header directly above it.)
 - **Magnitude is length from a shared baseline, never colour.** The block palette
   (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
   checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under
@@ -1542,7 +1781,7 @@ come to, what is it made of, how does it compare with the year:
   "May 2026", "September 2026" and the `Now` chip all re-centre inside it while
   the controls either side stay put. Centring a variable-width group was the
   version that crept.
-- Empty blocks are a header row and nothing else.
+- Empty blocks are a header row and nothing else — no lines, and no total.
 
 The month costs about 160px of scroll on a 390x844 phone with every line and every
 month on screen, against roughly 1600px when each block was its own card. Zero
@@ -1711,7 +1950,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
-- `components/finances/chart.tsx`: Bars, meter, chart ink and the mark spec.
+- `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
@@ -1782,8 +2021,9 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/PageHeader.tsx`: The section title every page shares.
-- `app/globals.css`: Press, focus rings, panel motion, and the 16px phone floor
-  on form controls that stops iOS zooming the page and never zooming back.
+- `app/globals.css`: Press, focus rings, panel motion, the 16px phone floor on
+  form controls that stops iOS zooming the page and never zooming back, and
+  `.min-h-viewport` — full height in `dvh`, so no page is scrollable when empty.
 - `scripts/verify-ui.mjs`: Renders pages in Chromium and measures them.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.

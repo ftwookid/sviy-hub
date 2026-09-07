@@ -24,11 +24,11 @@ export function FieldShell({ label, error, action, children }: FieldShellProps) 
   return (
     <div className="block">
       <span className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">{label}</span>
+        <span className="text-meta font-medium uppercase tracking-[0.04em] text-text-tertiary">{label}</span>
         {action}
       </span>
       {children}
-      {error ? <span className="mt-1.5 block text-[12px] text-danger">{error}</span> : null}
+      {error ? <span className="mt-1.5 block text-meta text-danger">{error}</span> : null}
     </div>
   );
 }
@@ -47,7 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <input
         ref={ref}
         className={cn(
-          "focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-4 text-[16px] text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
+          "focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-4 text-label text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
           className
         )}
         {...props}
@@ -66,7 +66,7 @@ export function Select({ label, error, className, children, ...props }: SelectPr
     <FieldShell label={label} error={error}>
       <select
         className={cn(
-          "focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-4 text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+          "focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-4 text-label text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
           className
         )}
         {...props}
@@ -87,7 +87,7 @@ export function Textarea({ label, error, className, ...props }: TextareaProps) {
     <FieldShell label={label} error={error}>
       <textarea
         className={cn(
-          "focus-ring min-h-24 w-full resize-y rounded-xl border border-border bg-subtle px-4 py-3 text-[16px] text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
+          "focus-ring min-h-24 w-full resize-y rounded-xl border border-border bg-subtle px-4 py-3 text-label text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
           className
         )}
         {...props}

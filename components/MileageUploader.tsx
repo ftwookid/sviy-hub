@@ -210,10 +210,10 @@ export function MileageUploader({
           >
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-7">
               <div>
-                <h2 className="text-[22px] font-medium text-text-primary">
+                <h2 className="text-figure-lg font-semibold text-text-primary">
                   Log a MileIQ month
                 </h2>
-                <p className="mt-1 text-[14px] text-text-secondary">
+                <p className="mt-1 text-body text-text-secondary">
                   Add the export for {ownerLabel ?? "this user"} and Sviy Hub will identify the month, validate it, and calculate everything automatically.
                 </p>
               </div>
@@ -222,7 +222,7 @@ export function MileageUploader({
 
             <div className="grid sm:grid-cols-2">
               <div className="p-5 sm:p-7">
-                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                <div className="flex items-center gap-2 text-caption font-medium uppercase tracking-[0.08em] text-text-tertiary">
                   <Upload size={15} className="text-accent" />
                   Upload CSV
                 </div>
@@ -248,8 +248,8 @@ export function MileageUploader({
                   <div className="grid h-14 w-14 place-items-center rounded-[20px] bg-accent-soft">
                     <FileSpreadsheet size={25} strokeWidth={1.4} className="text-accent" />
                   </div>
-                  <span className="mt-3 text-[15px] font-medium text-text-primary">Choose or drop a CSV</span>
-                  <span className="mt-1 max-w-[220px] text-[12px] leading-relaxed text-text-tertiary">
+                  <span className="mt-3 text-label font-medium text-text-primary">Choose or drop a CSV</span>
+                  <span className="mt-1 max-w-[220px] text-meta leading-relaxed text-text-tertiary">
                     MileIQ export only. Non-Business trips are ignored.
                   </span>
                 </button>
@@ -264,7 +264,7 @@ export function MileageUploader({
 
               <div className="border-t border-border bg-[#FBF9F5] p-5 sm:border-l sm:border-t-0 sm:p-7">
                 <label
-                  className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary"
+                  className="flex items-center gap-2 text-caption font-medium uppercase tracking-[0.08em] text-text-tertiary"
                   htmlFor="mileage-csv"
                 >
                   <FileSpreadsheet size={15} className="text-accent" />
@@ -272,7 +272,7 @@ export function MileageUploader({
                 </label>
                 <textarea
                   id="mileage-csv"
-                  className="focus-ring mt-3 min-h-52 w-full resize-y rounded-[22px] border border-border bg-surface px-4 py-3 text-[13px] text-text-primary placeholder:text-text-tertiary"
+                  className="focus-ring mt-3 min-h-52 w-full resize-y rounded-[22px] border border-border bg-surface px-4 py-3 text-list text-text-primary placeholder:text-text-tertiary"
                   value={pastedCsv}
                   placeholder="Paste the complete MileIQ export here…"
                   onChange={(event) => setPastedCsv(event.target.value)}
@@ -288,7 +288,7 @@ export function MileageUploader({
               </div>
             </div>
             {error ? (
-              <div className="border-t border-danger/10 bg-danger-soft px-5 py-3 text-[13px] text-danger sm:px-7">
+              <div className="border-t border-danger/10 bg-danger-soft px-5 py-3 text-list text-danger sm:px-7">
                 {error}
               </div>
             ) : null}
@@ -324,10 +324,10 @@ export function MileageUploader({
                   )}
                 </div>
                 <div>
-                  <h2 className="text-[22px] font-medium text-text-primary">
+                  <h2 className="text-figure-lg font-semibold text-text-primary">
                     {preview.duplicate ? "This file was already uploaded" : warning?.title ?? preview.parsed.periodLabel}
                   </h2>
-                  <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
+                  <p className="mt-1 text-list leading-relaxed text-text-secondary">
                     {preview.duplicate
                       ? `${preview.parsed.periodLabel} was logged on ${formatLoggedAt(preview.duplicate.uploaded_at)}. Nothing was changed.`
                       : warning?.body}
@@ -339,19 +339,19 @@ export function MileageUploader({
 
             <div className="mt-5 grid grid-cols-3 gap-2">
               <div className="rounded-2xl bg-surface p-3">
-                <div className="text-[11px] text-text-tertiary">Business trips</div>
-                <div className="mt-1 text-[18px] font-medium">{preview.parsed.businessTrips.length}</div>
+                <div className="text-caption text-text-tertiary">Business trips</div>
+                <div className="mt-1 text-subhead font-medium">{preview.parsed.businessTrips.length}</div>
               </div>
               <div className="rounded-2xl bg-surface p-3">
-                <div className="text-[11px] text-text-tertiary">Miles</div>
-                <div className="mt-1 text-[18px] font-medium">{preview.parsed.businessMiles.toFixed(1)}</div>
+                <div className="text-caption text-text-tertiary">Miles</div>
+                <div className="mt-1 text-subhead font-medium">{preview.parsed.businessMiles.toFixed(1)}</div>
               </div>
               <div className="rounded-2xl bg-surface p-3">
-                <div className="text-[11px] text-text-tertiary">Deduction</div>
-                <div className="mt-1 text-[18px] font-medium">{formatCurrency(preview.parsed.deductionValue)}</div>
+                <div className="text-caption text-text-tertiary">Deduction</div>
+                <div className="mt-1 text-subhead font-medium">{formatCurrency(preview.parsed.deductionValue)}</div>
               </div>
             </div>
-            <p className="mt-3 text-[12px] text-text-tertiary">
+            <p className="mt-3 text-meta text-text-tertiary">
               {preview.parsed.ignoredTripCount} non-Business trips ignored · rate read from each trip
             </p>
 

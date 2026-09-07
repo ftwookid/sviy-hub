@@ -90,7 +90,7 @@ export function SetupSheet({
           {/* The title and nothing under it. A subtitle explaining that money
               comes in and goes out tells whoever typed these figures nothing,
               and cost a line at the top of every visit. */}
-          <h2 className="min-w-0 text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[26px]">
+          <h2 className="min-w-0 text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
             Standing figures
           </h2>
           <CloseButton onClick={onClose} />
@@ -98,7 +98,7 @@ export function SetupSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
           {notice ? (
-            <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-[13px] text-text-primary">
+            <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-list text-text-primary">
               <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning" />
               <span>{notice}</span>
             </div>

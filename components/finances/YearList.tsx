@@ -35,7 +35,7 @@ export function YearList({
   return (
     <section className="rounded-[20px] border border-border bg-surface p-2.5 shadow-card">
       <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
-        <h2 className="text-[12px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+        <h2 className="text-meta font-semibold uppercase tracking-[0.05em] text-text-tertiary">
           Left over · {year}
         </h2>
       </div>
@@ -75,7 +75,7 @@ export function YearList({
             >
               <span
                 className={cn(
-                  "hidden text-[12px] lg:block",
+                  "hidden text-meta lg:block",
                   selected ? "font-semibold text-text-primary" : "text-text-secondary"
                 )}
               >
@@ -87,7 +87,7 @@ export function YearList({
               <span className="flex items-baseline justify-between gap-1.5 lg:hidden">
                 <span
                   className={cn(
-                    "text-[11.5px]",
+                    "text-caption",
                     selected ? "font-semibold text-text-primary" : "text-text-secondary"
                   )}
                 >
@@ -95,7 +95,7 @@ export function YearList({
                 </span>
                 <span
                   className={cn(
-                    "truncate text-[11.5px] font-medium tabular-nums",
+                    "truncate text-caption font-medium tabular-nums",
                     short ? "text-danger" : "text-text-primary"
                   )}
                 >
@@ -116,7 +116,7 @@ export function YearList({
 
               <span
                 className={cn(
-                  "hidden text-right text-[12px] font-medium tabular-nums lg:block",
+                  "hidden text-right text-meta font-medium tabular-nums lg:block",
                   short ? "text-danger" : "text-text-primary"
                 )}
               >

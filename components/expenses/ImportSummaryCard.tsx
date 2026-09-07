@@ -55,11 +55,11 @@ export function ImportSummaryCard({
     <section className="rounded-[20px] border border-border bg-surface px-3.5 py-3 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[15px] font-medium text-text-primary">
+          <h2 className="truncate text-label font-semibold text-text-primary">
             {statementImport.institution || "Statement"}
             {statementImport.account_label ? ` · ${statementImport.account_label}` : ""}
           </h2>
-          <p className="truncate text-[12.5px] text-text-secondary">
+          <p className="truncate text-meta text-text-secondary">
             {statementImport.period_month
               ? periodMonthLabel(statementImport.period_month)
               : statementImport.filename}
@@ -71,7 +71,7 @@ export function ImportSummaryCard({
         </div>
 
         {settled ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-[11.5px] font-medium text-success">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-caption font-medium text-success">
             <Icon size={13} strokeWidth={2} />
             Totals match
           </span>
@@ -96,15 +96,15 @@ export function ImportSummaryCard({
           <div className="min-w-0">
             <p
               className={cn(
-                "text-[13px] font-medium",
+                "text-list font-medium",
                 tone === "danger" ? "text-danger" : "text-text-secondary"
               )}
             >
               {headline}
             </p>
-            <p className="mt-0.5 text-[12.5px] leading-snug text-text-secondary">{detail}</p>
+            <p className="mt-0.5 text-meta leading-snug text-text-secondary">{detail}</p>
             {reconciliation?.notes ? (
-              <p className="mt-1 text-[12px] text-text-tertiary">{reconciliation.notes}</p>
+              <p className="mt-1 text-meta text-text-tertiary">{reconciliation.notes}</p>
             ) : null}
           </div>
         </div>

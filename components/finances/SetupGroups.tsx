@@ -48,8 +48,8 @@ function parseAmount(value: string) {
 function AmountCaption({ value, onChange }: { value: PayCadence; onChange: (next: PayCadence) => void }) {
   return (
     <span className="flex min-h-[19px] items-center gap-1">
-      <span className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Amount</span>
-      <span aria-hidden className="text-[12px] text-text-tertiary/60">
+      <span className="text-meta font-medium uppercase tracking-[0.04em] text-text-tertiary">Amount</span>
+      <span aria-hidden className="text-meta text-text-tertiary/60">
         ·
       </span>
       <CadencePicker value={value} onChange={onChange} />
@@ -60,7 +60,7 @@ function AmountCaption({ value, onChange }: { value: PayCadence; onChange: (next
 /** "avg" beside a derived monthly figure, wherever the line is not actually monthly. */
 function AverageTag({ cadence }: { cadence: PayCadence }) {
   if (cadence === "Monthly") return null;
-  return <span className="ml-1 text-[10px] font-normal text-text-tertiary">avg</span>;
+  return <span className="ml-1 text-micro font-normal text-text-tertiary">avg</span>;
 }
 
 /** A change being corrected: which row, and the four things it holds. */
@@ -115,7 +115,7 @@ function EndDateField({
             aria-label="Remove the end date"
             onClick={() => onChange(null)}
           >
-            <span className="block rounded-md px-1 py-0.5 text-[12px] font-medium text-text-tertiary transition-colors duration-200 ease-out group-hover:bg-subtle group-hover:text-text-secondary">
+            <span className="block rounded-md px-1 py-0.5 text-meta font-medium text-text-tertiary transition-colors duration-200 ease-out group-hover:bg-subtle group-hover:text-text-secondary">
               Remove
             </span>
           </button>
@@ -147,7 +147,7 @@ function AmountInput({
   return (
     <input
       className={cn(
-        "focus-ring min-h-11 rounded-xl border border-border bg-subtle px-3 text-right text-[15px] tabular-nums text-text-primary placeholder:text-text-tertiary",
+        "focus-ring min-h-11 rounded-xl border border-border bg-subtle px-3 text-right text-label tabular-nums text-text-primary placeholder:text-text-tertiary",
         className
       )}
       value={value}
@@ -181,7 +181,7 @@ function TextButton({
   return (
     <button
       className={cn(
-        "focus-ring flex min-h-11 items-center rounded-xl px-2 text-left text-[13px] text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary",
+        "focus-ring flex min-h-11 items-center rounded-xl px-2 text-left text-list text-text-tertiary transition-colors duration-200 ease-out hover:bg-subtle hover:text-text-secondary",
         className
       )}
       type="button"
@@ -221,7 +221,7 @@ function ActionButton({
         // plus its icon needs 121px of the 127 that px-3 leaves, and wrapped to
         // two lines at px-4, which made one of the two buttons on the row 3px
         // taller than the other.
-        "focus-ring inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[14px] font-medium transition-colors duration-200 ease-out disabled:opacity-40 sm:px-4",
+        "focus-ring inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-body font-medium transition-colors duration-200 ease-out disabled:opacity-40 sm:px-4",
         tone === "primary"
           ? "bg-accent text-text-primary hover:brightness-95"
           : tone === "danger"
@@ -428,7 +428,7 @@ function LineDetail({
           silently — so a change dated before that one re-timed every payment on
           the line and nothing said so. Printed here, where changes are typed. */}
       {schedule ? (
-        <p className="mb-2 text-[11.5px] text-text-tertiary">{schedule}</p>
+        <p className="mb-2 text-caption text-text-tertiary">{schedule}</p>
       ) : null}
       {line.rates.length > 0 ? (
         <div className="mb-2.5 divide-y divide-border/50">
@@ -497,7 +497,7 @@ function LineDetail({
                 aria-label={`Edit the change from ${longDate(rate.effective_from)}`}
                 onClick={() => startEditing(rate)}
               >
-                <span className="min-w-0 flex-1 text-[13px] text-text-secondary">
+                <span className="min-w-0 flex-1 text-list text-text-secondary">
                   {/* The end date belongs on the same line as the start: they
                       are one fact, and a stopped line has to say so where the
                       dates are read rather than only in the month behind. */}
@@ -507,7 +507,7 @@ function LineDetail({
                     {/* The one thing the row's old subtitle said that the dates
                         alone do not: this change has not happened yet. */}
                     {rate.effective_from > todayInputValue() ? (
-                      <span className="ml-1.5 rounded-md bg-accent-soft px-1.5 py-0.5 text-[10.5px] font-medium text-text-secondary">
+                      <span className="ml-1.5 rounded-md bg-accent-soft px-1.5 py-0.5 text-micro font-medium text-text-secondary">
                         Upcoming
                       </span>
                     ) : null}
@@ -517,17 +517,17 @@ function LineDetail({
                       on a phone; in its own column once there is room, so the
                       dates and the figures each read down a straight edge. */}
                   {rate.cadence !== "Monthly" ? (
-                    <span className="block truncate text-[11.5px] text-text-tertiary sm:hidden">
+                    <span className="block truncate text-caption text-text-tertiary sm:hidden">
                       {formatCurrency(rate.entered_amount)} {CADENCE_SUFFIX[rate.cadence]}
                     </span>
                   ) : null}
                 </span>
-                <span className="hidden shrink-0 text-right text-[12.5px] tabular-nums text-text-tertiary sm:block sm:w-[200px]">
+                <span className="hidden shrink-0 text-right text-meta tabular-nums text-text-tertiary sm:block sm:w-[200px]">
                   {rate.cadence === "Monthly"
                     ? ""
                     : `${formatCurrency(rate.entered_amount)} ${CADENCE_SUFFIX[rate.cadence]}`}
                 </span>
-                <span className="shrink-0 text-right text-[13.5px] font-medium tabular-nums text-text-primary sm:w-[120px]">
+                <span className="shrink-0 text-right text-list font-medium tabular-nums text-text-primary sm:w-[120px]">
                   {formatCurrency(rate.monthly_amount)}
                   <AverageTag cadence={rate.cadence} />
                 </span>
@@ -567,7 +567,7 @@ function LineDetail({
         </div>
         <EndDateField value={changeEnd} from={changeDate} onChange={setChangeEnd} />
       </div>
-      {paydayNote ? <p className="mt-1 text-[11px] text-text-tertiary">{paydayNote}</p> : null}
+      {paydayNote ? <p className="mt-1 text-caption text-text-tertiary">{paydayNote}</p> : null}
       <FormActions saveLabel="Save change" saveDisabled={!changeAmount.trim()} onSave={saveChange} />
         </>
       )}
@@ -579,7 +579,7 @@ function LineDetail({
           deleting is red, at rest rather than on a hover a phone cannot do. */}
       <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         <input
-          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px]"
+          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-label text-text-primary sm:max-w-[320px]"
           value={label}
           aria-label="Line name"
           onChange={(event) => setLabel(event.target.value)}
@@ -692,10 +692,10 @@ export function SetupGroups({
                 not know, and six of them cost 96px on a phone. */}
             <div className="flex items-center gap-2.5 bg-[#F4F2EC] px-3.5 py-2 sm:px-4">
               <span aria-hidden className={cn("h-4 w-1.5 shrink-0 rounded-full", style.color)} />
-              <h2 className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[-0.01em] text-text-primary sm:text-[17px]">
+              <h2 className="min-w-0 flex-1 truncate text-label font-semibold tracking-[-0.01em] text-text-primary sm:text-subhead">
                 {style.title}
               </h2>
-              <span className="shrink-0 text-[15px] font-medium tabular-nums text-text-primary sm:text-[16px]">
+              <span className="shrink-0 text-label font-medium tabular-nums text-text-primary">
                 {formatCurrency(inEffect)}
               </span>
               {/* 44px, like every other control in the panel — but with the
@@ -723,7 +723,7 @@ export function SetupGroups({
                     long. The date and the amount pair up like everywhere else. */}
                 <div className="grid grid-cols-[1.3fr_1fr] items-end gap-1.5 sm:flex sm:flex-nowrap sm:gap-2">
                   <input
-                    className="focus-ring col-span-2 min-h-11 min-w-0 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary sm:col-span-1 sm:flex-1"
+                    className="focus-ring col-span-2 min-h-11 min-w-0 rounded-xl border border-border bg-surface px-3 text-label text-text-primary placeholder:text-text-tertiary sm:col-span-1 sm:flex-1"
                     value={newLabel}
                     aria-label="New line name"
                     placeholder="Name"
@@ -787,10 +787,10 @@ export function SetupGroups({
                           rhythm and the dated rows name every change. Dropping
                           it also hands its 220px column back to the label, which
                           was truncating "OR Statewide Transit Tax (Ivan)". */}
-                      <span className="min-w-0 flex-1 truncate text-[14px] text-text-secondary sm:text-[15px]">
+                      <span className="min-w-0 flex-1 truncate text-body text-text-secondary sm:text-label">
                         {line.label}
                       </span>
-                      <span className="shrink-0 text-right text-[14px] tabular-nums text-text-primary sm:w-[120px] sm:text-[15px]">
+                      <span className="shrink-0 text-right text-body tabular-nums text-text-primary sm:w-[120px] sm:text-label">
                         {/* A line with no rate yet is not worth $0.00 — that is a
                             zero pretending to be a figure, which is what the
                             "No amount set" in the old subtitle was guarding. */}

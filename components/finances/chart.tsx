@@ -30,10 +30,29 @@ import { formatCurrency } from "@/lib/formatters";
  * around marks.
  */
 
-/** Chart ink. One hue per series, both measured at ≥ 3:1 against the surface. */
+/**
+ * Chart ink, measured at ≥ 3:1 against the surface.
+ *
+ * One hue is all that is left: the month's rows carry no bars any more, so this
+ * serves the utility grid, where a bar against twelve cells of one account is a
+ * shape worth seeing. `IN_INK` went with the money-in bars that used it.
+ */
 export const OUT_INK = "#A8823C";
-export const IN_INK = "#4A8C6F";
 const TRACK = "#EDEAE3";
+
+/**
+ * The width the row's `ⓘ` takes out of the line, and the space anything without
+ * one has to leave in its place.
+ *
+ * The icon is a 42px tap target pulled 8px into the row's right padding, so it
+ * consumes 34px plus the row's 10px gap. A row with no detail used to simply
+ * not render it, which pushed that row's figure 44px further right than its
+ * neighbours — a column of figures with two right edges, in the one card that
+ * exists to be read straight down. The slot is permanent now: filled by the
+ * icon where there is something to open, empty where there is not, and matched
+ * by the section total beneath so the sum lands under the numbers it adds up.
+ */
+export const ROW_END_SLOT = "w-[34px] shrink-0";
 
 /** A bar, grown from the left baseline. Never wider than its track. */
 export function Bar({ share, ink }: { share: number; ink: string }) {
@@ -80,25 +99,29 @@ export type BarRowData = {
 };
 
 /**
- * One row: name, bar, figure.
+ * One row: name, figure.
  *
- * The figure sits in a fixed right-hand column rather than at the bar's tip.
- * Tip labels put every number at a different horizontal position, which is fine
- * for reading one bar and useless for reading down thirty — and reading down is
- * the whole job here. Bars keep a common baseline on the left, so their *ends*
- * still carry the comparison.
+ * **No bar under the name.** Every line in the month used to carry one, scaled
+ * against the largest line in the card, and it earned none of the height it
+ * cost. What a reader does here is read down a column of figures — is this
+ * month's rent what it was, what is the tax, what is the subscription pile —
+ * and the figures are right there, in a column, exact to the cent. A length
+ * beside an exact number answers a question nobody was asking, and it answered
+ * it badly: against a $2,395 rent, the small lines this page exists to make
+ * killable — a $15 subscription, a $2.99 iCloud — drew a stub two or three
+ * pixels long, indistinguishable from each other and from nothing.
+ *
+ * It also read as a progress bar, which is what Ivan called it: a filled track
+ * looks like something advancing toward a target, and none of these lines are
+ * going anywhere. Removing it takes the row from 51px to 42.5px — the `ⓘ`'s
+ * 42px tap target is the floor now, not the bar — which is about 100px off a
+ * twelve-line Money out, and turns the card from a chart back into what it
+ * always was, a list of figures.
+ *
+ * The comparison the bars were for survives where it belongs: the share of
+ * income on each block's header row, and `YearList` for month against month.
  */
-export function BarRow({
-  row,
-  max,
-  ink,
-  action
-}: {
-  row: BarRowData;
-  max: number;
-  ink: string;
-  action?: () => void;
-}) {
+export function BarRow({ row, action }: { row: BarRowData; action?: () => void }) {
   const [open, setOpen] = useState(false);
   const infoRef = useRef<HTMLButtonElement>(null);
   const detail = row.amount > 0 ? row.detail : undefined;
@@ -107,19 +130,8 @@ export function BarRow({
 
   const body = (
     <>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] text-text-secondary">{row.label}</span>
-        {/* No mark for a zero. An empty track is a bar drawn for a quantity that
-            does not exist, and four of them down a card is three lines each of
-            ink saying nothing. The row stays, because it is where a line gets
-            added. */}
-        {row.amount > 0 ? (
-          <span className="mt-1 block">
-            <Bar share={max > 0 ? row.amount / max : 0} ink={ink} />
-          </span>
-        ) : null}
-      </span>
-      <span className="shrink-0 text-right text-[13px] tabular-nums text-text-primary">
+      <span className="min-w-0 flex-1 truncate text-list text-text-secondary">{row.label}</span>
+      <span className="shrink-0 text-right text-list tabular-nums text-text-primary">
         {formatCurrency(row.amount)}
       </span>
     </>
@@ -127,11 +139,10 @@ export function BarRow({
 
   const title = `${row.label} — ${formatCurrency(row.amount)}`;
   const padding = "px-3.5 py-2 sm:px-4";
-  // The figure and the ⓘ centre against the **whole** row, not against the
-  // label. The name and its bar are one stacked column, so aligning to the top
-  // of it put the amount level with the name and left it sitting high over the
-  // bar — reading as though it had drifted up rather than as a column of
-  // figures down the card.
+  // One line, so `items-center` simply centres the three things on it. It
+  // mattered more when the name sat above a bar: aligning to the top of that
+  // stacked column put the figure level with the name and left it sitting high
+  // over the bar.
 
   if (hasDetail) {
     return (
@@ -170,13 +181,13 @@ export function BarRow({
           width={240}
           className="p-3"
         >
-          <p className="mb-1.5 truncate text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+          <p className="mb-1.5 truncate text-caption font-medium uppercase tracking-[0.04em] text-text-tertiary">
             {row.label}
           </p>
           {detailLines.map((line) => (
             <div key={line.label} className="flex items-baseline justify-between gap-3 py-0.5">
-              <span className="min-w-0 truncate text-[12.5px] text-text-secondary">{line.label}</span>
-              <span className="shrink-0 text-[12.5px] tabular-nums text-text-primary">{line.value}</span>
+              <span className="min-w-0 truncate text-meta text-text-secondary">{line.label}</span>
+              <span className="shrink-0 text-meta tabular-nums text-text-primary">{line.value}</span>
             </div>
           ))}
           {/* Under the rows the note is a footnote — the run rate, the share —
@@ -187,8 +198,8 @@ export function BarRow({
             <p
               className={cn(
                 detailLines.length > 0
-                  ? "mt-1.5 border-t border-border/60 pt-1.5 text-[11.5px] text-text-tertiary"
-                  : "text-[12.5px] text-text-secondary"
+                  ? "mt-1.5 border-t border-border/60 pt-1.5 text-caption text-text-tertiary"
+                  : "text-meta text-text-secondary"
               )}
             >
               {detail.note}
@@ -203,6 +214,7 @@ export function BarRow({
     return (
       <div className={cn("flex items-center gap-2.5", padding)} title={title}>
         {body}
+        <span aria-hidden className={ROW_END_SLOT} />
       </div>
     );
   }
@@ -218,46 +230,34 @@ export function BarRow({
       )}
     >
       {body}
+      <span aria-hidden className={ROW_END_SLOT} />
     </button>
   );
 }
 
 /**
- * A single ratio against a limit — the one job a meter is the right form for.
+ * The card, and the top of the type ramp.
  *
- * Both ends are labelled directly, so the reader is never asked what the filled
- * part is a part of.
+ * The ramp is the whole point of these sizes, so it is written down: **17px for
+ * the card, 15px for a block inside it, 13px for a line inside that.** It used
+ * to be 13 / 13.5 / 13 — the card's own title was *smaller* than the blocks it
+ * contained, and a line sat half a pixel under the heading that governed it.
+ * Three levels of structure within 0.5px of each other is not a hierarchy, it is
+ * three rows of similar text, and the reader has to parse the card to find out
+ * what contains what instead of seeing it.
+ *
+ * Size is not carrying it alone — weight and colour step with it (semibold
+ * primary for the two headings, regular secondary for a line), because a
+ * two-pixel difference is easy to miss on a phone and three cues agreeing are
+ * not.
+ *
+ * The card's own total moved with the title, and sits at the *same* 17px: it was
+ * a 10px uppercase whisper in tertiary grey, smaller than every figure it is the
+ * sum of. The figures ramp too — **17px for the card's total, 14.5px for a
+ * block's, 13px for a line** — and 15px was tried first, which put the grand
+ * total half a pixel from a section total and repeated the near-miss the ramp
+ * exists to fix.
  */
-export function Meter({
-  filled,
-  total,
-  filledLabel,
-  restLabel
-}: {
-  filled: number;
-  total: number;
-  filledLabel: string;
-  restLabel: string;
-}) {
-  const share = total > 0 ? Math.max(0, Math.min(1, filled / total)) : 0;
-
-  return (
-    <div className="px-3.5 py-2.5 sm:px-4">
-      <span className="block h-2.5 w-full overflow-hidden rounded-[3px]" style={{ background: TRACK }}>
-        <span
-          className="block h-full rounded-r-[4px]"
-          style={{ width: `${share * 100}%`, background: OUT_INK }}
-        />
-      </span>
-      <div className="mt-1.5 flex items-baseline justify-between gap-3">
-        <span className="min-w-0 truncate text-[11.5px] tabular-nums text-text-secondary">{filledLabel}</span>
-        <span className="min-w-0 truncate text-[11.5px] tabular-nums text-success">{restLabel}</span>
-      </div>
-    </div>
-  );
-}
-
-/** A card title. Names the single series, which is why no legend is needed. */
 export function ChartCard({
   title,
   note,
@@ -269,12 +269,12 @@ export function ChartCard({
 }) {
   return (
     <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-      <div className="flex items-baseline justify-between gap-3 border-b border-border px-3.5 py-2 sm:px-4">
-        <h2 className="min-w-0 truncate text-[13px] font-medium text-text-primary">{title}</h2>
+      <div className="flex items-baseline justify-between gap-3 border-b border-border px-3.5 py-3 sm:px-4">
+        <h2 className="min-w-0 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
+          {title}
+        </h2>
         {note ? (
-          <span className={cn("shrink-0 text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary")}>
-            {note}
-          </span>
+          <span className="shrink-0 text-subhead font-semibold tabular-nums text-text-primary">{note}</span>
         ) : null}
       </div>
       {children}

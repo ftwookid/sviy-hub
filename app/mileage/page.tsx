@@ -68,16 +68,16 @@ function Stat({
 }) {
   return (
     <div className="min-w-0 px-3 py-2.5 first:pl-0 last:pr-0">
-      <div className="truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
+      <div className="truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
       <div
         className={cn(
-          "mt-1.5 text-[21px] font-medium leading-none tracking-[-0.01em]",
+          "mt-1.5 text-figure font-semibold leading-none tracking-[-0.01em]",
           tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
         )}
       >
         {value}
       </div>
-      {detail ? <div className="mt-1 truncate text-[12px] text-text-tertiary">{detail}</div> : null}
+      {detail ? <div className="mt-1 truncate text-meta text-text-tertiary">{detail}</div> : null}
     </div>
   );
 }
@@ -498,11 +498,11 @@ export default function MileagePage() {
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
   const selectClass =
-    "focus-ring h-11 rounded-xl border border-border bg-surface px-3 text-[15px] font-medium text-text-primary shadow-sm";
+    "focus-ring h-11 rounded-xl border border-border bg-surface px-3 text-label font-medium text-text-primary shadow-sm";
   const inputClass =
-    "focus-ring h-11 w-full rounded-xl border border-border bg-subtle px-3 text-[15px] text-text-primary placeholder:text-text-tertiary";
+    "focus-ring h-11 w-full rounded-xl border border-border bg-subtle px-3 text-label text-text-primary placeholder:text-text-tertiary";
   const compactInput =
-    "focus-ring mt-0.5 h-8 w-full rounded-lg border border-border bg-subtle px-2 text-[14px] text-text-primary placeholder:text-text-tertiary";
+    "focus-ring mt-0.5 h-8 w-full rounded-lg border border-border bg-subtle px-2 text-body text-text-primary placeholder:text-text-tertiary";
 
   return (
     <AppShell user={user}>
@@ -517,7 +517,7 @@ export default function MileagePage() {
                 key={value}
                 type="button"
                 className={cn(
-                  "focus-ring min-w-[64px] rounded-[10px] px-3 text-[13px] font-medium transition duration-150 ease-out",
+                  "focus-ring min-w-[64px] rounded-[10px] px-3 text-list font-medium transition duration-150 ease-out",
                   period === value ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
                 )}
                 onClick={() => setPeriod(value)}
@@ -579,11 +579,11 @@ export default function MileagePage() {
 
         {schemaError ? (
           <section className="rounded-[20px] border border-warning/20 bg-warning-soft p-4">
-            <p className="text-[13px] text-text-secondary">
+            <p className="text-list text-text-secondary">
               Run <code className="rounded bg-white/70 px-1.5 py-0.5">supabase/mileage-schema.sql</code> in Supabase,
               then refresh.
             </p>
-            <p className="mt-2 text-[11px] text-warning">{schemaError}</p>
+            <p className="mt-2 text-caption text-warning">{schemaError}</p>
           </section>
         ) : null}
 
@@ -610,7 +610,7 @@ export default function MileagePage() {
             </StatStrip>
 
             <section className="rounded-[16px] border border-border bg-surface">
-              <h2 className="px-3 pt-3 text-[14px] font-medium leading-tight text-text-primary">
+              <h2 className="px-3 pt-3 text-body font-semibold leading-tight text-text-primary">
                 {period === "month" ? "Daily" : "Monthly"} · {periodName}
               </h2>
 
@@ -630,7 +630,7 @@ export default function MileagePage() {
                     <div key={item.key} className="relative flex h-full min-w-0 flex-col justify-end">
                       <span
                         className={cn(
-                          "mb-0.5 text-center text-[10px] leading-tight",
+                          "mb-0.5 text-center text-micro leading-tight",
                           item.miles ? "text-text-secondary" : "text-transparent"
                         )}
                       >
@@ -638,7 +638,7 @@ export default function MileagePage() {
                       </span>
                       <span
                         className={cn(
-                          "mb-1 text-center text-[9px] leading-tight",
+                          "mb-1 text-center text-micro leading-tight",
                           item.money ? "text-accent" : "text-transparent"
                         )}
                       >
@@ -648,7 +648,7 @@ export default function MileagePage() {
                         className={cn("w-full rounded-t-[4px]", item.miles ? "bg-accent" : "bg-subtle")}
                         style={{ height: item.miles ? `max(5px, ${(item.miles / maxChartMiles) * 82}%)` : "2px" }}
                       />
-                      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] text-text-tertiary">
+                      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-micro text-text-tertiary">
                         {item.axisLabel}
                       </span>
                     </div>
@@ -657,14 +657,14 @@ export default function MileagePage() {
               </div>
 
               <div className="border-t border-border px-3 py-3">
-                <h3 className="text-[13px] font-medium text-text-primary">By weekday</h3>
+                <h3 className="text-list font-semibold text-text-primary">By weekday</h3>
                 <div className="mt-2.5 space-y-2">
                   {weekdayData.rows.map((day) => {
                     const busiest = day.index === weekdayData.busiestIndex;
                     return (
                       <div key={day.label} className="grid grid-cols-[38px_1fr_66px_66px] items-center gap-3">
                         <span
-                          className={cn("text-[12px]", busiest ? "font-medium text-text-primary" : "text-text-secondary")}
+                          className={cn("text-meta", busiest ? "font-medium text-text-primary" : "text-text-secondary")}
                         >
                           {day.label.slice(0, 3)}
                         </span>
@@ -676,13 +676,13 @@ export default function MileagePage() {
                         </div>
                         <span
                           className={cn(
-                            "text-right text-[12px]",
+                            "text-right text-meta",
                             busiest ? "font-medium text-text-primary" : "text-text-secondary"
                           )}
                         >
                           {day.miles.toFixed(1)} mi
                         </span>
-                        <span className="text-right text-[12px] text-text-tertiary">{formatCurrency(day.money)}</span>
+                        <span className="text-right text-meta text-text-tertiary">{formatCurrency(day.money)}</span>
                       </div>
                     );
                   })}
@@ -692,17 +692,17 @@ export default function MileagePage() {
 
             {carError ? (
               <section className="rounded-[16px] border border-warning/20 bg-warning-soft p-3">
-                <p className="text-[13px] text-text-secondary">
+                <p className="text-list text-text-secondary">
                   Run <code className="rounded bg-white/70 px-1.5 py-0.5">supabase/vehicle-schema.sql</code> in
                   Supabase, then refresh.
                 </p>
-                <p className="mt-1.5 text-[11px] text-warning">{carError}</p>
+                <p className="mt-1.5 text-caption text-warning">{carError}</p>
               </section>
             ) : null}
 
             <section className="rounded-[16px] border border-border bg-surface">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-3 pt-3">
-                <h2 className="text-[14px] font-medium leading-tight text-text-primary">
+                <h2 className="text-body font-semibold leading-tight text-text-primary">
                   The car · since Jan 1 {epochYear}
                 </h2>
                 {/* Entering the car's numbers still belongs in Profile — it is setup,
@@ -712,13 +712,13 @@ export default function MileagePage() {
                 {isAdmin ? (
                   <Link
                     href="/profile#car-settings"
-                    className="focus-ring inline-flex items-center gap-1 rounded-lg px-1 text-[12px] font-medium text-text-secondary transition hover:text-text-primary"
+                    className="focus-ring inline-flex items-center gap-1 rounded-lg px-1 text-meta font-medium text-text-secondary transition hover:text-text-primary"
                   >
                     <Settings2 size={14} strokeWidth={1.7} />
                     {configured ? "Edit car data" : "Add car data"}
                   </Link>
                 ) : (
-                  <span className="text-[12px] text-text-tertiary">
+                  <span className="text-meta text-text-tertiary">
                     Fuel economy, pump price and car costs are set in Profile.
                   </span>
                 )}
@@ -743,7 +743,7 @@ export default function MileagePage() {
               </StatStrip>
 
               {carBreakdown.length ? (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 pb-2 text-[12px] text-text-tertiary">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 pb-2 text-meta text-text-tertiary">
                   {carBreakdown.map((row) => (
                     <span key={row.label}>
                       {row.label} <span className="text-text-secondary">{formatCurrency(row.amount)}</span>
@@ -765,7 +765,7 @@ export default function MileagePage() {
 
               {configured && costTrend.length ? (
                 <div className="border-t border-border px-3 py-3">
-                  <h3 className="text-[13px] font-medium text-text-primary">Cost per mile · 12 months</h3>
+                  <h3 className="text-list font-semibold text-text-primary">Cost per mile · 12 months</h3>
                   <div className="mt-2.5 overflow-x-auto pb-5">
                     <div
                       className="grid h-28 items-end gap-1.5 border-b border-border"
@@ -778,7 +778,7 @@ export default function MileagePage() {
                         <div key={point.key} className="relative flex h-full min-w-0 flex-col justify-end">
                           <span
                             className={cn(
-                              "mb-1 text-center text-[10px]",
+                              "mb-1 text-center text-micro",
                               point.miles ? "text-text-tertiary" : "text-transparent"
                             )}
                           >
@@ -790,7 +790,7 @@ export default function MileagePage() {
                               height: point.miles ? `max(5px, ${(point.costPerMile / trendCeiling) * 90}%)` : "2px"
                             }}
                           />
-                          <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-text-tertiary">
+                          <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-micro text-text-tertiary">
                             {point.axisLabel}
                           </span>
                         </div>
@@ -804,7 +804,7 @@ export default function MileagePage() {
             <div>
               <button
                 type="button"
-                className="focus-ring w-full rounded-[16px] border border-border bg-surface px-3 py-2.5 text-left text-[13px] font-medium text-text-secondary hover:text-text-primary"
+                className="focus-ring w-full rounded-[16px] border border-border bg-surface px-3 py-2.5 text-left text-list font-medium text-text-secondary hover:text-text-primary"
                 onClick={() => setShowHistory(!showHistory)}
               >
                 {showHistory ? "Hide imported months" : "Imported months"}

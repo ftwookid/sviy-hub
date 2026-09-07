@@ -110,14 +110,14 @@ export function AddTransactionDialog({
             <span className="mx-auto grid h-14 w-14 place-items-center rounded-[20px] bg-accent-soft text-accent">
               <Loader2 size={24} strokeWidth={1.6} className="animate-spin" />
             </span>
-            <h3 className="mt-4 text-[17px] font-medium text-text-primary">{scanSteps[scanStep]}</h3>
-            <p className="mx-auto mt-2 max-w-xs text-[13px] leading-snug text-text-secondary">
+            <h3 className="mt-4 text-subhead font-semibold text-text-primary">{scanSteps[scanStep]}</h3>
+            <p className="mx-auto mt-2 max-w-xs text-list leading-snug text-text-secondary">
               {step === "sheet"
                 ? "Leave the page open."
                 : "This takes a minute or two. Leave the page open — the transactions come back as a list you can go through."}
             </p>
             {pending ? (
-              <p className="mt-3 text-[12px] text-text-tertiary">
+              <p className="mt-3 text-meta text-text-tertiary">
                 {pending.name} · {formatBytes(pending.size)}
               </p>
             ) : null}
@@ -149,7 +149,7 @@ export function AddTransactionDialog({
 
             {unfinished.length > 0 ? (
               <div className="mt-5">
-                <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+                <div className="text-caption font-medium uppercase tracking-[0.06em] text-text-tertiary">
                   Still to review
                 </div>
                 <div className="mt-2 space-y-1.5">
@@ -162,10 +162,10 @@ export function AddTransactionDialog({
                     >
                       <FileText size={15} strokeWidth={1.8} className="shrink-0 text-text-tertiary" />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[14px] font-medium text-text-primary">
+                        <div className="truncate text-body font-medium text-text-primary">
                           {item.institution || item.filename}
                         </div>
-                        <div className="text-[12px] text-text-tertiary">
+                        <div className="text-meta text-text-tertiary">
                           {item.period_month ? periodMonthLabel(item.period_month) : "Period unknown"}
                         </div>
                       </div>
@@ -179,7 +179,7 @@ export function AddTransactionDialog({
         ) : step === "upload" ? (
           <>
             <DialogHeader title="Upload a statement" onClose={onClose} />
-            <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
+            <p className="mt-1.5 text-list leading-snug text-text-secondary">
               Keep the business transactions, drop the rest. Nothing is written to your books
               until you say so.
             </p>
@@ -203,10 +203,10 @@ export function AddTransactionDialog({
               <span className="grid h-12 w-12 place-items-center rounded-[16px] bg-subtle text-text-tertiary">
                 <UploadCloud size={22} strokeWidth={1.5} />
               </span>
-              <span className="mt-3 text-[15px] font-medium text-text-primary">
+              <span className="mt-3 text-label font-medium text-text-primary">
                 Drop a PDF here
               </span>
-              <span className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-text-primary px-3.5 text-[14px] font-medium text-white">
+              <span className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-text-primary px-3.5 text-body font-medium text-white">
                 <FileText size={16} strokeWidth={1.7} />
                 Choose a file
               </span>
@@ -223,13 +223,13 @@ export function AddTransactionDialog({
             </label>
 
             {scanError ? (
-              <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">
+              <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-list text-danger">
                 {scanError}
               </p>
             ) : null}
 
             <button
-              className="focus-ring mt-3 text-[13px] text-text-secondary transition hover:text-text-primary"
+              className="focus-ring mt-3 text-list text-text-secondary transition hover:text-text-primary"
               type="button"
               onClick={() => setStep("choose")}
             >
@@ -259,13 +259,13 @@ export function AddTransactionDialog({
               <span className="grid h-12 w-12 place-items-center rounded-[16px] bg-subtle text-text-tertiary">
                 <FileSpreadsheet size={22} strokeWidth={1.5} />
               </span>
-              <span className="mt-3 text-[15px] font-medium text-text-primary">
+              <span className="mt-3 text-label font-medium text-text-primary">
                 Drop the report here
               </span>
-              <span className="mt-1 text-[12.5px] text-text-tertiary">
+              <span className="mt-1 text-meta text-text-tertiary">
                 Spreadsheet or PDF — .xlsx, .csv, .pdf
               </span>
-              <span className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-text-primary px-3.5 text-[14px] font-medium text-white">
+              <span className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-text-primary px-3.5 text-body font-medium text-white">
                 <FileText size={16} strokeWidth={1.7} />
                 Choose a file
               </span>
@@ -282,13 +282,13 @@ export function AddTransactionDialog({
             </label>
 
             {scanError ? (
-              <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">
+              <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-list text-danger">
                 {scanError}
               </p>
             ) : null}
 
             <button
-              className="focus-ring mt-3 text-[13px] text-text-secondary transition hover:text-text-primary"
+              className="focus-ring mt-3 text-list text-text-secondary transition hover:text-text-primary"
               type="button"
               onClick={() => setStep("choose")}
             >
@@ -311,7 +311,7 @@ export function AddTransactionDialog({
 function DialogHeader({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div className="flex items-start gap-2">
-      <h3 className="min-w-0 flex-1 text-[19px] font-medium leading-tight text-text-primary">
+      <h3 className="min-w-0 flex-1 text-figure font-semibold leading-tight text-text-primary">
         {title}
       </h3>
       <CloseButton onClick={onClose} />
@@ -340,8 +340,8 @@ function ChoiceRow({
         <Icon size={18} strokeWidth={1.7} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium text-text-primary">{title}</span>
-        <span className="mt-0.5 block text-[12.5px] leading-snug text-text-secondary">{caption}</span>
+        <span className="block text-label font-medium text-text-primary">{title}</span>
+        <span className="mt-0.5 block text-meta leading-snug text-text-secondary">{caption}</span>
       </span>
       <ChevronRight size={17} strokeWidth={1.8} className="shrink-0 text-text-tertiary" />
     </button>

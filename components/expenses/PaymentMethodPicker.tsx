@@ -102,7 +102,7 @@ export function PaymentMethodPicker({
             <span key={option} className="relative">
               <button
                 className={cn(
-                  "focus-ring min-h-9 rounded-xl border px-3 text-[13.5px] font-medium transition duration-150 ease-out",
+                  "focus-ring min-h-9 rounded-xl border px-3 text-list font-medium transition duration-150 ease-out",
                   value === option
                     ? "border-accent bg-accent-soft text-text-primary"
                     : "border-border bg-subtle text-text-secondary hover:text-text-primary",
@@ -133,7 +133,7 @@ export function PaymentMethodPicker({
           <span className="inline-flex items-center gap-1">
             <input
               ref={inputRef}
-              className="focus-ring h-9 w-[136px] rounded-xl border border-border-emphasis bg-surface px-3 text-[13.5px] text-text-primary outline-none"
+              className="focus-ring h-9 w-[136px] rounded-xl border border-border-emphasis bg-surface px-3 text-list text-text-primary outline-none"
               value={nickname}
               placeholder="Card name"
               maxLength={40}
@@ -164,7 +164,7 @@ export function PaymentMethodPicker({
           </span>
         ) : (
           <button
-            className="focus-ring inline-flex min-h-9 items-center gap-1 rounded-xl border border-dashed border-border-emphasis px-2.5 text-[13.5px] font-medium text-text-secondary transition hover:text-text-primary"
+            className="focus-ring inline-flex min-h-9 items-center gap-1 rounded-xl border border-dashed border-border-emphasis px-2.5 text-list font-medium text-text-secondary transition hover:text-text-primary"
             type="button"
             onClick={() => {
               setAdding(true);
@@ -193,7 +193,7 @@ export function PaymentMethodPicker({
         ) : null}
       </div>
 
-      {error ? <p className="mt-1.5 text-[12.5px] text-danger">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-meta text-danger">{error}</p> : null}
     </div>
   );
 }

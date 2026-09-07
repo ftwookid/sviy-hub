@@ -150,7 +150,7 @@ export function ImportRow({
               its shortest unambiguous form there. */}
           <span
             className={cn(
-              "w-[32px] shrink-0 text-[12px] tabular-nums sm:w-[46px]",
+              "w-[32px] shrink-0 text-meta tabular-nums sm:w-[46px]",
               muted ? "text-text-tertiary" : "text-text-secondary"
             )}
           >
@@ -161,7 +161,7 @@ export function ImportRow({
           <span className="flex min-w-0 flex-1 items-center gap-1">
             <span
               className={cn(
-                "truncate text-[14px]",
+                "truncate text-body",
                 muted ? "text-text-tertiary" : "font-medium text-text-primary"
               )}
             >
@@ -197,7 +197,7 @@ export function ImportRow({
               what made the amount slide left and right from row to row. */}
           <span
             className={cn(
-              "w-[86px] shrink-0 text-right text-[13.5px] font-medium tabular-nums",
+              "w-[86px] shrink-0 text-right text-list font-medium tabular-nums",
               row.direction === "Credit"
                 ? "text-success"
                 : muted
@@ -221,7 +221,7 @@ export function ImportRow({
           {row.category ? (
             <CategoryTag category={row.category} fixedWidth />
           ) : (
-            <span className="w-full rounded-md border border-dashed border-border-emphasis px-2 py-1 text-center text-[11px] text-text-tertiary">
+            <span className="w-full rounded-md border border-dashed border-border-emphasis px-2 py-1 text-center text-caption text-text-tertiary">
               Set category
             </span>
           )}
@@ -231,7 +231,7 @@ export function ImportRow({
             longer change it, and offering the buttons anyway invites edits that
             silently go nowhere. */}
         {row.expense_id ? (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-success-soft px-2 py-1 text-[11px] font-medium text-success">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-success-soft px-2 py-1 text-caption font-medium text-success">
             <Check size={12} strokeWidth={2.4} />
             <span className="hidden sm:inline">In your books</span>
           </span>
@@ -262,12 +262,12 @@ export function ImportRow({
       </div>
 
       {blockers.length > 0 && !expanded ? (
-        <p className="pb-1.5 pl-[34px] pr-2 text-[11.5px] text-danger">{blockers.join(" · ")}</p>
+        <p className="pb-1.5 pl-[34px] pr-2 text-caption text-danger">{blockers.join(" · ")}</p>
       ) : null}
 
       {expanded ? (
         <div className="space-y-3 border-t border-border px-3 py-3">
-          <p className="text-[12px] text-text-tertiary">
+          <p className="text-meta text-text-tertiary">
             {row.expense_id
               ? "Already in your books. Edit it from the transactions list."
               : DECISION_HINTS[row.decision]}
@@ -314,7 +314,7 @@ export function ImportRow({
           />
 
           <div>
-            <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+            <span className="mb-1.5 block text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
               Invoice
             </span>
             {receipt ? (
@@ -322,10 +322,10 @@ export function ImportRow({
                 <div className="flex min-w-0 items-center gap-2">
                   <Paperclip size={14} strokeWidth={1.8} className="shrink-0 text-success" />
                   <div className="min-w-0">
-                    <div className="truncate text-[13.5px] font-medium text-text-primary">
+                    <div className="truncate text-list font-medium text-text-primary">
                       {receipt.filename}
                     </div>
-                    <div className="text-[11.5px] text-text-tertiary">
+                    <div className="text-caption text-text-tertiary">
                       {receipt.drive_synced_at ? "Archived in Drive" : "Archives once you import"}
                     </div>
                   </div>
@@ -355,7 +355,7 @@ export function ImportRow({
             ) : (
               <label
                 className={cn(
-                  "focus-ring-within flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-[13.5px] text-text-secondary transition hover:bg-border",
+                  "focus-ring-within flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border-emphasis bg-subtle px-3 text-list text-text-secondary transition hover:bg-border",
                   uploading && "pointer-events-none opacity-60"
                 )}
               >
@@ -371,11 +371,11 @@ export function ImportRow({
                 />
               </label>
             )}
-            {uploadError ? <p className="mt-1.5 text-[12px] text-danger">{uploadError}</p> : null}
+            {uploadError ? <p className="mt-1.5 text-meta text-danger">{uploadError}</p> : null}
           </div>
 
           {row.description && row.description !== row.merchant ? (
-            <p className="text-[11.5px] text-text-tertiary">
+            <p className="text-caption text-text-tertiary">
               On the statement: <span className="text-text-secondary">{row.description}</span>
             </p>
           ) : null}

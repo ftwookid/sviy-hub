@@ -50,7 +50,7 @@ export function DriveArchiveAlert({
     return (
       <Link
         href="/profile"
-        className="focus-ring flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] text-text-secondary transition hover:bg-subtle"
+        className="focus-ring flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 text-list text-text-secondary transition hover:bg-subtle"
       >
         <HardDrive size={15} strokeWidth={1.8} className="shrink-0 text-text-tertiary" />
         <span className="min-w-0 flex-1">Receipt archive is off. Receipts stay in the app only.</span>
@@ -62,7 +62,7 @@ export function DriveArchiveAlert({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[13px]",
+        "flex items-center gap-2.5 rounded-xl border px-3 py-2 text-list",
         failing ? "border-danger/25 bg-danger-soft text-danger" : "border-warning/30 bg-warning-soft text-text-secondary"
       )}
     >

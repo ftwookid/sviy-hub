@@ -44,9 +44,9 @@ export function ConfirmDialog({
         className="sheet-panel w-full max-w-[420px] rounded-t-[28px] border border-border bg-surface p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_24px_70px_rgba(48,38,24,0.24)] sm:rounded-[24px] sm:pb-5"
         onClick={(event) => event.stopPropagation()}
       >
-        <h3 className="text-[19px] font-medium leading-tight text-text-primary">{title}</h3>
-        <p className="mt-2 text-[14px] leading-snug text-text-secondary">{description}</p>
-        {error ? <p className="mt-3 text-[13px] text-danger">{error}</p> : null}
+        <h3 className="text-figure font-semibold leading-tight text-text-primary">{title}</h3>
+        <p className="mt-2 text-body leading-snug text-text-secondary">{description}</p>
+        {error ? <p className="mt-3 text-list text-danger">{error}</p> : null}
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row">
           <Button className="w-full" variant="soft" type="button" disabled={busy} onClick={onCancel}>
             {cancelLabel}

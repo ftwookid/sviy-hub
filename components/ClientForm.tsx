@@ -516,7 +516,7 @@ export function ClientForm({
             <div className="relative">
               <button
                 className={cn(
-                  "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+                  "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-label text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
                   errors.owner ? "border-danger" : "border-border"
                 )}
                 type="button"
@@ -538,7 +538,7 @@ export function ClientForm({
                     <button
                       key={owner.id}
                       className={cn(
-                        "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-[14px] font-medium transition duration-150 ease-out",
+                        "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-body font-medium transition duration-150 ease-out",
                         owner.id === ownerId ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
                       )}
                       type="button"
@@ -598,7 +598,7 @@ export function ClientForm({
                   <Minus size={18} strokeWidth={1.6} />
                 </Button>
               </div>
-              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-[14px] font-medium text-text-secondary transition-colors duration-200 ease-out hover:bg-[#FBFAF7]">
+              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-body font-medium text-text-secondary transition-colors duration-200 ease-out hover:bg-[#FBFAF7]">
                 <Camera size={16} strokeWidth={1.6} />
                 {pet.photoFile?.name ?? pet.photo_filename ?? "Add pet photo"}
                 <input className="sr-only" type="file" accept="image/*" onChange={(event) => selectPhoto(index, event)} />
@@ -612,7 +612,7 @@ export function ClientForm({
           <Plus size={16} strokeWidth={1.8} />
           Add pet
         </Button>
-        {errors.pets ? <p className="text-[12px] text-danger">{errors.pets}</p> : null}
+        {errors.pets ? <p className="text-meta text-danger">{errors.pets}</p> : null}
       </div>
 
       <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
@@ -623,7 +623,7 @@ export function ClientForm({
                 <button
                   key={method}
                   className={cn(
-                    "rounded-xl text-[14px] font-medium transition duration-150 ease-out",
+                    "rounded-xl text-body font-medium transition duration-150 ease-out",
                     values.payment_method === method ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
                   )}
                   onClick={() => update("payment_method", method)}
@@ -645,7 +645,7 @@ export function ClientForm({
                   <button
                     key={status}
                     className={cn(
-                      "rounded-xl text-[14px] font-medium transition duration-150 ease-out",
+                      "rounded-xl text-body font-medium transition duration-150 ease-out",
                       values.status === status
                         ? status === "Active"
                           ? "bg-success-soft text-success shadow-sm"
@@ -723,7 +723,7 @@ export function ClientForm({
                     <button
                       key={day}
                       className={cn(
-                        "min-h-11 rounded-xl text-[13px] font-medium transition duration-150 ease-out",
+                        "min-h-11 rounded-xl text-list font-medium transition duration-150 ease-out",
                         active
                           ? "bg-accent text-text-primary shadow-sm"
                           : "bg-transparent text-text-tertiary hover:bg-surface hover:text-text-secondary"
@@ -737,7 +737,7 @@ export function ClientForm({
                   );
                 })}
               </div>
-              <p className="mt-2 text-[13px] text-text-secondary">
+              <p className="mt-2 text-list text-text-secondary">
                 {selectedDaysCount === 0
                   ? "Select visit days."
                   : `${selectedDaysCount} ${selectedDaysCount === 1 ? "visit" : "visits"} per week`}
@@ -748,7 +748,7 @@ export function ClientForm({
       </section>
 
       <section className="rounded-[20px] border border-border bg-[#FFFEFB] p-4 shadow-card">
-        <div className="flex items-center gap-2 text-[15px] font-medium text-text-primary">
+        <div className="flex items-center gap-2 text-label font-medium text-text-primary">
           <Sparkles size={17} strokeWidth={1.6} className="text-accent" />
           Earnings estimate
         </div>
@@ -759,14 +759,14 @@ export function ClientForm({
           <Metric label="Taxable" value={estimate.taxable ? "Yes" : "No"} />
         </div>
         {values.payment_method === "Rover" ? (
-          <p className="mt-3 text-[13px] text-text-secondary">
+          <p className="mt-3 text-list text-text-secondary">
             Rover commission is set to {Math.round(ROVER_COMMISSION_RATE * 100)}% and can be changed in code later.
           </p>
         ) : null}
       </section>
 
       <button
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition duration-150 ease-out hover:bg-subtle"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-label font-medium text-text-secondary transition duration-150 ease-out hover:bg-subtle"
         type="button"
         onClick={() => setNotesOpen((open) => !open)}
       >
@@ -787,7 +787,7 @@ export function ClientForm({
       {statusHistory.length > 0 ? (
         <>
           <button
-            className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-[15px] font-medium text-text-secondary transition duration-150 ease-out hover:bg-subtle"
+            className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 text-left text-label font-medium text-text-secondary transition duration-150 ease-out hover:bg-subtle"
             type="button"
             onClick={() => setHistoryOpen((open) => !open)}
           >
@@ -801,8 +801,8 @@ export function ClientForm({
                   <div key={entry.id} className="flex gap-3 rounded-2xl bg-subtle px-4 py-3">
                     <span className={cn("mt-1 h-3 w-3 shrink-0 rounded-full", entry.status === "Active" ? "bg-success" : "bg-text-tertiary")} />
                     <div>
-                      <div className="text-[14px] font-medium text-text-primary">{entry.status}</div>
-                      <div className="text-[13px] text-text-secondary">
+                      <div className="text-body font-medium text-text-primary">{entry.status}</div>
+                      <div className="text-list text-text-secondary">
                         {formatShortDate(entry.start_date)} - {entry.end_date ? formatShortDate(entry.end_date) : "Present"}
                       </div>
                     </div>
@@ -814,7 +814,7 @@ export function ClientForm({
         </>
       ) : null}
 
-      {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}
+      {formError ? <p className="text-list text-danger">{formError}</p> : null}
 
       <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-border bg-page/90 px-4 py-4 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <Button className="w-full" variant="accent" type="submit" disabled={saving}>
@@ -840,8 +840,8 @@ export function ClientForm({
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-[22px] font-medium leading-tight text-text-primary">Confirm client changes</h3>
-                <p className="mt-2 text-[14px] text-text-secondary">Review what changed before updating this client.</p>
+                <h3 className="text-figure-lg font-semibold leading-tight text-text-primary">Confirm client changes</h3>
+                <p className="mt-2 text-body text-text-secondary">Review what changed before updating this client.</p>
               </div>
               <CloseButton
                 onClick={() => setConfirmingChanges(false)}
@@ -852,10 +852,10 @@ export function ClientForm({
             <div className="mt-5 max-h-[48vh] space-y-2 overflow-y-auto">
               {changeSummary.map((change) => (
                 <div key={change.label} className="rounded-2xl bg-subtle p-3">
-                  <div className="text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+                  <div className="text-meta font-medium uppercase tracking-[0.04em] text-text-tertiary">
                     {change.label}
                   </div>
-                  <div className="mt-1 text-[14px] leading-snug text-text-primary">
+                  <div className="mt-1 text-body leading-snug text-text-primary">
                     <span className="text-text-secondary">{change.before}</span>
                     <span className="px-2 text-text-tertiary">-&gt;</span>
                     <span className="font-medium">{change.after}</span>
@@ -882,7 +882,7 @@ export function ClientForm({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex h-[94px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-subtle p-3">
-      <div className="line-clamp-2 min-h-[28px] text-[11px] font-medium uppercase leading-[1.25] tracking-[0.04em] text-text-tertiary">
+      <div className="line-clamp-2 min-h-[28px] text-caption font-medium uppercase leading-[1.25] tracking-[0.04em] text-text-tertiary">
         {label}
       </div>
       <div className="truncate font-medium tabular-nums leading-none text-text-primary text-[clamp(15px,3.6vw,18px)]">

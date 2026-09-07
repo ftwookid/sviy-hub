@@ -24,7 +24,7 @@ export function MonthPicker({
         >
           <ChevronLeft size={16} strokeWidth={1.5} />
         </button>
-        <div className="text-[13px] font-medium text-text-primary">{year}</div>
+        <div className="text-list font-medium text-text-primary">{year}</div>
         <button
           aria-label="Next year"
           className="focus-ring rounded-md p-2 text-text-secondary transition hover:bg-subtle"
@@ -39,7 +39,7 @@ export function MonthPicker({
           <button
             key={name}
             className={cn(
-              "focus-ring rounded-md px-3 py-2 text-[12px] transition duration-150 ease-in-out",
+              "focus-ring rounded-md px-3 py-2 text-meta transition duration-150 ease-in-out",
               month === index
                 ? "bg-accent-soft text-text-primary"
                 : "text-text-secondary hover:bg-subtle"

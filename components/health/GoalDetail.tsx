@@ -114,7 +114,7 @@ export function GoalDetail({
             <div className="h-2.5 overflow-hidden rounded-full bg-subtle">
               <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(2, progress * 100)}%` }} />
             </div>
-            <div className="mt-1.5 flex justify-between text-[11px] text-text-tertiary">
+            <div className="mt-1.5 flex justify-between text-caption text-text-tertiary">
               <span>{start ? `${start.value.toFixed(1)} lb start` : ""}</span>
               <span>{Math.round(progress * 100)}% of the way</span>
               <span>{goal != null ? `${goal} lb goal` : ""}</span>
@@ -125,7 +125,7 @@ export function GoalDetail({
         )}
 
         {requiredRate != null && profile?.goal_date ? (
-          <p className="px-3 pb-3 text-[12px] text-text-secondary">
+          <p className="px-3 pb-3 text-meta text-text-secondary">
             {formatShortDate(profile.goal_date)} needs{" "}
             <span className="font-medium text-text-primary">{signed(requiredRate, "lb")}</span> a week.
             {rate != null ? (

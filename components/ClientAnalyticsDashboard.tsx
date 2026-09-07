@@ -235,7 +235,7 @@ function TrendBadge({ trend }: { trend: Trend }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 text-[11px] font-medium",
+        "inline-flex shrink-0 items-center gap-0.5 text-caption font-medium",
         trend.tone === "good" && "text-success",
         trend.tone === "bad" && "text-danger",
         trend.tone === "neutral" && "text-text-tertiary"
@@ -286,9 +286,9 @@ function Section({
           Setup buckets already use — one container, and a header that outranks
           its rows loudly enough to be a boundary. */}
       <div className="flex items-baseline gap-3 bg-[#F4F2EC] px-3.5 py-2.5">
-        <h3 className="shrink-0 text-[15px] font-medium tracking-[-0.01em] text-text-primary">{title}</h3>
+        <h3 className="shrink-0 text-label font-semibold tracking-[-0.01em] text-text-primary">{title}</h3>
         {summary ? (
-          <span className="min-w-0 flex-1 truncate text-right text-[12px] text-text-secondary">{summary}</span>
+          <span className="min-w-0 flex-1 truncate text-right text-meta text-text-secondary">{summary}</span>
         ) : null}
       </div>
       <div className="px-3.5 py-3">{children}</div>
@@ -352,7 +352,7 @@ function BarRow({
 }) {
   return (
     <>
-      <span className={cn("min-w-0 truncate text-[12px] font-medium text-text-secondary", sub ? "pt-1.5" : "py-[3px]")}>
+      <span className={cn("min-w-0 truncate text-meta font-medium text-text-secondary", sub ? "pt-1.5" : "py-[3px]")}>
         {label}
         {detail ? <span className="font-normal text-text-tertiary"> · {detail}</span> : null}
       </span>
@@ -368,14 +368,14 @@ function BarRow({
       </span>
       <span
         className={cn(
-          "text-right text-[12px] font-medium tabular-nums text-text-primary",
+          "text-right text-meta font-medium tabular-nums text-text-primary",
           sub ? "pt-1.5" : "py-[3px]"
         )}
       >
         {value}
       </span>
       {sub ? (
-        <span className="col-span-3 truncate pb-1 text-[11px] leading-tight text-text-tertiary">{sub}</span>
+        <span className="col-span-3 truncate pb-1 text-caption leading-tight text-text-tertiary">{sub}</span>
       ) : null}
     </>
   );
@@ -504,12 +504,12 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
               />
             ))}
             {sortedByWeekly.length === 0 ? (
-              <div className="col-span-3 text-[12px] text-text-tertiary">No client income to rank yet.</div>
+              <div className="col-span-3 text-meta text-text-tertiary">No client income to rank yet.</div>
             ) : null}
             {/* What the old Smart read panel said about efficiency, on the
                 block that already ranks the same people. */}
             {sortedByEfficiency[0] ? (
-              <div className="col-span-3 mt-1.5 border-t border-border pt-1.5 text-[11px] text-text-tertiary">
+              <div className="col-span-3 mt-1.5 border-t border-border pt-1.5 text-caption text-text-tertiary">
                 Best net/visit: {sortedByEfficiency[0].pets} · {formatCurrency(sortedByEfficiency[0].netPerVisit)}
               </div>
             ) : null}

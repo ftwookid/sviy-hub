@@ -24,7 +24,7 @@ export function Button({ className, variant = "primary", ...props }: ButtonProps
   return (
     <button
       className={cn(
-        "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-medium transition duration-150 ease-out",
+        "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-label font-medium transition duration-150 ease-out",
         variants[variant],
         className
       )}
