@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Block, Card, Hint, Stat, StatStrip, TrendChart } from "@/components/health/primitives";
-import { formatShortDate } from "@/lib/formatters";
+import { formatDateWithYear, formatShortDate } from "@/lib/formatters";
 import { changeOver, deleteHealthEntry, latest, series, weeklyRate } from "@/lib/health";
 import type { HealthEntry } from "@/types/health";
 
@@ -31,6 +33,11 @@ export function WeightDetail({
   const rate = weeklyRate(entries);
   const points = series(entries, "weight_lb");
   const history = [...entries].filter((entry) => entry.weight_lb != null).reverse();
+  // A trash icon on every row of a list is one mis-tap from losing a weigh-in
+  // that cannot be taken again — yesterday's morning is gone. So it asks, and
+  // the question names the day and the figure, which is what the reader needs
+  // to tell one row of a long column of similar numbers from the next.
+  const [deleting, setDeleting] = useState<HealthEntry | null>(null);
 
   async function remove(id: string) {
     const { error } = await deleteHealthEntry(id);
@@ -84,7 +91,7 @@ export function WeightDetail({
                   type="button"
                   aria-label="Delete reading"
                   className="focus-ring ml-auto rounded-lg p-1.5 text-text-tertiary transition-colors duration-200 ease-out hover:bg-danger-soft hover:text-danger"
-                  onClick={() => remove(entry.id)}
+                  onClick={() => setDeleting(entry)}
                 >
                   <Trash2 size={16} strokeWidth={1.7} />
                 </button>
@@ -95,6 +102,20 @@ export function WeightDetail({
           <Hint>No weigh-ins yet.</Hint>
         )}
       </Block>
+
+      {deleting ? (
+        <ConfirmDialog
+          title="Delete this reading?"
+          description={`${Number(deleting.weight_lb).toFixed(1)} lb from ${formatDateWithYear(deleting.recorded_on)} leaves the history, and the trend is refitted without it.`}
+          confirmLabel="Delete it"
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => {
+            const target = deleting;
+            setDeleting(null);
+            void remove(target.id);
+          }}
+        />
+      ) : null}
     </Card>
   );
 }

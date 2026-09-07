@@ -6,7 +6,9 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { UtilityGroups } from "@/components/finances/UtilityGroups";
 import { useEscapeKey } from "@/lib/useEscapeKey";
-import type { UtilityAccountBills, UtilityBook, UtilityBucket } from "@/types/utility";
+import { formatCurrency } from "@/lib/formatters";
+import { periodMonthLabel } from "@/lib/expenses";
+import type { UtilityAccountBills, UtilityBill, UtilityBook, UtilityBucket } from "@/types/utility";
 
 /**
  * The metered bills, over the month rather than instead of it.
@@ -45,8 +47,9 @@ export function UtilitiesSheet({
   onDeleteBill: (billId: string) => void;
 }) {
   const [deleting, setDeleting] = useState<UtilityAccountBills | null>(null);
+  const [deletingBill, setDeletingBill] = useState<{ bill: UtilityBill; periodMonth: string } | null>(null);
 
-  useEscapeKey(onClose, !deleting);
+  useEscapeKey(onClose, !deleting && !deletingBill);
 
   return (
     <div
@@ -83,7 +86,7 @@ export function UtilitiesSheet({
             onSetBucket={onSetBucket}
             onDeleteAccount={setDeleting}
             onSetBill={onSetBill}
-            onDeleteBill={onDeleteBill}
+            onDeleteBill={(bill, billPeriodMonth) => setDeletingBill({ bill, periodMonth: billPeriodMonth })}
           />
         </div>
       </aside>
@@ -103,6 +106,22 @@ export function UtilitiesSheet({
           onConfirm={() => {
             onDeleteAccount(deleting.account.id);
             setDeleting(null);
+          }}
+        />
+      ) : null}
+
+      {/* A bill is a reading somebody took off a paper statement months ago, and
+          the month rows are the control as well as the chart — so the finger that
+          opened a month is already inside the strip the trash sits in. It asks. */}
+      {deletingBill ? (
+        <ConfirmDialog
+          title={`Delete the ${periodMonthLabel(deletingBill.periodMonth)} bill?`}
+          description={`${formatCurrency(deletingBill.bill.amount)} leaves that month, and the months with no bill of their own go back to being estimated.`}
+          confirmLabel="Delete it"
+          onCancel={() => setDeletingBill(null)}
+          onConfirm={() => {
+            onDeleteBill(deletingBill.bill.id);
+            setDeletingBill(null);
           }}
         />
       ) : null}

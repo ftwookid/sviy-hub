@@ -10,7 +10,7 @@ import { periodMonthLabel, periodMonthShortLabel } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/formatters";
 import { billFor, monthValue, monthsEnding, utilityTrend } from "@/lib/utilities";
 import { DEFAULT_UTILITY_BUCKET, UTILITY_BUCKETS } from "@/types/utility";
-import type { UtilityAccountBills, UtilityBook, UtilityBucket } from "@/types/utility";
+import type { UtilityAccountBills, UtilityBill, UtilityBook, UtilityBucket } from "@/types/utility";
 
 /**
  * Every metered bill, and the months behind it — in one card.
@@ -147,7 +147,7 @@ function AccountDetail({
   entry: UtilityAccountBills;
   periodMonth: string;
   onSetBill: (billPeriodMonth: string, amount: number) => void;
-  onDeleteBill: (billId: string) => void;
+  onDeleteBill: (bill: UtilityBill, billPeriodMonth: string) => void;
   onRename: (name: string) => void;
   onSetBucket: (bucket: UtilityBucket) => void;
   onDelete: () => void;
@@ -216,13 +216,15 @@ function AccountDetail({
               />
               {/* Deleting a bill is offered only while its row is open — a trash
                   icon on twelve rows is one mis-tap from losing a figure — and it
-                  sits at the far end from Save. */}
+                  sits at the far end from Save. It still asks: this row is the
+                  control as well as the reading, so the finger that opened the
+                  month is already inside the strip the trash sits in. */}
               {bill ? (
                 <SquareButton
                   label={`Delete the ${periodMonthLabel(month)} bill`}
                   tone="danger"
                   onClick={() => {
-                    onDeleteBill(bill.id);
+                    onDeleteBill(bill, month);
                     setEditingMonth(null);
                   }}
                 >
@@ -340,7 +342,7 @@ export function UtilityGroups({
   onSetBucket: (accountId: string, bucket: UtilityBucket) => void;
   onDeleteAccount: (entry: UtilityAccountBills) => void;
   onSetBill: (accountId: string, billPeriodMonth: string, amount: number) => void;
-  onDeleteBill: (billId: string) => void;
+  onDeleteBill: (bill: UtilityBill, billPeriodMonth: string) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);

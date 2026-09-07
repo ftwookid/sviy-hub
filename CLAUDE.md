@@ -1160,8 +1160,44 @@ so entering a month twice corrects it rather than doubling the month.
   the panel is still open. On a phone the Setup chip drops its word and keeps its
   icon; Utilities keeps its label, because a bill arrives most weeks and Setup is
   visited a few times a year.
-- Deleting an account takes every bill ever entered against it — the history the
-  whole section exists for — so it is the one write here that asks first.
+- **Nothing here is destroyed without being asked about.** Deleting an account
+  takes every bill ever entered against it — the history the whole section
+  exists for — and deleting one month's bill throws away a figure copied off a
+  paper statement that is not coming back, in a strip the finger is already
+  inside, since the month rows are the control as well as the chart. Both go
+  through `ConfirmDialog`, and the question names what goes: the account's bill
+  count, or the month and its amount.
+
+  The same rule now covers the other two places a trash icon sat on every row of
+  a list with nothing between the tap and the write — a Health weigh-in
+  (`WeightDetail`) and a car cost (`VehicleSettingsCard`). A weigh-in in
+  particular cannot be taken again: yesterday's morning is gone.
+
+  Two things about `ConfirmDialog` were wrong for as long as it has existed, and
+  both are fixed rather than worked around:
+
+  - **Its backdrop click passed through.** The dialog is rendered inside panels
+    whose own backdrop closes them (Utilities, Setup), and nothing stopped the
+    event, so dismissing the question also shut the panel behind it — the
+    opposite of what a confirmation is for.
+  - **Its destructive button was not red.** `cn` is a plain join with no
+    Tailwind merge, so the `bg-danger` bolted onto `variant="primary"` sat
+    beside `bg-text-primary` and lost on source order. Every destructive
+    confirmation in the app rendered in the ordinary near-black. The tone is a
+    Button variant now (`destructive`, solid red), not a class layered over
+    another variant — the same "red at rest, because a phone has no hover"
+    rule the Setup panel's buttons already follow.
+
+  Deliberately still without a dialog, and why: removing a saved payment card
+  (it sits behind the pencil and rewrites no history), deleting a dated change
+  in Setup or a statement-import row (both are already the second step inside an
+  opened edit form, and the import row is not in the books yet).
+
+  Still on native `window.confirm` rather than `ConfirmDialog`, which is a
+  consistency debt rather than a missing guard: deleting a client
+  (`app/clients/page.tsx`), deleting a price-history entry
+  (`app/clients/[id]/page.tsx`), and the three mileage prompts — delete, restore
+  and reassign an import (`app/mileage/page.tsx`).
 
 Rules the arithmetic follows:
 
