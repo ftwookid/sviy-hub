@@ -1175,6 +1175,25 @@ so entering a month twice corrects it rather than doubling the month.
   Each year in the list carries its bill count, so "is there anything in 2024?"
   is answered without stepping into it to find out; a year with none reads `—`.
 
+  **That trigger is a chip painted at rest, not a number that lights up on
+  hover.** It shipped as the inflated-target pattern — a 72×52 hit area painting
+  only its 64×28 label — which is right for a caption sitting on a label line
+  and wrong for this. On the screen this is used on there is no hover, so nothing
+  said it was a control at all, and the part you aim at read as about half the
+  size of the thing you were aiming for. It is the house chip now
+  (`ClientFilterMenu`'s shape): target and paint are the same **88×44** box,
+  bordered like the month cells directly beneath it so it stands off the tinted
+  panel, with the focus ring on the chip itself rather than on an invisible box
+  around it. The arrows went 36×44 → **44×44**, so a thumb gets the floor in both
+  directions. The year row is still 44px and the panel grew 8px.
+
+  **The year's figure is its total, and nothing else.** It read
+  `12 bills · $1,272.60` until the controls beside it grew, at which point it
+  clipped at 360px — and the count was the half being stated twice, since the
+  grid directly underneath shows exactly which months are filled. The count still
+  earns its place in the picker, where those years cannot be seen. A year with no
+  bills says nothing on this row; twelve dashes below already say it.
+
   **How far back it goes is fixed, not derived from the bills, and that is the
   whole point.** It was "one year before the first bill", on the reasoning that
   the range would extend itself as history was entered — which is exactly

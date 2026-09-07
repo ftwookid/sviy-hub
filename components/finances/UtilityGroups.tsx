@@ -181,21 +181,25 @@ function YearPicker({
 
   return (
     <>
+      {/* A chip that is painted at rest, not a bare number that lights up on
+          hover. It was the inflated-target pattern — a 72x52 hit area painting
+          only its 64x28 label — which is right for a caption sitting on a label
+          line and wrong here: on the screen this is used on there is no hover, so
+          nothing said it was a control at all, and the part you aim at read as
+          about half the size of the thing you were aiming for. The house chip
+          (`ClientFilterMenu`) is the shape for a control that opens a list: the
+          target and the paint are the same 44px box, bordered like the month
+          cells directly under it so it stands off the tinted panel. */}
       <button
         ref={triggerRef}
-        // The target is grown with padding and pulled back with an equal negative
-        // margin, so the row keeps its height and the thumb still gets 44px.
-        // Only the year itself is painted.
-        className="focus-ring-child group -my-2 flex items-center px-1 py-3"
+        className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 text-[15px] font-medium tabular-nums text-text-primary transition-colors duration-200 ease-out hover:bg-subtle"
         type="button"
         aria-label={`${year} — choose another year`}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[15px] font-medium tabular-nums text-text-primary transition-colors duration-200 ease-out group-hover:bg-surface">
-          {year}
-          <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-text-tertiary" />
-        </span>
+        <span>{year}</span>
+        <ChevronDown size={15} strokeWidth={2} className="shrink-0 text-text-tertiary" />
       </button>
 
       <AnchoredPanel
@@ -411,7 +415,7 @@ function AccountDetail({
           end, where it is read rather than operated. */}
       <div className="flex items-center gap-0.5">
         <button
-          className="focus-ring -my-1 grid h-11 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
+          className="focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
           type="button"
           aria-label={`Show ${year - 1}`}
           disabled={year <= minYear}
@@ -427,7 +431,7 @@ function AccountDetail({
           onChange={goToYear}
         />
         <button
-          className="focus-ring -my-1 grid h-11 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
+          className="focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
           type="button"
           aria-label={`Show ${year + 1}`}
           disabled={year >= maxYear}
@@ -435,11 +439,18 @@ function AccountDetail({
         >
           <ChevronRight size={18} strokeWidth={1.9} />
         </button>
-        <span className="ml-auto truncate pl-2 text-[12px] tabular-nums text-text-tertiary">
-          {billed.length === 0
-            ? "No bills"
-            : `${billed.length} ${billed.length === 1 ? "bill" : "bills"} · ${formatCurrency(yearTotal)}`}
-        </span>
+        {/* What the year came to, and nothing else. It read "12 bills · $1,272.60"
+            until the controls beside it grew, at which point it clipped at 360px
+            — and the count was the half that was being stated twice, since the
+            grid directly underneath shows exactly which months are filled. The
+            count still earns its place in the picker, where those years cannot be
+            seen. A year with no bills says nothing here; twelve dashes below
+            already say it. */}
+        {billed.length > 0 ? (
+          <span className="ml-auto truncate pl-2 text-[12px] tabular-nums text-text-tertiary">
+            {formatCurrency(yearTotal)}
+          </span>
+        ) : null}
       </div>
 
       {/* Three across on a phone, six on a desktop — either way the whole year is
