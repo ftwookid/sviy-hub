@@ -5,7 +5,7 @@ import { Fragment } from "react";
 import { cn } from "@/lib/cn";
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
-import { BarRow, ChartCard, IN_INK, OUT_INK } from "@/components/finances/chart";
+import { BarRow, ChartCard } from "@/components/finances/chart";
 import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
@@ -26,13 +26,11 @@ import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance"
  * inside a block the lines are still biggest first, which is `sectionOf`'s job
  * in `lib/finances.ts`.
  *
- * The one thing worth keeping from the flat list was the shared scale, and it is
- * kept: **every bar in the card is measured against the largest line in the
- * month**, not against the biggest line in its own block. A $15 subscription
- * therefore draws a $15 bar next to rent instead of a full-width one, so the
- * cross-block comparison survives the sections. Per-block scaling is the trap
- * that was already tried and rejected — it made a $2.10 line look like the
- * biggest thing on the page.
+ * **The rows carry no bars.** They did, on one scale across the whole card, and
+ * the scale was the right answer to the wrong question: what this card is read
+ * for is the figures, which are already printed exact to the cent, and against
+ * rent the small lines the page exists to make killable drew stubs a few pixels
+ * long that no one could tell apart. See `BarRow`.
  *
  * Headings say what they hold: `Money in`, `Money out`, and the bucket's own
  * name. No card here is titled with a phrase you have to interpret.
@@ -131,9 +129,6 @@ function SectionHeader({
  */
 export function MoneyOut({ month }: { month: MonthFinances }) {
   const sections = month.sections.filter((section) => section.direction === "out");
-  // One scale for the card, taken across every line in every block, so a bar's
-  // length means the same thing wherever it is read.
-  const largest = Math.max(...sections.flatMap((section) => section.rows.map((row) => row.amount)), 0);
 
   return (
     <ChartCard title="Money out" note={formatCurrency(month.moneyOut)}>
@@ -158,8 +153,6 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
                   // there to show, on every one of a dozen rows.
                   detail: detailFor(row, yearly(row))
                 }}
-                max={largest}
-                ink={OUT_INK}
               />
             ))}
           </div>
@@ -172,7 +165,6 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
 /** The denominator: what actually arrived, and from where. */
 export function MoneyIn({ month }: { month: MonthFinances }) {
   const sections = month.sections.filter((section) => section.direction === "in");
-  const largest = Math.max(...sections.flatMap((section) => section.rows.map((row) => row.amount)), 0);
   // One in-block today, and its name and the card's title would say the same
   // thing twice. A second one would need telling apart, so the header appears
   // then and not before.
@@ -206,8 +198,6 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
                       .join(" · ")
                   )
                 }}
-                max={largest}
-                ink={IN_INK}
               />
             ))}
           </div>

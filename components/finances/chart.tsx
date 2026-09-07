@@ -30,9 +30,14 @@ import { formatCurrency } from "@/lib/formatters";
  * around marks.
  */
 
-/** Chart ink. One hue per series, both measured at ≥ 3:1 against the surface. */
+/**
+ * Chart ink, measured at ≥ 3:1 against the surface.
+ *
+ * One hue is all that is left: the month's rows carry no bars any more, so this
+ * serves the utility grid, where a bar against twelve cells of one account is a
+ * shape worth seeing. `IN_INK` went with the money-in bars that used it.
+ */
 export const OUT_INK = "#A8823C";
-export const IN_INK = "#4A8C6F";
 const TRACK = "#EDEAE3";
 
 /** A bar, grown from the left baseline. Never wider than its track. */
@@ -80,25 +85,29 @@ export type BarRowData = {
 };
 
 /**
- * One row: name, bar, figure.
+ * One row: name, figure.
  *
- * The figure sits in a fixed right-hand column rather than at the bar's tip.
- * Tip labels put every number at a different horizontal position, which is fine
- * for reading one bar and useless for reading down thirty — and reading down is
- * the whole job here. Bars keep a common baseline on the left, so their *ends*
- * still carry the comparison.
+ * **No bar under the name.** Every line in the month used to carry one, scaled
+ * against the largest line in the card, and it earned none of the height it
+ * cost. What a reader does here is read down a column of figures — is this
+ * month's rent what it was, what is the tax, what is the subscription pile —
+ * and the figures are right there, in a column, exact to the cent. A length
+ * beside an exact number answers a question nobody was asking, and it answered
+ * it badly: against a $2,395 rent, the small lines this page exists to make
+ * killable — a $15 subscription, a $2.99 iCloud — drew a stub two or three
+ * pixels long, indistinguishable from each other and from nothing.
+ *
+ * It also read as a progress bar, which is what Ivan called it: a filled track
+ * looks like something advancing toward a target, and none of these lines are
+ * going anywhere. Removing it takes the row from 51px to 42.5px — the `ⓘ`'s
+ * 42px tap target is the floor now, not the bar — which is about 100px off a
+ * twelve-line Money out, and turns the card from a chart back into what it
+ * always was, a list of figures.
+ *
+ * The comparison the bars were for survives where it belongs: the share of
+ * income on each block's header row, and `YearList` for month against month.
  */
-export function BarRow({
-  row,
-  max,
-  ink,
-  action
-}: {
-  row: BarRowData;
-  max: number;
-  ink: string;
-  action?: () => void;
-}) {
+export function BarRow({ row, action }: { row: BarRowData; action?: () => void }) {
   const [open, setOpen] = useState(false);
   const infoRef = useRef<HTMLButtonElement>(null);
   const detail = row.amount > 0 ? row.detail : undefined;
@@ -107,18 +116,7 @@ export function BarRow({
 
   const body = (
     <>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] text-text-secondary">{row.label}</span>
-        {/* No mark for a zero. An empty track is a bar drawn for a quantity that
-            does not exist, and four of them down a card is three lines each of
-            ink saying nothing. The row stays, because it is where a line gets
-            added. */}
-        {row.amount > 0 ? (
-          <span className="mt-1 block">
-            <Bar share={max > 0 ? row.amount / max : 0} ink={ink} />
-          </span>
-        ) : null}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-text-secondary">{row.label}</span>
       <span className="shrink-0 text-right text-[13px] tabular-nums text-text-primary">
         {formatCurrency(row.amount)}
       </span>
@@ -127,11 +125,10 @@ export function BarRow({
 
   const title = `${row.label} — ${formatCurrency(row.amount)}`;
   const padding = "px-3.5 py-2 sm:px-4";
-  // The figure and the ⓘ centre against the **whole** row, not against the
-  // label. The name and its bar are one stacked column, so aligning to the top
-  // of it put the amount level with the name and left it sitting high over the
-  // bar — reading as though it had drifted up rather than as a column of
-  // figures down the card.
+  // One line, so `items-center` simply centres the three things on it. It
+  // mattered more when the name sat above a bar: aligning to the top of that
+  // stacked column put the figure level with the name and left it sitting high
+  // over the bar.
 
   if (hasDetail) {
     return (

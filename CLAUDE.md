@@ -1394,12 +1394,31 @@ come to, what is it made of, how does it compare with the year:
     above the card. A ratio the reader cannot name is noise however carefully it
     is annotated. Each block's share of income stays on that block's header row,
     where it is a number rather than a length.
-  - **One scale across the whole card, not one per block.** Every bar in
-    `Money out` is measured against the largest line in the month, so a $15
-    subscription draws a $15 bar next to rent and the cross-block comparison the
-    flat list existed for survives the grouping. Per-block scaling is the
-    already-rejected trap that gave a $2.10 line a full-width bar.
-  - **A line on the month is its name, its bar and its figure — the rest is
+  - **A line carries no bar, and none is coming back.** Every row had one under
+    its name, on one scale across the whole card (measured against the largest
+    line in the month, so a $15 subscription drew a $15 bar next to rent rather
+    than a full-width one). The scale was the right answer to the wrong
+    question. What this card is read for is the figures — is the rent what it
+    was, what is the tax, how big is the subscription pile — and they are
+    already printed down a column, exact to the cent. A length next to an exact
+    number answers nothing extra, and it answered it badly: against a $2,395
+    rent, the small lines this page exists to make killable ($15.99 Spotify,
+    $2.99 iCloud, a $2.20 workers' fund) drew stubs two or three pixels long,
+    indistinguishable from each other and from nothing at all.
+
+    It also simply read as a **progress bar** — a filled track looks like
+    something advancing toward a target, and none of these lines are going
+    anywhere. That is what Ivan called it, twice; the first time it was read as
+    the `Money out` meter and the meter was removed instead, which is why the
+    row bars are named here explicitly.
+
+    Rows went **51px → 42.5px** (the `ⓘ`'s 42px tap target is the floor now,
+    not the bar) — about 100px off a twelve-line `Money out`. The comparison
+    the bars were for survives where it belongs: each block's share of income
+    on its header row, and `YearList` for month against month. `Bar` and
+    `OUT_INK` stay in `chart.tsx` for the utility grid, where twelve cells of
+    one account is a shape worth seeing; `IN_INK` went with the money-in bars.
+  - **A line on the month is its name and its figure — the rest is
     behind its chevron.** Every row used to print three more facts: "2 payments ·
     $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
     on `Money in` a share as well. Down a dozen rows that is two lines of grey
@@ -1478,12 +1497,11 @@ come to, what is it made of, how does it compare with the year:
     printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
     catching itself doing.
 
-    **The figure and the `ⓘ` centre against the whole row.** The row is a flex
-    line whose first child is a stacked column — the name above its bar — so
-    aligning to its top put the amount level with the name and left it sitting
-    high over the bar, reading as though it had drifted up rather than as a
-    column of figures down the card. `items-center` costs no height (the row
-    stays 51px) and lands both within 0.5px of the row's centre at 390 and 1280.
+    **The figure and the `ⓘ` centre against the whole row.** This mattered more
+    when the row's first child was a stacked column — the name above its bar —
+    where aligning to the top put the amount level with the name and left it
+    sitting high over the bar. The row is one line now and `items-center` lands
+    all three on the same centre, measured identical at 390 and 1280.
 
     **The row stays a reading; only the icon is a control.** Its target is 42×42,
     bought with padding pulled back by an equal negative margin so the row keeps
@@ -1743,7 +1761,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
-- `components/finances/chart.tsx`: Bars, chart ink and the mark spec.
+- `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
