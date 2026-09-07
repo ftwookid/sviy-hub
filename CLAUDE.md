@@ -1167,11 +1167,29 @@ so entering a month twice corrects it rather than doubling the month.
   desktop. A fifth year of bills now costs nothing in height, which is the whole
   point.
 
-  Two things the arrows are bounded by, and neither reads the clock — the page's
-  own month is what "now" means here, so the same book renders identically on the
-  server and in the browser. Forward stops at the later of the page's year and
-  the newest bill. Back reaches **one year before the first bill**, so an older
-  year can be backfilled, and that bound extends by itself as soon as it has one.
+  **The year is a picker as well as two arrows.** The arrows are for the step
+  made most — last year, next year — and the label opens the rest, because a
+  reader with paper from 2023 should not tap three times to reach it, and because
+  a control that changes what you are looking at shows you the options rather
+  than making you cycle to find them. Same shape as the app's own `MonthPicker`.
+  Each year in the list carries its bill count, so "is there anything in 2024?"
+  is answered without stepping into it to find out; a year with none reads `—`.
+
+  **How far back it goes is fixed, not derived from the bills, and that is the
+  whole point.** It was "one year before the first bill", on the reasoning that
+  the range would extend itself as history was entered — which is exactly
+  backwards for the case that matters. An account whose bills start in 2025, or
+  which has none at all, could not reach 2023 to type its history in: you would
+  have had to enter a bill in 2025 to unlock 2024, and one in 2024 to unlock
+  2023. It shipped that way and Ivan hit it on the first account he opened. The
+  years a reader wants are the ones they have paper for, and the app cannot know
+  which those are until they are typed. Ten years back is always reachable —
+  enough for any household utility history, and one short scroll in the picker —
+  and anything older that already has a bill lowers the floor further still.
+  Forward stops at the later of the page's year and the newest bill.
+
+  Neither bound reads the clock: the page's own month is what "now" means here,
+  so the same book renders identically on the server and in the browser.
 
 - **The bars are scaled across every bill on the account, not just the year on
   screen.** A per-year scale would redraw 2023 at the same lengths as 2026 and

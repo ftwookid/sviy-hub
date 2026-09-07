@@ -147,6 +147,97 @@ function TrendStrip({ bills, year }: { bills: UtilityAccountBills["bills"]; year
 }
 
 /**
+ * Which year the grid is showing.
+ *
+ * The arrows are for the step you make most — last year, next year — and the
+ * label opens the rest, because a reader who keeps paper from 2023 should not
+ * tap three times to get there, and because a control that changes what you are
+ * looking at shows you the options rather than making you cycle to find them.
+ * Same shape as the app's own `MonthPicker`: arrows either side, label opens
+ * the list.
+ *
+ * The count beside each year answers "is there anything in 2024?" without
+ * stepping into it to find out — the same job the client filter's counts do.
+ */
+function YearPicker({
+  year,
+  minYear,
+  maxYear,
+  billsPerYear,
+  onChange
+}: {
+  year: number;
+  minYear: number;
+  maxYear: number;
+  billsPerYear: Map<number, number>;
+  onChange: (next: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Newest first: the year being logged into is almost always the recent one,
+  // and the history is what you scroll for.
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, index) => maxYear - index);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        // The target is grown with padding and pulled back with an equal negative
+        // margin, so the row keeps its height and the thumb still gets 44px.
+        // Only the year itself is painted.
+        className="focus-ring-child group -my-2 flex items-center px-1 py-3"
+        type="button"
+        aria-label={`${year} — choose another year`}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[15px] font-medium tabular-nums text-text-primary transition-colors duration-200 ease-out group-hover:bg-surface">
+          {year}
+          <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-text-tertiary" />
+        </span>
+      </button>
+
+      <AnchoredPanel
+        anchorRef={triggerRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        width={208}
+        className="max-h-[264px] overflow-y-auto p-1.5"
+      >
+        {years.map((option) => {
+          const count = billsPerYear.get(option) ?? 0;
+          return (
+            <button
+              key={option}
+              className={cn(
+                "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-200 ease-out",
+                option === year ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
+              )}
+              type="button"
+              onClick={() => {
+                onChange(option);
+                setOpen(false);
+              }}
+            >
+              <span className="tabular-nums">{option}</span>
+              <span className="flex items-center gap-2">
+                {/* A year with nothing in it says so quietly rather than with a
+                    zero pretending to be a figure. */}
+                <span className="text-[12px] tabular-nums text-text-tertiary">
+                  {count === 0 ? "—" : `${count} ${count === 1 ? "bill" : "bills"}`}
+                </span>
+                {option === year ? <Check size={15} strokeWidth={2} className="shrink-0" /> : null}
+              </span>
+            </button>
+          );
+        })}
+      </AnchoredPanel>
+    </>
+  );
+}
+
+/**
  * One month of the year: what it cost, and the way in to typing it.
  *
  * The bar is scaled against **every** bill on the account, not just this year's,
@@ -249,14 +340,34 @@ function AccountDetail({
   const billed = months.filter((month) => month.bill !== null);
   const yearTotal = billed.reduce((total, month) => total + (month.bill?.amount ?? 0), 0);
 
-  // The clock is never read here: the page's own month is what "now" means, so
-  // the same book renders the same way on the server and in the browser. One
-  // year before the first bill stays reachable, which is what backfilling an
-  // older year needs — and it extends by itself as soon as that year has a bill.
-  const earliest = firstBillYear(bills) ?? pageYear;
+  // How far back the years go. The clock is never read: the page's own month is
+  // what "now" means, so the same book renders identically on the server and in
+  // the browser.
+  //
+  // The floor is **fixed, not derived from the bills**, and that is the whole
+  // point. It was "one year before the first bill", on the reasoning that the
+  // range would extend itself as history was entered — which is exactly backwards
+  // for the case that matters. An account whose bills start in 2025, or which has
+  // none at all, could not reach 2023 to type its history in: you would have had
+  // to enter a bill in 2025 to unlock 2024, and one in 2024 to unlock 2023. The
+  // years a reader wants are the ones they have paper for, and the app has no
+  // way of knowing which those are until they are typed.
+  //
+  // Ten years covers any household utility history worth entering and keeps the
+  // picker one short scroll; a genuinely older bill still opens its own year,
+  // because anything earlier than the floor that already has a bill lowers it.
+  const BACKFILL_YEARS = 10;
   const lastBillYear = bills.length > 0 ? Number(bills[bills.length - 1].period_month.slice(0, 4)) : pageYear;
-  const minYear = Math.min(earliest, pageYear) - 1;
+  const minYear = Math.min(firstBillYear(bills) ?? pageYear, pageYear - BACKFILL_YEARS);
   const maxYear = Math.max(lastBillYear, pageYear);
+
+  // How many bills each year holds, for the picker — "is there anything in 2024?"
+  // answered without stepping into it to find out.
+  const billsPerYear = new Map<number, number>();
+  bills.forEach((bill) => {
+    const billYear = Number(bill.period_month.slice(0, 4));
+    billsPerYear.set(billYear, (billsPerYear.get(billYear) ?? 0) + 1);
+  });
 
   function goToYear(next: number) {
     setYear(next);
@@ -308,9 +419,13 @@ function AccountDetail({
         >
           <ChevronLeft size={18} strokeWidth={1.9} />
         </button>
-        <span className="min-w-[52px] text-center text-[15px] font-medium tabular-nums text-text-primary">
-          {year}
-        </span>
+        <YearPicker
+          year={year}
+          minYear={minYear}
+          maxYear={maxYear}
+          billsPerYear={billsPerYear}
+          onChange={goToYear}
+        />
         <button
           className="focus-ring -my-1 grid h-11 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
           type="button"
