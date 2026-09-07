@@ -235,7 +235,29 @@ export function BarRow({ row, action }: { row: BarRowData; action?: () => void }
   );
 }
 
-/** A card title. Names the single series, which is why no legend is needed. */
+/**
+ * The card, and the top of the type ramp.
+ *
+ * The ramp is the whole point of these sizes, so it is written down: **17px for
+ * the card, 15px for a block inside it, 13px for a line inside that.** It used
+ * to be 13 / 13.5 / 13 — the card's own title was *smaller* than the blocks it
+ * contained, and a line sat half a pixel under the heading that governed it.
+ * Three levels of structure within 0.5px of each other is not a hierarchy, it is
+ * three rows of similar text, and the reader has to parse the card to find out
+ * what contains what instead of seeing it.
+ *
+ * Size is not carrying it alone — weight and colour step with it (semibold
+ * primary for the two headings, regular secondary for a line), because a
+ * two-pixel difference is easy to miss on a phone and three cues agreeing are
+ * not.
+ *
+ * The card's own total moved with the title, and sits at the *same* 17px: it was
+ * a 10px uppercase whisper in tertiary grey, smaller than every figure it is the
+ * sum of. The figures ramp too — **17px for the card's total, 14.5px for a
+ * block's, 13px for a line** — and 15px was tried first, which put the grand
+ * total half a pixel from a section total and repeated the near-miss the ramp
+ * exists to fix.
+ */
 export function ChartCard({
   title,
   note,
@@ -247,12 +269,12 @@ export function ChartCard({
 }) {
   return (
     <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-      <div className="flex items-baseline justify-between gap-3 border-b border-border px-3.5 py-2 sm:px-4">
-        <h2 className="min-w-0 truncate text-[13px] font-medium text-text-primary">{title}</h2>
+      <div className="flex items-baseline justify-between gap-3 border-b border-border px-3.5 py-3 sm:px-4">
+        <h2 className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.01em] text-text-primary">
+          {title}
+        </h2>
         {note ? (
-          <span className={cn("shrink-0 text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary")}>
-            {note}
-          </span>
+          <span className="shrink-0 text-[17px] font-semibold tabular-nums text-text-primary">{note}</span>
         ) : null}
       </div>
       {children}

@@ -1377,6 +1377,27 @@ come to, what is it made of, how does it compare with the year:
   (biggest first inside the block), and the block's **total at the foot of it**.
   The order is fixed rather than sorted by size, so a block sits in the same
   place every month.
+  - **Three sizes, and they step.** The card is **17px**, a block heading inside
+    it **15px**, a line inside that **13px** — with weight and colour stepping
+    alongside (semibold primary for both headings, regular secondary for a
+    line). The figures ramp with them: **17px** for the card's total, **14.5px**
+    for a block's, **13px** for a line's.
+
+    It was 13 / 13.5 / 13, which is not a hierarchy, it is three rows of similar
+    text: `Money out` was set *smaller* than the blocks it contained, and a line
+    sat half a pixel under the heading that governed it. Ivan could not tell
+    which level he was looking at, which is the whole job those sizes do. The
+    card's own total was worse — a 10px uppercase whisper in tertiary grey, the
+    smallest thing in the card and the sum of everything in it.
+
+    Size is deliberately not carrying this alone: two pixels is easy to miss on
+    a phone, and three cues agreeing are not. And the near-miss is the failure
+    mode to watch — 15px was tried for the card's total first, which put it half
+    a pixel from a section total and repeated the exact mistake the ramp exists
+    to fix.
+  - **The heading band is `bg-subtle` at full strength and 10px of padding**, up
+    from half-strength and 6px. It is what says a new block has started, and at
+    13.5px on a 50% tint it was reading as a slightly bolder line.
   - **The total closes the block; it does not title it.** The heading used to
     carry the total and the share of income, so the card read answer-then-
     working: you took a figure off a title, dropped into a list, and climbed
@@ -1397,9 +1418,12 @@ come to, what is it made of, how does it compare with the year:
     icon where there is something to open, empty space where there is not, and
     matched by the total beneath so the sum lands under the numbers it adds up.
     Measured at 390 and 1280, every line figure and every total share one edge.
-  - The totals cost about 189px on a twelve-line `Money out` (five blocks with
-    rows, 37.8px each). That is the price of the thing being asked for, and it
-    buys back the climb-to-the-title the old arrangement charged on every block.
+  - Measured at 390 and 1280, `Money out` with twelve lines is **1102px**: 757
+    before the totals, +189 for them, +37 for the ramp and the roomier bands,
+    +37 for the empty block's dash row. That is the price of the two things
+    Ivan asked for — a sum at the foot of each block, and levels you can tell
+    apart — and it is worth paying, but it is the number to check before adding
+    anything else to this card.
   - The version before this one dissolved the sections: it sorted the blocks by
     size in one card (`WhereItGoes`) and poured **every line in the month** into
     another, biggest first, with its block written under it in 10px grey
@@ -1544,12 +1568,16 @@ come to, what is it made of, how does it compare with the year:
     see is interactive is a row nobody taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
-  - An empty block is its header row and nothing else — no line to draw, and no
-    total either. A block with nothing in it has nothing to add up, and
-    `Total $0.00` is the zero-pretending-to-be-a-figure this page keeps catching;
-    the name standing alone says it. (`Money out`'s own total still sits in the
-    card's header, and `Money in`'s single block shows no total of its own,
-    since it would restate that note directly above it.)
+  - **An empty block gets no total and one dash.** Nothing in it means nothing
+    to add up, and `Total $0.00` is the zero-pretending-to-be-a-figure this page
+    keeps catching. It does still get a row: with the heading alone, empty
+    `Debt` sat straight against `Investments & savings`, and two tinted bands
+    with a single hairline between them read as one double-height band rather
+    than as an empty block followed by a full one. A `—` is what this app says
+    when there is no figure, and the white row it sits on is what keeps the two
+    bands apart. (`Money out`'s own total sits in the card's header, and
+    `Money in`'s single block shows no total of its own, since it would restate
+    that header directly above it.)
 - **Magnitude is length from a shared baseline, never colour.** The block palette
   (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
   checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under

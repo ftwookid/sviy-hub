@@ -86,7 +86,14 @@ function detailFor(row: FinanceRow, extra?: string) {
  *
  * The name still outranks the lines under it — that is the whole job of a
  * heading, and a 10px uppercase whisper above near-black rows failed it on the
- * Setup screen for months.
+ * Setup screen for months. It is the **middle of the card's type ramp**: 17px
+ * for the card, **15px here**, 13px for a line, with weight and colour stepping
+ * alongside. It was 13.5px against 13px lines and a 13px card title, which is
+ * three levels of structure inside half a pixel — see `ChartCard`.
+ *
+ * The tint is full `bg-subtle` rather than the half-strength it was, and the row
+ * is 10px of padding rather than 6px, because this is the band that says a new
+ * block has started and it was reading as a slightly bolder line.
  */
 function SectionHeader({
   section,
@@ -104,11 +111,11 @@ function SectionHeader({
   return (
     <div
       className={cn(
-        "flex items-baseline gap-3 bg-subtle/50 px-3.5 py-1.5 sm:px-4",
+        "flex items-baseline gap-3 bg-subtle px-3.5 py-2.5 sm:px-4",
         first ? null : "border-t border-border"
       )}
     >
-      <h3 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-text-primary">
+      <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-text-primary">
         {SECTION_STYLE[section.key].title}
       </h3>
     </div>
@@ -126,6 +133,11 @@ function SectionHeader({
  * - **A full-weight rule above it**, where the lines are separated by
  *   `border-border/40`. That is the ruled-off line of a paper ledger, and it
  *   is the cheapest possible way to say "everything above this adds to this".
+ * - **Air, and a heavier figure.** A rule on its own was not enough — with the
+ *   same padding and the same 13px figure as the rows above, the sum read as
+ *   one more line item. It has more room beneath it than above, so the space
+ *   belongs to the block it closes rather than to the heading that follows, and
+ *   its figure is 14.5px semibold against the lines' 13px.
  * - **It is not tinted.** The tint is the heading's, and it is what tells you a
  *   new block has started; a tinted footer against the next block's tinted
  *   header would put a two-row band between blocks and leave neither belonging
@@ -140,14 +152,14 @@ function SectionTotal({ section, moneyIn }: { section: FinanceSection; moneyIn: 
     section.total > 0 && moneyIn > 0 ? `${percent(shareOfIncome(section.total, moneyIn))} of money in` : null;
 
   return (
-    <div className="flex items-center gap-2.5 border-t border-border px-3.5 py-2 sm:px-4">
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+    <div className="flex items-center gap-2.5 border-t border-border px-3.5 pb-3 pt-2.5 sm:px-4">
+      <span className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-[0.05em] text-text-secondary">
         Total
       </span>
       {share ? (
         <span className="shrink-0 text-[10.5px] tabular-nums text-text-tertiary">{share}</span>
       ) : null}
-      <span className="shrink-0 text-right text-[13px] font-semibold tabular-nums text-text-primary">
+      <span className="shrink-0 text-right text-[14.5px] font-semibold tabular-nums text-text-primary">
         {formatCurrency(section.total)}
       </span>
       <span aria-hidden className={ROW_END_SLOT} />
@@ -176,11 +188,18 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
       {sections.map((section, index) => (
         <Fragment key={section.key}>
           <SectionHeader section={section} first={index === 0} />
-          {/* An empty block is its header row and nothing else — no line to
-              draw, and no total either: a block with nothing in it has nothing
-              to add up, and `Total $0.00` is the zero pretending to be a figure
-              this page keeps catching. The name standing alone says it. */}
+          {/* An empty block has no total — nothing in it to add up, and
+              `Total $0.00` is the zero pretending to be a figure this page keeps
+              catching. It does get a row, though: a bare heading sat straight
+              against the next block's heading, and two tinted bands with one
+              hairline between them read as a single double-height band rather
+              than as an empty block followed by a full one. A dash is what this
+              app says when there is no figure, and the white row it sits on is
+              what keeps the two bands apart. */}
           <div className="divide-y divide-border/40">
+            {section.rows.length === 0 ? (
+              <div className="px-3.5 py-2 text-[13px] text-text-tertiary sm:px-4">—</div>
+            ) : null}
             {section.rows.map((row) => (
               <BarRow
                 key={row.key}
