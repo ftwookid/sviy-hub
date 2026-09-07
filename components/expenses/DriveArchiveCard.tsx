@@ -37,7 +37,7 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
   if (!configured) {
     return (
       <section className="rounded-[20px] border border-warning/30 bg-warning-soft p-4">
-        <h3 className="text-label font-medium text-text-primary">Drive archive not configured</h3>
+        <h3 className="text-label font-semibold text-text-primary">Drive archive not configured</h3>
         <p className="mt-1 text-list text-text-secondary">
           Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, then redeploy.
         </p>
@@ -72,7 +72,7 @@ export function DriveArchiveCard({ pendingCount, isAdmin }: { pendingCount: numb
             <HardDrive size={18} strokeWidth={1.6} />
           </span>
           <div className="min-w-0">
-            <h3 className="text-label font-medium text-text-primary">Google Drive archive</h3>
+            <h3 className="text-label font-semibold text-text-primary">Google Drive archive</h3>
             {connection.connected ? (
               <p className="mt-0.5 truncate text-list text-text-secondary">
                 {connection.rootFolderName ? (

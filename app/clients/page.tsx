@@ -250,7 +250,7 @@ function ClientsPageContent() {
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-subtle">
                 <PauseCircle size={28} strokeWidth={1.5} className="text-text-tertiary" />
               </div>
-              <h2 className="mt-5 text-figure-lg font-medium text-text-primary">No paused clients</h2>
+              <h2 className="mt-5 text-figure-lg font-semibold text-text-primary">No paused clients</h2>
               <p className="mx-auto mt-2 max-w-sm text-label text-text-secondary">
                 Clients only show here after they are paused from an existing profile.
               </p>
@@ -260,7 +260,7 @@ function ClientsPageContent() {
               <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
                 <HeartHandshake size={32} strokeWidth={1.5} className="text-accent" />
               </div>
-              <h2 className="mt-5 text-figure-lg font-medium text-text-primary">No clients here yet</h2>
+              <h2 className="mt-5 text-figure-lg font-semibold text-text-primary">No clients here yet</h2>
               <p className="mx-auto mt-2 max-w-sm text-label text-text-secondary">
                 Add your first client and the hub will start estimating visits, taxes, and monthly income.
               </p>
@@ -314,7 +314,7 @@ function ClientsPageContent() {
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-display-sm font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">
+                <h2 className="text-display-sm font-semibold leading-[1.1] tracking-[-0.01em] text-text-primary">
                   {editingClient ? "Edit client" : "Add client"}
                 </h2>
                 <p className="mt-1 text-label text-text-secondary">Keep the details light, useful, and easy to scan.</p>

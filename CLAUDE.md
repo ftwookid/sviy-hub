@@ -248,14 +248,75 @@ labels in the Mileage bar chart, which was measured at its real month sizing —
 Renaming a size to a token of identical value is a visual no-op, so the only
 intended changes are the collapses.
 
-**Still inconsistent, and worth a pass of its own:** weight. There are 280
-`font-medium` against 14 `font-semibold` and 6 `font-normal`, which means weight
-is currently decoration rather than hierarchy — the Finances card is the only
-place where it steps deliberately (semibold for the two heading levels, regular
-for a line). That wants the same treatment this got: decide what each weight
-means, then apply it. It was left out of this change on purpose, because
-changing 280 sites of weight is not something that can be verified in the same
-breath as the sizes.
+### Weight — three steps, and the font that has to be loaded for them
+
+Weight is the second half of the ramp, and it was worse off than size: **259 of
+269 size/weight pairings in the app were `font-medium`**, from `micro` to
+`display-lg`. Weight was not inconsistent, it was *constant*, which is worse —
+it meant size was carrying the hierarchy alone.
+
+**The font could not render the difference anyway.** `next/font` was asked for
+`Instrument_Sans({ weight: ["400", "500"] })`, but Instrument Sans is a
+**variable** font with a 400–700 axis, and naming two weights cuts it down to
+two static instances. So every weight above 500 was one that had never been
+downloaded. Measured in Chromium on the same string: `font-normal` 223.48px,
+`font-medium` 225.52px, `font-semibold` **225.52px**, `font-bold` **225.52px** —
+600 and 700 snapped back to the 500 face, identical to the pixel. Every heading
+that asked to outrank its lines silently did not, the Finances ramp included.
+
+Omitting `weight` loads the axis itself — **one file rather than two instances**
+— and the four weights then measure 223.48 / 225.52 / 227.44 / 229.48: real,
+distinct, evenly stepped.
+
+The three steps, and what each means:
+
+| Weight | Class | What it is for |
+| --- | --- | --- |
+| 400 | `font-normal` | Reading text: list rows, prose, a row's label. |
+| 500 | `font-medium` | Labels, captions, buttons, chips — "this is a label, not prose". |
+| 600 | `font-semibold` | Headings, and a figure that is the answer. |
+
+**Nothing goes above 600.** The two sites that did — a `font-bold` figure on the
+client detail page and a `font-black` payment badge — were rendering at 500 like
+everything else, so capping them was a no-op at the time and stops them jumping
+to 700/900 the moment the axis loads.
+
+Applied by rule rather than by taste, so it is checkable: **every `h1`/`h2`/`h3`
+in the app is `font-semibold`** (51 promoted — a heading governs what is under
+it, which is the whole job), and **every figure at `figure`, `figure-lg`,
+`display-sm` or `display` is `font-semibold`** (11 promoted — including the
+year's deductible total on Reports and the weigh-in on Health, each the answer
+its card exists to give). Everything else keeps `medium`, and reading text is
+`normal`.
+
+Measured after, at 390 **and** 1280: page title 30/34px·600, card title and its
+total 17px·600, block heading 15px·600, block total 14px·600, line 13px·400 —
+size and weight stepping together at every level, with no page errors and no
+horizontal overflow on any route rendered.
+
+### Two bugs the size migration shipped, and what caught them
+
+Both came from the sweep that removed responsive sizes made redundant by the
+collapse, and both are worth recording because the mistake is easy to repeat.
+
+The removal regex matched `sm:text-display` **inside** `sm:text-display-lg` —
+`\b` sits happily before a hyphen — so it ate the space and the base token and
+left `-lg` glued to whatever preceded it. Two sites ended up with
+`text-text-primary-lg`, a class that does not exist:
+
+- `PageHeader`'s `h1` lost its colour **and** its `sm:text-display-lg`, so every
+  page title in the app was 30px at all widths instead of stepping to 34.
+- `HouseSittingDashboard`'s `h2` lost the same way.
+
+The colour looked fine by luck — with no colour class the text inherits `body`,
+which is the same `#1A1916` it had asked for — so nothing looked broken.
+
+**What let it through: measuring at one width.** The rule in this file says
+"measure at 390px first", and the check stopped there; at 390 a title that has
+lost `sm:text-display-lg` is *correct*. So the rule is now: **anything carrying a
+responsive class is measured at both widths, and the check reads the computed
+colour as well as the size** — a class that silently does not exist still
+renders text, and the geometry alone will not tell you.
 
 **Full-height is `dvh`, never `vh`.** `100vh` on iOS Safari is the **large**
 viewport — the height the page gets once the address bar has retracted — not the

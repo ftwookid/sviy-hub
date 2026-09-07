@@ -35,7 +35,7 @@ export function YearList({
   return (
     <section className="rounded-[20px] border border-border bg-surface p-2.5 shadow-card">
       <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
-        <h2 className="text-meta font-medium uppercase tracking-[0.05em] text-text-tertiary">
+        <h2 className="text-meta font-semibold uppercase tracking-[0.05em] text-text-tertiary">
           Left over · {year}
         </h2>
       </div>

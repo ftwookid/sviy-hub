@@ -634,7 +634,7 @@ export function UtilityGroups({
       {/* The strip says what the sheet's title cannot: which month these figures
           are for, and what they come to together. */}
       <div className="flex items-center gap-2.5 bg-[#F4F2EC] px-3.5 py-2 sm:px-4">
-        <h2 className="min-w-0 flex-1 truncate text-label font-medium tracking-[-0.01em] text-text-primary sm:text-subhead">
+        <h2 className="min-w-0 flex-1 truncate text-label font-semibold tracking-[-0.01em] text-text-primary sm:text-subhead">
           {periodMonthLabel(periodMonth)}
         </h2>
         <span className="shrink-0 text-label font-medium tabular-nums text-text-primary">

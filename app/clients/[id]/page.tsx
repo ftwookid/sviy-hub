@@ -685,7 +685,7 @@ export default function ClientDetailPage() {
 
         {!loading && error && !client ? (
           <section className="rounded-[20px] border border-border bg-surface p-6 shadow-card">
-            <h1 className="text-display-sm font-medium text-text-primary">Client not found</h1>
+            <h1 className="text-display-sm font-semibold text-text-primary">Client not found</h1>
             <p className="mt-2 text-label text-text-secondary">{error}</p>
           </section>
         ) : null}
@@ -695,7 +695,7 @@ export default function ClientDetailPage() {
             <header className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                  <h1 className="text-display-lg font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">{client.name}</h1>
+                  <h1 className="text-display-lg font-semibold leading-[1.06] tracking-[-0.01em] text-text-primary">{client.name}</h1>
                   <div className="grid min-h-9 grid-cols-2 rounded-2xl border border-border bg-subtle p-1">
                     {(["Active", "Paused"] as ClientStatus[]).map((status) => (
                       <button
@@ -885,7 +885,7 @@ export default function ClientDetailPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-figure-lg font-medium text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
+                <h2 className="text-figure-lg font-semibold text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
                 <p className="mt-1 text-body text-text-secondary">Set the price and when it took effect.</p>
               </div>
               <CloseButton onClick={closePriceModal} />
@@ -945,7 +945,7 @@ export default function ClientDetailPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-figure-lg font-medium text-text-primary">Change status</h2>
+                <h2 className="text-figure-lg font-semibold text-text-primary">Change status</h2>
                 <p className="mt-1 text-body text-text-secondary">
                   Confirm changing {client.name} to {nextStatus}.
                 </p>
@@ -1093,7 +1093,7 @@ export default function ClientDetailPage() {
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-display-sm font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">Edit client</h2>
+                <h2 className="text-display-sm font-semibold leading-[1.1] tracking-[-0.01em] text-text-primary">Edit client</h2>
                 <p className="mt-1 text-label text-text-secondary">Keep the details light, useful, and easy to scan.</p>
               </div>
               <CloseButton onClick={() => setEditorOpen(false)} />
@@ -1262,7 +1262,7 @@ function BreakdownRow({
         className={cn(
           "text-right text-list font-semibold leading-5 tabular-nums text-text-primary",
           muted && "font-normal text-text-tertiary",
-          emphasized && "text-figure font-bold text-amber-700"
+          emphasized && "text-figure font-semibold text-amber-700"
         )}
       >
         {value}

@@ -692,7 +692,7 @@ export function SetupGroups({
                 not know, and six of them cost 96px on a phone. */}
             <div className="flex items-center gap-2.5 bg-[#F4F2EC] px-3.5 py-2 sm:px-4">
               <span aria-hidden className={cn("h-4 w-1.5 shrink-0 rounded-full", style.color)} />
-              <h2 className="min-w-0 flex-1 truncate text-label font-medium tracking-[-0.01em] text-text-primary sm:text-subhead">
+              <h2 className="min-w-0 flex-1 truncate text-label font-semibold tracking-[-0.01em] text-text-primary sm:text-subhead">
                 {style.title}
               </h2>
               <span className="shrink-0 text-label font-medium tabular-nums text-text-primary">

@@ -840,7 +840,7 @@ export function ClientForm({
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-figure-lg font-medium leading-tight text-text-primary">Confirm client changes</h3>
+                <h3 className="text-figure-lg font-semibold leading-tight text-text-primary">Confirm client changes</h3>
                 <p className="mt-2 text-body text-text-secondary">Review what changed before updating this client.</p>
               </div>
               <CloseButton

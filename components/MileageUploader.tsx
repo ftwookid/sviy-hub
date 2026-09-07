@@ -210,7 +210,7 @@ export function MileageUploader({
           >
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-7">
               <div>
-                <h2 className="text-figure-lg font-medium text-text-primary">
+                <h2 className="text-figure-lg font-semibold text-text-primary">
                   Log a MileIQ month
                 </h2>
                 <p className="mt-1 text-body text-text-secondary">
@@ -324,7 +324,7 @@ export function MileageUploader({
                   )}
                 </div>
                 <div>
-                  <h2 className="text-figure-lg font-medium text-text-primary">
+                  <h2 className="text-figure-lg font-semibold text-text-primary">
                     {preview.duplicate ? "This file was already uploaded" : warning?.title ?? preview.parsed.periodLabel}
                   </h2>
                   <p className="mt-1 text-list leading-relaxed text-text-secondary">

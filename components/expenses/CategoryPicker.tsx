@@ -46,7 +46,7 @@ export function CategoryPicker({
       >
         <div className="flex items-start gap-2 px-1.5 pb-2 pt-1">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-label font-medium text-text-primary">{title}</h3>
+            <h3 className="truncate text-label font-semibold text-text-primary">{title}</h3>
             {/* Which category this already sits in is the first thing you need
                 to know before changing it — a tick halfway down a list of nine
                 is not an answer to that. */}

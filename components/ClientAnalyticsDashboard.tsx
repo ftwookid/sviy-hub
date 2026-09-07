@@ -286,7 +286,7 @@ function Section({
           Setup buckets already use — one container, and a header that outranks
           its rows loudly enough to be a boundary. */}
       <div className="flex items-baseline gap-3 bg-[#F4F2EC] px-3.5 py-2.5">
-        <h3 className="shrink-0 text-label font-medium tracking-[-0.01em] text-text-primary">{title}</h3>
+        <h3 className="shrink-0 text-label font-semibold tracking-[-0.01em] text-text-primary">{title}</h3>
         {summary ? (
           <span className="min-w-0 flex-1 truncate text-right text-meta text-text-secondary">{summary}</span>
         ) : null}

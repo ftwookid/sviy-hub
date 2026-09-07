@@ -153,7 +153,7 @@ export default function ReportsPage() {
               <div className="text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
                 Deductible in {year}
               </div>
-              <div className="mt-2.5 text-display font-medium leading-none tracking-[-0.01em] text-text-primary">
+              <div className="mt-2.5 text-display font-semibold leading-none tracking-[-0.01em] text-text-primary">
                 {formatCurrency(spentTotal + mileageTotal)}
               </div>
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-list text-text-secondary">
@@ -167,7 +167,7 @@ export default function ReportsPage() {
             <ReportTable expenses={expenses} />
             <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-label font-medium leading-tight text-text-primary">Monthly breakdown</h2>
+                <h2 className="text-label font-semibold leading-tight text-text-primary">Monthly breakdown</h2>
                 <div className="flex items-center gap-3 text-meta text-text-tertiary">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-accent" />

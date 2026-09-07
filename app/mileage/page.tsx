@@ -71,7 +71,7 @@ function Stat({
       <div className="truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
       <div
         className={cn(
-          "mt-1.5 text-figure font-medium leading-none tracking-[-0.01em]",
+          "mt-1.5 text-figure font-semibold leading-none tracking-[-0.01em]",
           tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
         )}
       >
@@ -610,7 +610,7 @@ export default function MileagePage() {
             </StatStrip>
 
             <section className="rounded-[16px] border border-border bg-surface">
-              <h2 className="px-3 pt-3 text-body font-medium leading-tight text-text-primary">
+              <h2 className="px-3 pt-3 text-body font-semibold leading-tight text-text-primary">
                 {period === "month" ? "Daily" : "Monthly"} · {periodName}
               </h2>
 
@@ -657,7 +657,7 @@ export default function MileagePage() {
               </div>
 
               <div className="border-t border-border px-3 py-3">
-                <h3 className="text-list font-medium text-text-primary">By weekday</h3>
+                <h3 className="text-list font-semibold text-text-primary">By weekday</h3>
                 <div className="mt-2.5 space-y-2">
                   {weekdayData.rows.map((day) => {
                     const busiest = day.index === weekdayData.busiestIndex;
@@ -702,7 +702,7 @@ export default function MileagePage() {
 
             <section className="rounded-[16px] border border-border bg-surface">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-3 pt-3">
-                <h2 className="text-body font-medium leading-tight text-text-primary">
+                <h2 className="text-body font-semibold leading-tight text-text-primary">
                   The car · since Jan 1 {epochYear}
                 </h2>
                 {/* Entering the car's numbers still belongs in Profile — it is setup,
@@ -765,7 +765,7 @@ export default function MileagePage() {
 
               {configured && costTrend.length ? (
                 <div className="border-t border-border px-3 py-3">
-                  <h3 className="text-list font-medium text-text-primary">Cost per mile · 12 months</h3>
+                  <h3 className="text-list font-semibold text-text-primary">Cost per mile · 12 months</h3>
                   <div className="mt-2.5 overflow-x-auto pb-5">
                     <div
                       className="grid h-28 items-end gap-1.5 border-b border-border"

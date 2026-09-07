@@ -62,7 +62,7 @@ export function ClientCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-figure font-medium leading-[1.15] text-text-primary" title={pets}>
+          <div className="truncate text-figure font-semibold leading-[1.15] text-text-primary" title={pets}>
             {pets}
           </div>
           <div className="mt-0.5 truncate text-list font-medium text-text-tertiary" title={client.name}>
@@ -107,7 +107,7 @@ export function ClientCard({
             <div className="text-right">
               <div className="text-micro font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
               <div className="mt-0.5 flex items-baseline justify-end gap-1.5 text-text-primary">
-                <span className="text-figure-lg font-medium leading-none">{formatCurrency(weeklyNet)}</span>
+                <span className="text-figure-lg font-semibold leading-none">{formatCurrency(weeklyNet)}</span>
                 <span className="text-list font-medium text-text-tertiary">/wk</span>
               </div>
             </div>

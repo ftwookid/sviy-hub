@@ -55,7 +55,7 @@ export function ImportSummaryCard({
     <section className="rounded-[20px] border border-border bg-surface px-3.5 py-3 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-label font-medium text-text-primary">
+          <h2 className="truncate text-label font-semibold text-text-primary">
             {statementImport.institution || "Statement"}
             {statementImport.account_label ? ` · ${statementImport.account_label}` : ""}
           </h2>

@@ -64,7 +64,7 @@ export function UtilitiesSheet({
         aria-label="Utilities"
       >
         <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
-          <h2 className="min-w-0 text-figure-lg font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
+          <h2 className="min-w-0 text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
             Utilities
           </h2>
           <CloseButton onClick={onClose} />

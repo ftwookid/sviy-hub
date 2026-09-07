@@ -146,7 +146,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
       className="scroll-mt-6 rounded-[20px] border border-border bg-surface p-3.5 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-label font-medium leading-tight text-text-primary">Car</h2>
+        <h2 className="text-label font-semibold leading-tight text-text-primary">Car</h2>
       </div>
 
       {error ? (

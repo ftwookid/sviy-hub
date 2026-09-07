@@ -539,7 +539,7 @@ export default function TransactionsPage() {
                     <div className="mx-auto grid h-12 w-12 place-items-center rounded-[16px] bg-accent-soft">
                       <ReceiptIcon size={21} strokeWidth={1.5} className="text-accent" />
                     </div>
-                    <h3 className="mt-3 text-label font-medium text-text-primary">
+                    <h3 className="mt-3 text-label font-semibold text-text-primary">
                       {onlyMissing ? "Everything has proof" : "Nothing logged this month"}
                     </h3>
                     <p className="mx-auto mt-1.5 max-w-sm text-list leading-snug text-text-secondary">

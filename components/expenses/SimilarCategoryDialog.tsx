@@ -76,7 +76,7 @@ export function SimilarCategoryDialog({
       >
         <div className="px-5 pt-5">
           <div className="flex items-start gap-2">
-            <h3 className="min-w-0 flex-1 text-subhead font-medium leading-tight text-text-primary">
+            <h3 className="min-w-0 flex-1 text-subhead font-semibold leading-tight text-text-primary">
               {rows.length} similar transaction{rows.length === 1 ? "" : "s"}
             </h3>
             {/* Same outcome as "Just this one" — the edit that opened this is

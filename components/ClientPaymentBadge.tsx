@@ -7,7 +7,7 @@ export function ClientPaymentIcon({ method }: { method: ClientPaymentMethod }) {
   if (method === "Venmo") {
     return (
       <span className="grid h-5 w-5 shrink-0 place-items-center rounded-[6px] bg-[#008CFF]" aria-hidden="true">
-        <span className="text-list font-black italic leading-none text-white">V</span>
+        <span className="text-list font-semibold italic leading-none text-white">V</span>
       </span>
     );
   }

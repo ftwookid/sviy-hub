@@ -49,7 +49,7 @@ export function Figure({
           is what clipped "$2,821.00" to "$2,821...." in a 152px column, and a
           truncated number is worse than no number because it still looks like
           one. */}
-      <div className="mt-1 truncate text-figure font-medium leading-none tracking-[-0.01em] text-text-primary">
+      <div className="mt-1 truncate text-figure font-semibold leading-none tracking-[-0.01em] text-text-primary">
         {value}
       </div>
       {detail || aside ? (

@@ -163,7 +163,7 @@ export function MileageHistory({
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-body font-medium text-text-primary">Imported months</h2>
+        <h2 className="text-body font-semibold text-text-primary">Imported months</h2>
         <span className="text-meta text-text-tertiary">{monthGroups.length}</span>
       </div>
 
@@ -176,7 +176,7 @@ export function MileageHistory({
             <article key={key} className="relative rounded-[16px] border border-border bg-surface">
               <div className="grid items-center gap-3 p-2.5 pr-12 sm:grid-cols-[minmax(150px,1.2fr)_52px_74px_92px_104px_32px]">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <h3 className="min-w-0 truncate text-body font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
+                  <h3 className="min-w-0 truncate text-body font-semibold text-text-primary">{monthLabel(periodMonth)}</h3>
                   {canChangeOwner ? (
                     <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-subtle px-2 text-caption font-medium text-text-secondary">
                       <UserRound size={11} strokeWidth={1.7} />

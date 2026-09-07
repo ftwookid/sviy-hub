@@ -41,7 +41,7 @@ function Figure({ label, value }: { label: string; value: number }) {
       <div className="text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
         {label}
       </div>
-      <div className="mt-0.5 text-figure font-medium leading-tight tabular-nums text-text-primary">
+      <div className="mt-0.5 text-figure font-semibold leading-tight tabular-nums text-text-primary">
         {wholeDollars.format(value)}
       </div>
     </div>

@@ -23,7 +23,7 @@ export function Stat({
       <div className="truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
       <div
         className={cn(
-          "mt-1.5 text-figure font-medium leading-none tracking-[-0.01em]",
+          "mt-1.5 text-figure font-semibold leading-none tracking-[-0.01em]",
           tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
         )}
       >
@@ -45,7 +45,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
 export function Block({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <div className="border-t border-border first:border-t-0">
-      {title ? <h2 className="px-3 pt-3 text-list font-medium leading-tight text-text-primary">{title}</h2> : null}
+      {title ? <h2 className="px-3 pt-3 text-list font-semibold leading-tight text-text-primary">{title}</h2> : null}
       {children}
     </div>
   );
@@ -86,7 +86,7 @@ export function Tile({
         </span>
         <span
           className={cn(
-            "mt-1.5 block truncate text-figure font-medium leading-none tracking-[-0.01em]",
+            "mt-1.5 block truncate text-figure font-semibold leading-none tracking-[-0.01em]",
             tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-primary"
           )}
         >
@@ -117,7 +117,7 @@ export function DetailHeader({ title, onBack }: { title: string; onBack: () => v
       >
         <ChevronLeft size={20} strokeWidth={1.8} />
       </button>
-      <h1 className="text-subhead font-medium leading-tight tracking-[-0.01em] text-text-primary">{title}</h1>
+      <h1 className="text-subhead font-semibold leading-tight tracking-[-0.01em] text-text-primary">{title}</h1>
     </div>
   );
 }
@@ -145,7 +145,7 @@ export function Sheet({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-4">
-          <h2 className="text-label font-medium text-text-primary">{title}</h2>
+          <h2 className="text-label font-semibold text-text-primary">{title}</h2>
           <button
             type="button"
             onClick={onClose}

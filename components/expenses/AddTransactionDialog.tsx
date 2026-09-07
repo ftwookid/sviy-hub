@@ -110,7 +110,7 @@ export function AddTransactionDialog({
             <span className="mx-auto grid h-14 w-14 place-items-center rounded-[20px] bg-accent-soft text-accent">
               <Loader2 size={24} strokeWidth={1.6} className="animate-spin" />
             </span>
-            <h3 className="mt-4 text-subhead font-medium text-text-primary">{scanSteps[scanStep]}</h3>
+            <h3 className="mt-4 text-subhead font-semibold text-text-primary">{scanSteps[scanStep]}</h3>
             <p className="mx-auto mt-2 max-w-xs text-list leading-snug text-text-secondary">
               {step === "sheet"
                 ? "Leave the page open."
@@ -311,7 +311,7 @@ export function AddTransactionDialog({
 function DialogHeader({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div className="flex items-start gap-2">
-      <h3 className="min-w-0 flex-1 text-figure font-medium leading-tight text-text-primary">
+      <h3 className="min-w-0 flex-1 text-figure font-semibold leading-tight text-text-primary">
         {title}
       </h3>
       <CloseButton onClick={onClose} />

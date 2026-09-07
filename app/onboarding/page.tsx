@@ -83,7 +83,7 @@ export default function OnboardingPage() {
       >
         <div>
           <Image src="/Logo v2.png" alt="Sviy Hub" width={112} height={112} className="h-28 w-28 object-contain" priority />
-          <h1 className="mt-5 text-figure-lg font-medium leading-tight text-text-primary">Set your nickname</h1>
+          <h1 className="mt-5 text-figure-lg font-semibold leading-tight text-text-primary">Set your nickname</h1>
           <p className="mt-2 text-label text-text-secondary">
             This is how your work will be labeled inside the family hub.
           </p>

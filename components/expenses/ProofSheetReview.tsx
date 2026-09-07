@@ -113,7 +113,7 @@ export function ProofSheetReview({
             <FileSpreadsheet size={18} strokeWidth={1.7} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-label font-medium text-text-primary">
+            <h2 className="truncate text-label font-semibold text-text-primary">
               {scan.vendor || file.name}
             </h2>
             <p className="mt-0.5 truncate text-meta text-text-tertiary">

@@ -246,7 +246,7 @@ export function ExpenseSlideOver({
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-figure-lg font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
+            <h2 className="text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
               {isEditing ? "Edit transaction" : "Add transaction"}
             </h2>
             <p className="mt-1 text-body text-text-secondary">
@@ -318,7 +318,7 @@ export function ExpenseSlideOver({
           {/* Proof of transaction */}
           <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-list font-medium uppercase tracking-[0.04em] text-text-tertiary">
+              <h3 className="text-list font-semibold uppercase tracking-[0.04em] text-text-tertiary">
                 Proof of transaction
               </h3>
               <ProofBadge state={currentProof} />

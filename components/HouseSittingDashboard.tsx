@@ -515,7 +515,7 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
       <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card sm:rounded-[24px]">
         <div className="flex flex-col gap-3 border-b border-border p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
           <div className="min-w-0">
-            <h2 className="text-figure font-medium leading-tight text-text-primary-lg">House sitting calendar</h2>
+            <h2 className="text-figure font-semibold leading-tight text-text-primary sm:text-figure-lg">House sitting calendar</h2>
             <p className="mt-1 text-list text-text-secondary sm:text-body">
               Past and future overnight stays, separate from regular walks.
             </p>
@@ -564,7 +564,7 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
           {loading ? <SkeletonRows /> : null}
           {!loading && loadError ? (
             <section className="rounded-[20px] border border-warning/30 bg-warning-soft px-4 py-5 sm:px-5 sm:py-6">
-              <h3 className="text-subhead font-medium text-text-primary">House sitting needs database setup</h3>
+              <h3 className="text-subhead font-semibold text-text-primary">House sitting needs database setup</h3>
               <p className="mt-2 text-body text-text-secondary">{loadError}</p>
             </section>
           ) : null}
@@ -573,7 +573,7 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-accent-soft">
                 <Home size={28} strokeWidth={1.5} className="text-accent" />
               </div>
-              <h3 className="mt-5 text-figure font-medium text-text-primary">No house sitting stays yet</h3>
+              <h3 className="mt-5 text-figure font-semibold text-text-primary">No house sitting stays yet</h3>
               <p className="mx-auto mt-2 max-w-sm text-body text-text-secondary">
                 Add a booked date range and it will appear on the calendar for weekly, monthly, and yearly planning.
               </p>
@@ -741,7 +741,7 @@ function WeekCalendar({
       </div>
 
       <div className="lg:hidden">
-        <h3 className="text-list font-medium uppercase tracking-[0.04em] text-text-tertiary">Stays this week</h3>
+        <h3 className="text-list font-semibold uppercase tracking-[0.04em] text-text-tertiary">Stays this week</h3>
         <div className="mt-2 space-y-2">
           {weekBookings.length > 0 ? (
             weekBookings.map((booking) => (
@@ -919,7 +919,7 @@ function YearCalendar({
 
             <div className="flex items-start justify-between gap-2 lg:gap-3">
               <div className="min-w-0">
-                <h3 className="text-label font-medium text-text-primary">
+                <h3 className="text-label font-semibold text-text-primary">
                   <span className="sm:hidden">{shortMonthTitle(monthDate)}</span>
                   <span className="hidden sm:inline">{monthTitle(monthDate)}</span>
                 </h3>
@@ -1026,7 +1026,7 @@ function BookingList({
   return (
     <section className="grid gap-3 sm:gap-4 lg:grid-cols-[1.35fr_0.9fr]">
       <div className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:rounded-[24px] sm:p-4">
-        <h2 className="text-subhead font-medium text-text-primary">Upcoming stays</h2>
+        <h2 className="text-subhead font-semibold text-text-primary">Upcoming stays</h2>
         <div className="mt-3 space-y-2">
           {upcoming.length > 0 ? (
             upcoming.map((booking) => (
@@ -1038,7 +1038,7 @@ function BookingList({
         </div>
       </div>
       <div className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:rounded-[24px] sm:p-4">
-        <h2 className="text-subhead font-medium text-text-primary">Recently finished</h2>
+        <h2 className="text-subhead font-semibold text-text-primary">Recently finished</h2>
         <div className="mt-3 space-y-2">
           {recent.length > 0 ? (
             recent.map((booking) => (
@@ -1141,7 +1141,7 @@ function DaySheet({
       >
         <div className="flex items-start justify-between gap-3 border-b border-border p-4">
           <div className="min-w-0">
-            <h2 className="text-figure font-medium leading-tight text-text-primary">{fullDate(date)}</h2>
+            <h2 className="text-figure font-semibold leading-tight text-text-primary">{fullDate(date)}</h2>
             <p className="mt-0.5 text-list text-text-secondary">
               {bookings.length === 0 ? "No stays booked" : `${bookings.length} ${bookings.length === 1 ? "stay" : "stays"}`}
             </p>
@@ -1584,7 +1584,7 @@ function HouseSittingForm({
       >
         <div className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
-            <h2 className="text-figure-lg font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm sm:leading-[1.1]">
+            <h2 className="text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm sm:leading-[1.1]">
               {isEditing ? "House sitting details" : "Add house sitting"}
             </h2>
             <p className="mt-1 text-body text-text-secondary sm:text-label">
@@ -1826,7 +1826,7 @@ function HouseSittingForm({
 
           {isEditing && booking ? (
             <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:p-4">
-              <h3 className="text-list font-medium uppercase tracking-[0.04em] text-text-tertiary">Manage this stay</h3>
+              <h3 className="text-list font-semibold uppercase tracking-[0.04em] text-text-tertiary">Manage this stay</h3>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Button
                   className="w-full sm:flex-1"

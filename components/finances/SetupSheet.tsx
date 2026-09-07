@@ -90,7 +90,7 @@ export function SetupSheet({
           {/* The title and nothing under it. A subtitle explaining that money
               comes in and goes out tells whoever typed these figures nothing,
               and cost a line at the top of every visit. */}
-          <h2 className="min-w-0 text-figure-lg font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
+          <h2 className="min-w-0 text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
             Standing figures
           </h2>
           <CloseButton onClick={onClose} />
