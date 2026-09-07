@@ -38,10 +38,10 @@ const wholeDollars = new Intl.NumberFormat("en-US", {
 function Figure({ label, value }: { label: string; value: number }) {
   return (
     <div className="px-3 py-2.5 sm:px-4">
-      <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+      <div className="text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
         {label}
       </div>
-      <div className="mt-0.5 text-[19px] font-medium leading-tight tabular-nums text-text-primary sm:text-[21px]">
+      <div className="mt-0.5 text-figure font-medium leading-tight tabular-nums text-text-primary">
         {wholeDollars.format(value)}
       </div>
     </div>

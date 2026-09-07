@@ -60,7 +60,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group relative flex min-h-11 items-center gap-3 rounded-2xl py-2 pl-4 pr-3 text-[15px] transition duration-150 ease-out",
+                  "group relative flex min-h-11 items-center gap-3 rounded-2xl py-2 pl-4 pr-3 text-label transition duration-150 ease-out",
                   active
                     ? "bg-accent-soft font-semibold text-text-primary ring-1 ring-inset ring-accent/45"
                     : "font-medium text-text-secondary hover:bg-surface/80 hover:text-text-primary"
@@ -85,13 +85,13 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
         </nav>
         <div className="mt-auto rounded-2xl border border-border bg-surface/72 p-3">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-[14px] font-medium text-text-primary">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-body font-medium text-text-primary">
               {initial}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-[13px] font-medium text-text-primary">{user.email}</div>
+              <div className="truncate text-list font-medium text-text-primary">{user.email}</div>
               <button
-                className="mt-0.5 text-[12px] text-text-tertiary transition hover:text-text-secondary"
+                className="mt-0.5 text-meta text-text-tertiary transition hover:text-text-secondary"
                 onClick={signOut}
                 type="button"
               >

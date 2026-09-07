@@ -82,7 +82,7 @@ function BucketPicker({ value, onChange }: { value: UtilityBucket; onChange: (ne
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="flex min-w-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-[11.5px] text-text-tertiary transition-colors duration-200 ease-out group-hover:bg-surface group-hover:text-text-secondary">
+        <span className="flex min-w-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-caption text-text-tertiary transition-colors duration-200 ease-out group-hover:bg-surface group-hover:text-text-secondary">
           <span className="truncate">Counted in {SECTION_STYLE[value].title}</span>
           <ChevronDown size={12} strokeWidth={2} className="shrink-0" />
         </span>
@@ -93,7 +93,7 @@ function BucketPicker({ value, onChange }: { value: UtilityBucket; onChange: (ne
           <button
             key={bucket}
             className={cn(
-              "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-200 ease-out",
+              "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-body transition-colors duration-200 ease-out",
               bucket === value ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
             )}
             type="button"
@@ -134,10 +134,10 @@ function TrendStrip({ bills, year }: { bills: UtilityAccountBills["bills"]; year
     <div className="mb-2.5 grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-surface">
       {cells.map((cell) => (
         <div key={cell.label} className="min-w-0 px-2.5 py-2">
-          <div className="truncate text-[10.5px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+          <div className="truncate text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary">
             {cell.label}
           </div>
-          <div className="mt-0.5 truncate text-[15px] font-medium tabular-nums leading-none text-text-primary">
+          <div className="mt-0.5 truncate text-label font-medium tabular-nums leading-none text-text-primary">
             {cell.value}
           </div>
         </div>
@@ -192,7 +192,7 @@ function YearPicker({
           cells directly under it so it stands off the tinted panel. */}
       <button
         ref={triggerRef}
-        className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 text-[15px] font-medium tabular-nums text-text-primary transition-colors duration-200 ease-out hover:bg-subtle"
+        className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 text-label font-medium tabular-nums text-text-primary transition-colors duration-200 ease-out hover:bg-subtle"
         type="button"
         aria-label={`${year} — choose another year`}
         aria-expanded={open}
@@ -215,7 +215,7 @@ function YearPicker({
             <button
               key={option}
               className={cn(
-                "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-200 ease-out",
+                "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-body transition-colors duration-200 ease-out",
                 option === year ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
               )}
               type="button"
@@ -228,7 +228,7 @@ function YearPicker({
               <span className="flex items-center gap-2">
                 {/* A year with nothing in it says so quietly rather than with a
                     zero pretending to be a figure. */}
-                <span className="text-[12px] tabular-nums text-text-tertiary">
+                <span className="text-meta tabular-nums text-text-tertiary">
                   {count === 0 ? "—" : `${count} ${count === 1 ? "bill" : "bills"}`}
                 </span>
                 {option === year ? <Check size={15} strokeWidth={2} className="shrink-0" /> : null}
@@ -283,12 +283,12 @@ function MonthCell({
       }
       onClick={onSelect}
     >
-      <span className="block text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+      <span className="block text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
         {MONTHS[monthIndex].slice(0, 3)}
       </span>
       <span
         className={cn(
-          "mt-0.5 block truncate text-[13.5px] tabular-nums leading-tight",
+          "mt-0.5 block truncate text-list tabular-nums leading-tight",
           bill ? "text-text-primary" : "text-text-tertiary"
         )}
       >
@@ -447,7 +447,7 @@ function AccountDetail({
             seen. A year with no bills says nothing here; twelve dashes below
             already say it. */}
         {billed.length > 0 ? (
-          <span className="ml-auto truncate pl-2 text-[12px] tabular-nums text-text-tertiary">
+          <span className="ml-auto truncate pl-2 text-meta tabular-nums text-text-tertiary">
             {formatCurrency(yearTotal)}
           </span>
         ) : null}
@@ -494,11 +494,11 @@ function AccountDetail({
            keyboard to dodge, so from `sm` it goes back to one row, label, field,
            controls. */
         <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
-          <span className="order-1 w-[68px] shrink-0 text-[12.5px] text-text-secondary sm:w-[86px]">
+          <span className="order-1 w-[68px] shrink-0 text-meta text-text-secondary sm:w-[86px]">
             {periodMonthShortLabel(editingMonth)}
           </span>
           <input
-            className="focus-ring order-3 min-h-11 w-full min-w-0 rounded-xl border border-border bg-surface px-3 text-right text-[15px] tabular-nums text-text-primary placeholder:text-text-tertiary sm:order-2 sm:w-auto sm:flex-1"
+            className="focus-ring order-3 min-h-11 w-full min-w-0 rounded-xl border border-border bg-surface px-3 text-right text-label tabular-nums text-text-primary placeholder:text-text-tertiary sm:order-2 sm:w-auto sm:flex-1"
             value={amount}
             aria-label={`Bill for ${periodMonthLabel(editingMonth)}`}
             placeholder="0.00"
@@ -542,7 +542,7 @@ function AccountDetail({
           rest, because a phone has no hover to turn it red on. */}
       <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/60 pt-2.5">
         <input
-          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary sm:max-w-[320px]"
+          className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-label text-text-primary sm:max-w-[320px]"
           value={name}
           aria-label="Utility name"
           onChange={(event) => setName(event.target.value)}
@@ -634,10 +634,10 @@ export function UtilityGroups({
       {/* The strip says what the sheet's title cannot: which month these figures
           are for, and what they come to together. */}
       <div className="flex items-center gap-2.5 bg-[#F4F2EC] px-3.5 py-2 sm:px-4">
-        <h2 className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[-0.01em] text-text-primary sm:text-[17px]">
+        <h2 className="min-w-0 flex-1 truncate text-label font-medium tracking-[-0.01em] text-text-primary sm:text-subhead">
           {periodMonthLabel(periodMonth)}
         </h2>
-        <span className="shrink-0 text-[15px] font-medium tabular-nums text-text-primary sm:text-[16px]">
+        <span className="shrink-0 text-label font-medium tabular-nums text-text-primary">
           {formatCurrency(monthTotal)}
         </span>
         <button
@@ -659,7 +659,7 @@ export function UtilityGroups({
         <div className="border-t border-border/60 bg-accent-soft/30 px-3.5 py-2.5 sm:px-4 sm:py-3">
           <div className="flex items-center gap-1.5">
             <input
-              className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] text-text-primary placeholder:text-text-tertiary"
+              className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-label text-text-primary placeholder:text-text-tertiary"
               value={newName}
               aria-label="What this bill is for"
               placeholder="Water"
@@ -682,7 +682,7 @@ export function UtilityGroups({
       ) : null}
 
       {book.length === 0 && !adding ? (
-        <p className="border-t border-border/60 px-3.5 py-3 text-[13px] text-text-tertiary sm:px-4">
+        <p className="border-t border-border/60 px-3.5 py-3 text-list text-text-tertiary sm:px-4">
           Nothing metered yet. Add water, power or gas with ＋.
         </p>
       ) : null}
@@ -709,10 +709,10 @@ export function UtilityGroups({
                   aria-hidden
                   className={cn("h-4 w-1.5 shrink-0 rounded-full", SECTION_STYLE[entry.account.bucket].color)}
                 />
-                <span className="min-w-0 flex-1 truncate text-[14px] text-text-secondary sm:text-[15px]">
+                <span className="min-w-0 flex-1 truncate text-body text-text-secondary sm:text-label">
                   {entry.account.name}
                 </span>
-                <span className="shrink-0 text-right text-[14px] tabular-nums text-text-primary sm:w-[130px] sm:text-[15px]">
+                <span className="shrink-0 text-right text-body tabular-nums text-text-primary sm:w-[130px] sm:text-label">
                   {/* An account with no bill at all is not worth $0.00 — that is
                       a zero pretending to be a figure. */}
                   {value.basis === "none" ? (
@@ -721,7 +721,7 @@ export function UtilityGroups({
                     <>
                       {formatCurrency(value.amount)}
                       {value.basis === "estimate" ? (
-                        <span className="ml-1 text-[10px] font-normal text-text-tertiary">est</span>
+                        <span className="ml-1 text-micro font-normal text-text-tertiary">est</span>
                       ) : null}
                     </>
                   )}

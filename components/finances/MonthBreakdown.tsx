@@ -115,7 +115,7 @@ function SectionHeader({
         first ? null : "border-t border-border"
       )}
     >
-      <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-text-primary">
+      <h3 className="min-w-0 flex-1 truncate text-label font-semibold tracking-[-0.01em] text-text-primary">
         {SECTION_STYLE[section.key].title}
       </h3>
     </div>
@@ -153,13 +153,13 @@ function SectionTotal({ section, moneyIn }: { section: FinanceSection; moneyIn: 
 
   return (
     <div className="flex items-center gap-2.5 border-t border-border px-3.5 pb-3 pt-2.5 sm:px-4">
-      <span className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-[0.05em] text-text-secondary">
+      <span className="min-w-0 flex-1 truncate text-caption font-semibold uppercase tracking-[0.05em] text-text-secondary">
         Total
       </span>
       {share ? (
-        <span className="shrink-0 text-[10.5px] tabular-nums text-text-tertiary">{share}</span>
+        <span className="shrink-0 text-micro tabular-nums text-text-tertiary">{share}</span>
       ) : null}
-      <span className="shrink-0 text-right text-[14.5px] font-semibold tabular-nums text-text-primary">
+      <span className="shrink-0 text-right text-body font-semibold tabular-nums text-text-primary">
         {formatCurrency(section.total)}
       </span>
       <span aria-hidden className={ROW_END_SLOT} />
@@ -198,7 +198,7 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
               what keeps the two bands apart. */}
           <div className="divide-y divide-border/40">
             {section.rows.length === 0 ? (
-              <div className="px-3.5 py-2 text-[13px] text-text-tertiary sm:px-4">—</div>
+              <div className="px-3.5 py-2 text-list text-text-tertiary sm:px-4">—</div>
             ) : null}
             {section.rows.map((row) => (
               <BarRow

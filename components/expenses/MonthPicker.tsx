@@ -121,11 +121,11 @@ export function MonthPicker({
           aria-haspopup="dialog"
           onClick={() => setOpen((current) => !current)}
         >
-          <span className="truncate text-[15px] font-medium text-text-primary">
+          <span className="truncate text-label font-medium text-text-primary">
             {periodMonthLabel(periodMonth)}
           </span>
           {isCurrentMonth ? (
-            <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-medium text-accent">
+            <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-0.5 text-micro font-medium text-accent">
               Now
             </span>
           ) : null}
@@ -161,7 +161,7 @@ export function MonthPicker({
             >
               <ChevronLeft size={18} strokeWidth={1.7} />
             </Button>
-            <div className="text-[17px] font-medium text-text-primary">{browsingYear}</div>
+            <div className="text-subhead font-medium text-text-primary">{browsingYear}</div>
             <Button
               className="h-11 w-11 shrink-0 px-0"
               variant="soft"
@@ -181,7 +181,7 @@ export function MonthPicker({
                 <button
                   key={label}
                   className={cn(
-                    "focus-ring h-11 rounded-xl text-[15px] font-medium transition",
+                    "focus-ring h-11 rounded-xl text-label font-medium transition",
                     isSelected
                       ? "bg-accent text-text-primary"
                       : "bg-subtle text-text-secondary hover:bg-border",

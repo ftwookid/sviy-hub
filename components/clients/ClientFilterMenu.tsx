@@ -42,7 +42,7 @@ export function ClientFilterMenu({
     <>
       <button
         ref={triggerRef}
-        className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
+        className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
         type="button"
         aria-label={`Showing ${value} clients — change`}
         aria-expanded={open}
@@ -58,7 +58,7 @@ export function ClientFilterMenu({
           <button
             key={filter}
             className={cn(
-              "focus-ring flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-200 ease-out",
+              "focus-ring flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-body transition-colors duration-200 ease-out",
               filter === value ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
             )}
             type="button"

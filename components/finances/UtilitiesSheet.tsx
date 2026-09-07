@@ -64,7 +64,7 @@ export function UtilitiesSheet({
         aria-label="Utilities"
       >
         <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
-          <h2 className="min-w-0 text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[26px]">
+          <h2 className="min-w-0 text-figure-lg font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
             Utilities
           </h2>
           <CloseButton onClick={onClose} />
@@ -72,7 +72,7 @@ export function UtilitiesSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
           {notice ? (
-            <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-[13px] text-text-primary">
+            <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-warning/35 bg-warning-soft px-3.5 py-3 text-list text-text-primary">
               <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning" />
               <span>{notice}</span>
             </div>

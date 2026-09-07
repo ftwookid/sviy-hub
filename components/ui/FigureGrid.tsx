@@ -44,17 +44,17 @@ export function Figure({
 }) {
   return (
     <div className="min-w-0 bg-surface px-2.5 py-2.5 sm:px-3">
-      <div className="truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
+      <div className="truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">{label}</div>
       {/* The figure gets the cell's whole width. Sharing the line with a badge
           is what clipped "$2,821.00" to "$2,821...." in a 152px column, and a
           truncated number is worse than no number because it still looks like
           one. */}
-      <div className="mt-1 truncate text-[19px] font-medium leading-none tracking-[-0.01em] text-text-primary">
+      <div className="mt-1 truncate text-figure font-medium leading-none tracking-[-0.01em] text-text-primary">
         {value}
       </div>
       {detail || aside ? (
         <div className="mt-1.5 flex items-baseline gap-1.5">
-          {detail ? <span className="min-w-0 flex-1 truncate text-[11px] text-text-tertiary">{detail}</span> : null}
+          {detail ? <span className="min-w-0 flex-1 truncate text-caption text-text-tertiary">{detail}</span> : null}
           {/* ml-auto rather than a growing spacer, so the badge sits on the
               cell's right edge whether or not a detail sits beside it. */}
           {aside ? <span className="ml-auto shrink-0">{aside}</span> : null}

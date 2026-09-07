@@ -99,7 +99,7 @@ export function ProofSheetReview({
   return (
     <div className="space-y-3">
       <button
-        className="focus-ring inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition hover:text-text-primary"
+        className="focus-ring inline-flex items-center gap-1.5 text-list text-text-secondary transition hover:text-text-primary"
         type="button"
         onClick={onBack}
       >
@@ -113,10 +113,10 @@ export function ProofSheetReview({
             <FileSpreadsheet size={18} strokeWidth={1.7} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[16px] font-medium text-text-primary">
+            <h2 className="truncate text-label font-medium text-text-primary">
               {scan.vendor || file.name}
             </h2>
-            <p className="mt-0.5 truncate text-[12.5px] text-text-tertiary">
+            <p className="mt-0.5 truncate text-meta text-text-tertiary">
               {file.name} · {formatBytes(file.size)}
               {scan.periodStart && scan.periodEnd
                 ? ` · ${formatShortDate(scan.periodStart)} – ${formatShortDate(scan.periodEnd)}`
@@ -125,7 +125,7 @@ export function ProofSheetReview({
           </div>
         </div>
 
-        <p className="mt-3 text-[13.5px] leading-snug text-text-secondary">
+        <p className="mt-3 text-list leading-snug text-text-secondary">
           {scan.lineCount} charge{scan.lineCount === 1 ? "" : "s"} on this report.{" "}
           <span className="text-text-primary">
             {scan.matches.length} matched a transaction with no proof yet
@@ -136,7 +136,7 @@ export function ProofSheetReview({
         </p>
 
         {scan.notes ? (
-          <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-subtle px-3 py-2 text-[12.5px] leading-snug text-text-secondary">
+          <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-subtle px-3 py-2 text-meta leading-snug text-text-secondary">
             <CircleAlert size={14} strokeWidth={1.8} className="mt-px shrink-0 text-text-tertiary" />
             {scan.notes}
           </p>
@@ -145,7 +145,7 @@ export function ProofSheetReview({
 
       {scan.matches.length === 0 ? (
         <div className="rounded-[18px] border border-border bg-surface px-4 py-8 text-center">
-          <p className="text-[14px] text-text-secondary">
+          <p className="text-body text-text-secondary">
             Nothing on this report lines up with a transaction that still needs proof.
           </p>
           <Button className="mt-4" variant="soft" type="button" onClick={onBack}>
@@ -155,7 +155,7 @@ export function ProofSheetReview({
       ) : (
         <>
           <div className="flex items-center justify-between gap-2 px-1">
-            <label className="focus-ring-within inline-flex cursor-pointer items-center gap-2 text-[13px] text-text-secondary">
+            <label className="focus-ring-within inline-flex cursor-pointer items-center gap-2 text-list text-text-secondary">
               <input
                 className="h-4 w-4 accent-accent"
                 type="checkbox"
@@ -164,7 +164,7 @@ export function ProofSheetReview({
               />
               Select all
             </label>
-            <span className="text-[12.5px] text-text-tertiary">
+            <span className="text-meta text-text-tertiary">
               {chosen.length} of {scan.matches.length} · {formatCurrency(chosenTotal)}
             </span>
           </div>
@@ -182,7 +182,7 @@ export function ProofSheetReview({
           </div>
 
           {error ? (
-            <p className="rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">{error}</p>
+            <p className="rounded-xl bg-danger-soft px-3 py-2 text-list text-danger">{error}</p>
           ) : null}
 
           <div className="sticky bottom-[calc(12px+env(safe-area-inset-bottom))] z-10 pt-1">
@@ -241,26 +241,26 @@ function MatchRow({
 
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="w-[46px] shrink-0 text-[12.5px] text-text-tertiary">
+          <span className="w-[46px] shrink-0 text-meta text-text-tertiary">
             {formatShortDate(expense.date)}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[14.5px] text-text-primary">
+          <span className="min-w-0 flex-1 truncate text-body text-text-primary">
             {expense.merchant}
           </span>
-          <span className="shrink-0 text-[14.5px] tabular-nums text-text-primary">
+          <span className="shrink-0 text-body tabular-nums text-text-primary">
             {formatCurrency(expense.amount)}
           </span>
         </span>
 
         <span className="mt-1 flex items-center gap-2">
           <span className="w-[46px] shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-[12px] text-text-tertiary">
+          <span className="min-w-0 flex-1 truncate text-meta text-text-tertiary">
             Report row {line.row}
             {dayGap === 0 ? "" : ` · ${formatShortDate(line.date)}`}
             {line.description ? ` · ${line.description}` : ""}
           </span>
           {expense.proof === "Waived" ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#F1F0ED] px-2 py-0.5 text-[11px] font-medium text-text-tertiary">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#F1F0ED] px-2 py-0.5 text-caption font-medium text-text-tertiary">
               <MinusCircle size={11} strokeWidth={2} />
               Was waived
             </span>

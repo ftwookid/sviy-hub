@@ -185,6 +185,78 @@ be *shrunk* by a flat rule on the screen it matters most on. It opts out with
 not a fix: it works by taking pinch-zoom away from everybody, on every screen,
 permanently.
 
+## The type scale — twelve steps, and never an arbitrary size again
+
+Colours have been tokens in `tailwind.config.ts` since the beginning, which is
+exactly why nobody has ever had to wonder which grey to use. **Sizes never
+were.** There was no `fontSize` in the theme at all, so every size in the app was
+written inline as an arbitrary value, and it accumulated to this, measured:
+
+- **26 distinct font sizes across 578 usages**, every one of them a `text-[…px]`.
+- **54 of them written at a half pixel** — 10.5, 11.5, 12.5, 13.5, 14.5.
+- Sizes one pixel apart doing unrelated jobs (16 and 15, 18 and 17, 20 and 19),
+  because each screen picked a number rather than a step.
+
+That is not a scale, it is a habit, and it produced the failure that started
+this: `Money out` set at 13px, containing block headings at 13.5px, containing
+lines at 13px. Three levels of structure inside half a pixel — not because
+anyone chose that, but because there was nothing to reach for that meant "the
+level below a card heading".
+
+The scale lives in `theme.extend.fontSize` and is named for **what a thing is**,
+not how big it is:
+
+| Token | px | What it is for |
+| --- | --- | --- |
+| `text-micro` | 10 | The smallest label that stays legible. Uppercase only. |
+| `text-caption` | 11 | Uppercase captions, badges, the `TOTAL` label. |
+| `text-meta` | 12 | A secondary note hung off a row. |
+| `text-list` | 13 | Dense list rows. The most-used size in the app. |
+| `text-body` | 14 | Running text, buttons, a block's total. |
+| `text-label` | 15 | Form controls, and a block heading inside a card. |
+| `text-subhead` | 17 | A card's own title, and the figure that totals it. |
+| `text-figure` | 19 | A standalone number in a tile. |
+| `text-figure-lg` | 22 | The number a card exists to show. |
+| `text-display-sm` | 26 | Panel titles, the Health weigh-in field. |
+| `text-display` | 30 | The page title. |
+| `text-display-lg` | 34 | The page title from `sm`. |
+
+**The rule: never write `text-[…px]` again.** If a size seems to be missing, the
+question is which of these twelve the thing actually is. If the honest answer is
+none of them, the step is added here **once, with a name**, so the next screen
+inherits the decision instead of inventing a thirteenth 14.5px.
+
+Two things about it that are deliberate:
+
+- **Size only — no paired line-height, yet.** A `fontSize` token can set both,
+  and pairing them is what a finished system does. It is not done here because
+  line-height currently comes from `body { line-height: 1.6 }` plus a scattering
+  of `leading-*` classes, so pairing it would silently change the height of
+  nearly every row in the app in the same commit that renamed the sizes — two
+  changes at once, one of them unverifiable screen by screen. **This is the next
+  pass**, and it should be done a surface at a time with the rendered geometry
+  measured, not in one sweep.
+- **`body` stays 16px** and is the inherited root, not a step. It is what
+  unstyled text falls back to and what the `pointer: coarse` form floor matches;
+  anything that matters opts into a step above.
+
+The migration itself was built to be provably safe: every one of the 26 old
+sizes maps to a step that is the **same size or smaller**, so nothing could
+newly overflow or truncate. The single exception is 9px → `micro` (10px), two
+labels in the Mileage bar chart, which was measured at its real month sizing —
+31 columns inside `minWidth: 820px` — and came back **0 wrapped, 0 clipped**.
+Renaming a size to a token of identical value is a visual no-op, so the only
+intended changes are the collapses.
+
+**Still inconsistent, and worth a pass of its own:** weight. There are 280
+`font-medium` against 14 `font-semibold` and 6 `font-normal`, which means weight
+is currently decoration rather than hierarchy — the Finances card is the only
+place where it steps deliberately (semibold for the two heading levels, regular
+for a line). That wants the same treatment this got: decide what each weight
+means, then apply it. It was left out of this change on purpose, because
+changing 280 sites of weight is not something that can be verified in the same
+breath as the sizes.
+
 **Full-height is `dvh`, never `vh`.** `100vh` on iOS Safari is the **large**
 viewport — the height the page gets once the address bar has retracted — not the
 height you can see while the bar is expanded, which is what you are looking at

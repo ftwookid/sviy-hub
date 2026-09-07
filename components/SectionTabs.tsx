@@ -28,7 +28,7 @@ export function SectionTabs() {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "focus-ring flex min-h-9 items-center justify-center rounded-[10px] px-2 text-[13px] font-medium transition duration-150 ease-out",
+              "focus-ring flex min-h-9 items-center justify-center rounded-[10px] px-2 text-list font-medium transition duration-150 ease-out",
               active ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
             )}
           >

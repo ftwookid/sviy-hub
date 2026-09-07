@@ -24,7 +24,7 @@ import type { ReactNode } from "react";
 export function PageHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <header className="mb-4 flex min-h-11 items-center justify-between gap-3">
-      <h1 className="text-[30px] font-medium leading-none tracking-[-0.01em] text-text-primary sm:text-[34px]">
+      <h1 className="text-display font-medium leading-none tracking-[-0.01em] text-text-primary-lg">
         {title}
       </h1>
       {action}

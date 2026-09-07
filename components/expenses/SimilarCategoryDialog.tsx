@@ -76,21 +76,21 @@ export function SimilarCategoryDialog({
       >
         <div className="px-5 pt-5">
           <div className="flex items-start gap-2">
-            <h3 className="min-w-0 flex-1 text-[18px] font-medium leading-tight text-text-primary">
+            <h3 className="min-w-0 flex-1 text-subhead font-medium leading-tight text-text-primary">
               {rows.length} similar transaction{rows.length === 1 ? "" : "s"}
             </h3>
             {/* Same outcome as "Just this one" — the edit that opened this is
                 already saved, so backing out only declines the offer. */}
             <CloseButton onClick={onDismiss} />
           </div>
-          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13.5px] leading-snug text-text-secondary">
+          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-list leading-snug text-text-secondary">
             Set {rows.length === 1 ? "it" : "them"} to
             <CategoryTag category={category} />
             too?
           </p>
         </div>
 
-        <label className="mt-3 flex shrink-0 cursor-pointer items-center gap-2 border-y border-border bg-subtle px-5 py-2 text-[12.5px] font-medium text-text-secondary">
+        <label className="mt-3 flex shrink-0 cursor-pointer items-center gap-2 border-y border-border bg-subtle px-5 py-2 text-meta font-medium text-text-secondary">
           <input
             className="h-4 w-4 cursor-pointer accent-[#C9A96E]"
             type="checkbox"
@@ -117,22 +117,22 @@ export function SimilarCategoryDialog({
                   checked={isChecked}
                   onChange={() => toggle(row.id)}
                 />
-                <span className="w-[42px] shrink-0 text-[12px] tabular-nums text-text-secondary">
+                <span className="w-[42px] shrink-0 text-meta tabular-nums text-text-secondary">
                   {shortDate(row.date)}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-medium text-text-primary">
+                  <span className="block truncate text-list font-medium text-text-primary">
                     {row.merchant || row.description || "Untitled transaction"}
                   </span>
                   {/* Normalized, so a row still holding an old Schedule C
                       heading reads as the category the app actually shows. */}
                   {normalizeCategory(row.category) ? (
-                    <span className="mt-0.5 block text-[11.5px] text-text-tertiary">
+                    <span className="mt-0.5 block text-caption text-text-tertiary">
                       Now: {normalizeCategory(row.category)}
                     </span>
                   ) : null}
                 </span>
-                <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
+                <span className="shrink-0 text-list font-medium tabular-nums text-text-primary">
                   {formatCurrency(row.amount)}
                 </span>
               </label>

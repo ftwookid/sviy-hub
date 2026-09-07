@@ -48,19 +48,19 @@ export default function ProfilePage() {
       <div className="space-y-4">
         <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-accent-soft text-[17px] font-medium text-text-primary">
+            <div className="grid h-11 w-11 place-items-center rounded-full bg-accent-soft text-subhead font-medium text-text-primary">
               {user.email?.[0]?.toUpperCase() ?? "S"}
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+              <div className="text-micro font-medium uppercase tracking-[0.06em] text-text-tertiary">
                 Signed in as
               </div>
-              <div className="truncate text-[15px] font-medium text-text-primary">{user.email}</div>
+              <div className="truncate text-label font-medium text-text-primary">{user.email}</div>
             </div>
             {/* The books are shared; the role is not. This is the only place the
                 difference is visible, and the only thing it still governs. */}
             {isAdmin ? (
-              <span className="ml-auto shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-text-primary">
+              <span className="ml-auto shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-caption font-medium text-text-primary">
                 Admin
               </span>
             ) : null}
@@ -83,7 +83,7 @@ export default function ProfilePage() {
               height={44}
               className="h-11 w-11 object-contain"
             />
-            <div className="text-[13px] text-text-secondary">Version {versionData.version}</div>
+            <div className="text-list text-text-secondary">Version {versionData.version}</div>
           </div>
         </section>
 

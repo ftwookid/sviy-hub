@@ -38,7 +38,7 @@ function StatusPill({
   };
 
   return (
-    <span className={cn("inline-flex h-7 items-center rounded-full px-2.5 text-[11px] font-medium", tones[tone])}>
+    <span className={cn("inline-flex h-7 items-center rounded-full px-2.5 text-caption font-medium", tones[tone])}>
       {children}
     </span>
   );
@@ -57,11 +57,11 @@ function MileageMetric({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10px] font-medium uppercase tracking-[0.04em] text-text-tertiary">{label}</div>
-      <div className={cn("mt-0.5 truncate text-[13px] font-medium leading-tight text-text-primary", tone === "success" && "text-success")}>
+      <div className="text-micro font-medium uppercase tracking-[0.04em] text-text-tertiary">{label}</div>
+      <div className={cn("mt-0.5 truncate text-list font-medium leading-tight text-text-primary", tone === "success" && "text-success")}>
         {value}
       </div>
-      {detail ? <div className="truncate text-[11px] leading-tight text-text-tertiary">{detail}</div> : null}
+      {detail ? <div className="truncate text-caption leading-tight text-text-tertiary">{detail}</div> : null}
     </div>
   );
 }
@@ -163,8 +163,8 @@ export function MileageHistory({
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-[14px] font-medium text-text-primary">Imported months</h2>
-        <span className="text-[12px] text-text-tertiary">{monthGroups.length}</span>
+        <h2 className="text-body font-medium text-text-primary">Imported months</h2>
+        <span className="text-meta text-text-tertiary">{monthGroups.length}</span>
       </div>
 
       <div className="space-y-2">
@@ -176,9 +176,9 @@ export function MileageHistory({
             <article key={key} className="relative rounded-[16px] border border-border bg-surface">
               <div className="grid items-center gap-3 p-2.5 pr-12 sm:grid-cols-[minmax(150px,1.2fr)_52px_74px_92px_104px_32px]">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <h3 className="min-w-0 truncate text-[14px] font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
+                  <h3 className="min-w-0 truncate text-body font-medium text-text-primary">{monthLabel(periodMonth)}</h3>
                   {canChangeOwner ? (
-                    <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-subtle px-2 text-[11px] font-medium text-text-secondary">
+                    <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-subtle px-2 text-caption font-medium text-text-secondary">
                       <UserRound size={11} strokeWidth={1.7} />
                       <span className="max-w-[96px] truncate">{ownerLabel}</span>
                     </span>
@@ -186,7 +186,7 @@ export function MileageHistory({
                   {!current.is_complete ? <StatusPill tone="warning">Partial</StatusPill> : null}
                   {!current.is_active ? <StatusPill tone="muted">Pending</StatusPill> : null}
                   {versions.length > 1 ? (
-                    <span className="text-[11px] text-text-tertiary">{versions.length} versions</span>
+                    <span className="text-caption text-text-tertiary">{versions.length} versions</span>
                   ) : null}
                 </div>
 
@@ -215,7 +215,7 @@ export function MileageHistory({
                     <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-56 rounded-lg border border-border bg-surface p-1 shadow-card">
                       <button
                         type="button"
-                        className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                        className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-meta text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                         onClick={() => {
                           setExpandedMonth(expanded ? "" : key);
                           setOpenMenu("");
@@ -226,7 +226,7 @@ export function MileageHistory({
                       </button>
                       <button
                         type="button"
-                        className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                        className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-meta text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                         onClick={() => download(current)}
                       >
                         <Download size={15} />
@@ -235,7 +235,7 @@ export function MileageHistory({
                       {versions.some((version) => !version.is_active) ? (
                         <button
                           type="button"
-                          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-meta text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                           onClick={() => {
                             setExpandedMonth(key);
                             setOpenMenu("");
@@ -248,7 +248,7 @@ export function MileageHistory({
                       {canChangeOwner ? (
                         <button
                           type="button"
-                          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 text-left text-meta text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                           onClick={() => {
                             setOwnerMenuUploadId(current.id);
                             setExpandedMonth(key);
@@ -266,7 +266,7 @@ export function MileageHistory({
 
               {expanded ? (
                 <div className="border-t border-border bg-[#FBF9F5] px-2.5 py-2.5">
-                  <div className="mb-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                  <div className="mb-2 flex items-center gap-2 text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary">
                     <History size={13} />
                     Version history
                   </div>
@@ -277,28 +277,28 @@ export function MileageHistory({
                         className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-2.5 sm:flex-row sm:items-center"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 text-[12px] font-medium text-text-primary">
+                          <div className="flex items-center gap-2 text-meta font-medium text-text-primary">
                             {timestamp(version.uploaded_at)}
                             {version.is_active ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-success">
+                              <span className="inline-flex items-center gap-1 text-caption text-success">
                                 <Check size={12} />
                                 Active
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-0.5 truncate text-[11px] text-text-tertiary">
+                          <p className="mt-0.5 truncate text-caption text-text-tertiary">
                             {version.original_filename} · {version.business_trip_count} trips ·{" "}
                             {Number(version.business_miles).toFixed(1)} mi · {formatCurrency(version.deduction_value)}
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          <Button className="min-h-9 px-3 text-[12px]" variant="ghost" onClick={() => download(version)}>
+                          <Button className="min-h-9 px-3 text-meta" variant="ghost" onClick={() => download(version)}>
                             <Download size={14} />
                             CSV
                           </Button>
                           {!version.is_active ? (
                             <Button
-                              className="min-h-9 px-3 text-[12px]"
+                              className="min-h-9 px-3 text-meta"
                               variant="soft"
                               disabled={restoringId === version.id}
                               onClick={() => onRestore(version)}
@@ -309,7 +309,7 @@ export function MileageHistory({
                           ) : null}
                           {canChangeOwner ? (
                             <Button
-                              className="min-h-9 px-3 text-[12px]"
+                              className="min-h-9 px-3 text-meta"
                               variant="ghost"
                               disabled={changingOwnerId === version.id}
                               onClick={() => setOwnerMenuUploadId((value) => (value === version.id ? "" : version.id))}
@@ -320,7 +320,7 @@ export function MileageHistory({
                           ) : null}
                           {onDelete ? (
                             <Button
-                              className="min-h-9 px-3 text-[12px]"
+                              className="min-h-9 px-3 text-meta"
                               variant="danger"
                               disabled={deletingId === version.id}
                               onClick={() => onDelete(version, versions)}
@@ -333,7 +333,7 @@ export function MileageHistory({
                         </div>
                         {canChangeOwner && ownerMenuUploadId === version.id ? (
                           <div className="sm:col-span-2 mt-1 rounded-2xl border border-border bg-[#FBF9F5] p-2">
-                            <div className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+                            <div className="mb-1 px-2 text-caption font-medium uppercase tracking-[0.04em] text-text-tertiary">
                               Move to owner
                             </div>
                             <div className="grid gap-1 sm:grid-cols-2">
@@ -341,7 +341,7 @@ export function MileageHistory({
                                 <button
                                   key={owner.id}
                                   className={cn(
-                                    "focus-ring min-h-9 rounded-xl px-3 text-left text-[13px] font-medium transition",
+                                    "focus-ring min-h-9 rounded-xl px-3 text-left text-list font-medium transition",
                                     owner.id === version.user_id
                                       ? "bg-accent-soft text-text-primary"
                                       : "text-text-secondary hover:bg-surface"

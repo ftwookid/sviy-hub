@@ -218,7 +218,7 @@ function DateCalendar({
           <ChevronLeft size={17} strokeWidth={1.7} />
         </button>
         <button
-          className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
+          className="focus-ring min-h-9 rounded-xl px-3 text-label font-medium text-text-primary transition hover:bg-subtle"
           type="button"
           onClick={onToggleMode}
         >
@@ -239,7 +239,7 @@ function DateCalendar({
       </div>
       {mode === "days" ? (
         <>
-          <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
+          <div className="mt-2 grid grid-cols-7 gap-1 text-center text-caption font-medium text-text-tertiary">
             {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
               <span key={`${day}-${index}`}>{day}</span>
             ))}
@@ -250,7 +250,7 @@ function DateCalendar({
                 <button
                   key={toInputDate(date)}
                   className={cn(
-                    "focus-ring relative grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                    "focus-ring relative grid h-9 place-items-center rounded-xl text-list font-medium transition",
                     selectedDate === toInputDate(date)
                       ? "bg-accent text-text-primary shadow-sm"
                       : "text-text-secondary hover:bg-subtle hover:text-text-primary",
@@ -282,7 +282,7 @@ function DateCalendar({
               <button
                 key={year}
                 className={cn(
-                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                  "focus-ring min-h-9 rounded-xl text-list font-medium transition",
                   month.getFullYear() === year ? "bg-accent text-text-primary shadow-sm" : "text-text-secondary hover:bg-subtle hover:text-text-primary"
                 )}
                 type="button"
@@ -297,7 +297,7 @@ function DateCalendar({
               <button
                 key={monthName}
                 className={cn(
-                  "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                  "focus-ring min-h-9 rounded-xl text-list font-medium transition",
                   month.getMonth() === index ? "bg-accent text-text-primary shadow-sm" : "text-text-secondary hover:bg-subtle hover:text-text-primary"
                 )}
                 type="button"
@@ -674,7 +674,7 @@ export default function ClientDetailPage() {
     <AppShell user={user}>
       <div className="space-y-8">
         <Link
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-[15px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-label font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
           href="/clients"
         >
           <ArrowLeft size={18} strokeWidth={1.6} />
@@ -685,8 +685,8 @@ export default function ClientDetailPage() {
 
         {!loading && error && !client ? (
           <section className="rounded-[20px] border border-border bg-surface p-6 shadow-card">
-            <h1 className="text-[26px] font-medium text-text-primary">Client not found</h1>
-            <p className="mt-2 text-[15px] text-text-secondary">{error}</p>
+            <h1 className="text-display-sm font-medium text-text-primary">Client not found</h1>
+            <p className="mt-2 text-label text-text-secondary">{error}</p>
           </section>
         ) : null}
 
@@ -695,13 +695,13 @@ export default function ClientDetailPage() {
             <header className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                  <h1 className="text-[38px] font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">{client.name}</h1>
+                  <h1 className="text-display-lg font-medium leading-[1.06] tracking-[-0.01em] text-text-primary">{client.name}</h1>
                   <div className="grid min-h-9 grid-cols-2 rounded-2xl border border-border bg-subtle p-1">
                     {(["Active", "Paused"] as ClientStatus[]).map((status) => (
                       <button
                         key={status}
                         className={cn(
-                          "focus-ring min-w-16 rounded-xl px-2.5 text-[12px] font-medium transition duration-150 ease-out",
+                          "focus-ring min-w-16 rounded-xl px-2.5 text-meta font-medium transition duration-150 ease-out",
                           client.status === status
                             ? status === "Active"
                               ? "bg-success-soft text-success shadow-sm"
@@ -716,32 +716,32 @@ export default function ClientDetailPage() {
                     ))}
                   </div>
                 </div>
-                <Button className="min-h-10 shrink-0 px-3 text-[14px]" variant="ghost" onClick={() => setEditorOpen(true)}>
+                <Button className="min-h-10 shrink-0 px-3 text-body" variant="ghost" onClick={() => setEditorOpen(true)}>
                   <Edit3 size={16} strokeWidth={1.6} />
                   Edit
                 </Button>
               </div>
               <div className="grid w-full gap-3 rounded-[20px] bg-subtle p-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.8fr)]">
                 <div className="min-w-0">
-                  <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Pet</div>
+                  <div className="text-caption font-medium uppercase tracking-[0.08em] text-text-tertiary">Pet</div>
                   <div className="mt-1 flex min-w-0 items-center gap-2 text-text-primary">
-                    <span className="text-[15px]" aria-hidden="true">🐾</span>
-                    <span className="truncate text-[18px] font-medium leading-tight" title={petSummary(client)}>
+                    <span className="text-label" aria-hidden="true">🐾</span>
+                    <span className="truncate text-subhead font-medium leading-tight" title={petSummary(client)}>
                       {petSummary(client)}
                     </span>
                   </div>
                 </div>
                 <div className="min-w-0 md:border-l md:border-border md:pl-3">
-                  <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Details</div>
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-text-tertiary">
+                  <div className="text-caption font-medium uppercase tracking-[0.08em] text-text-tertiary">Details</div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-body text-text-tertiary">
                     <span>{serviceLabel(client)}</span>
                     <span>{selectedDays.length}x/week</span>
                     <span>{client.payment_method}</span>
                   </div>
                 </div>
                 <div className="min-w-0 md:border-l md:border-border md:pl-3">
-                  <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Address</div>
-                  <div className="mt-1 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[14px] leading-snug text-text-tertiary">
+                  <div className="text-caption font-medium uppercase tracking-[0.08em] text-text-tertiary">Address</div>
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-body leading-snug text-text-tertiary">
                     <MapPin className="shrink-0 text-text-tertiary/70" size={15} strokeWidth={1.6} />
                     {client.address ? (
                       <a className="min-w-0 overflow-visible transition hover:text-text-secondary" href={mapsUrl(client.address)} target="_blank" rel="noreferrer">
@@ -770,8 +770,8 @@ export default function ClientDetailPage() {
             <section>
               <div className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-[16px] font-semibold text-text-primary">Payment info</h2>
-                  <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
+                  <h2 className="text-label font-semibold text-text-primary">Payment info</h2>
+                  <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-micro" method={client.payment_method} />
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-xl bg-subtle">
@@ -790,7 +790,7 @@ export default function ClientDetailPage() {
                         value={formatCurrency(currentPrice)}
                         action={
                           <button
-                            className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-surface hover:text-text-secondary"
+                            className="focus-ring rounded-md px-1.5 py-0.5 text-caption font-medium text-text-tertiary transition hover:bg-surface hover:text-text-secondary"
                             type="button"
                             onClick={() => openPriceModal()}
                           >
@@ -803,10 +803,10 @@ export default function ClientDetailPage() {
 
                   <div className="border-t border-border px-3 py-2">
                     <div className="flex min-h-6 items-center justify-between gap-3">
-                      <div className="text-[12px] font-medium text-text-secondary">Price history</div>
+                      <div className="text-meta font-medium text-text-secondary">Price history</div>
                       {hasMorePriceHistory ? (
                         <button
-                          className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
+                          className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
                           type="button"
                           onPointerDown={(event) => {
                             if (event.button !== 0) return;
@@ -832,12 +832,12 @@ export default function ClientDetailPage() {
                         visiblePriceHistory.map((entry) => (
                           <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface px-2.5 py-1.5">
                             <div className="min-w-0">
-                              <div className="text-[13px] font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
-                              <div className="truncate text-[11px] leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                              <div className="text-list font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
+                              <div className="truncate text-caption leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
                               <button
-                                className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
+                                className="focus-ring rounded-md px-1.5 py-0.5 text-caption font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
                                 type="button"
                                 onClick={() => openPriceModal(entry)}
                               >
@@ -845,7 +845,7 @@ export default function ClientDetailPage() {
                               </button>
                               {!entry.isFallback ? (
                                 <button
-                                  className="focus-ring rounded-md px-1.5 py-0.5 text-[11px] font-medium text-danger transition hover:bg-danger-soft"
+                                  className="focus-ring rounded-md px-1.5 py-0.5 text-caption font-medium text-danger transition hover:bg-danger-soft"
                                   type="button"
                                   onClick={() => deletePriceHistory(entry)}
                                 >
@@ -856,11 +856,11 @@ export default function ClientDetailPage() {
                           </div>
                         ))
                       ) : (
-                        <p className="text-[13px] text-text-tertiary">No price history yet.</p>
+                        <p className="text-list text-text-tertiary">No price history yet.</p>
                       )}
                     </div>
                     {!priceHistoryOpen && hasMorePriceHistory ? (
-                      <p className="mt-2 text-[11px] text-text-tertiary">
+                      <p className="mt-2 text-caption text-text-tertiary">
                         Showing newest {COMPACT_PRICE_HISTORY_COUNT} of {orderedPriceHistory.length}
                       </p>
                     ) : null}
@@ -885,16 +885,16 @@ export default function ClientDetailPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-[22px] font-medium text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
-                <p className="mt-1 text-[14px] text-text-secondary">Set the price and when it took effect.</p>
+                <h2 className="text-figure-lg font-medium text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
+                <p className="mt-1 text-body text-text-secondary">Set the price and when it took effect.</p>
               </div>
               <CloseButton onClick={closePriceModal} />
             </div>
             <div className="mt-5 grid gap-4">
               <label>
-                <span className="text-[13px] font-medium text-text-secondary">Price per visit</span>
+                <span className="text-list font-medium text-text-secondary">Price per visit</span>
                 <input
-                  className="focus-ring mt-2 min-h-11 w-full rounded-xl border border-border bg-page px-3 text-[15px] text-text-primary"
+                  className="focus-ring mt-2 min-h-11 w-full rounded-xl border border-border bg-page px-3 text-label text-text-primary"
                   type="number"
                   min="0"
                   step="0.01"
@@ -904,7 +904,7 @@ export default function ClientDetailPage() {
                 />
               </label>
               <div>
-                <span className="text-[13px] font-medium text-text-secondary">Effective date</span>
+                <span className="text-list font-medium text-text-secondary">Effective date</span>
                 <DateCalendar
                   month={priceCalendarMonth}
                   mode={priceCalendarMode}
@@ -917,7 +917,7 @@ export default function ClientDetailPage() {
                 />
               </div>
             </div>
-            {error ? <p className="mt-3 text-[13px] text-danger">{error}</p> : null}
+            {error ? <p className="mt-3 text-list text-danger">{error}</p> : null}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button variant="ghost" onClick={closePriceModal} disabled={savingPrice}>
                 Cancel
@@ -945,15 +945,15 @@ export default function ClientDetailPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-[22px] font-medium text-text-primary">Change status</h2>
-                <p className="mt-1 text-[14px] text-text-secondary">
+                <h2 className="text-figure-lg font-medium text-text-primary">Change status</h2>
+                <p className="mt-1 text-body text-text-secondary">
                   Confirm changing {client.name} to {nextStatus}.
                 </p>
               </div>
               <CloseButton onClick={() => setStatusModalOpen(false)} />
             </div>
             <div className="mt-5">
-              <span className="text-[13px] font-medium text-text-secondary">From what date?</span>
+              <span className="text-list font-medium text-text-secondary">From what date?</span>
               <div className="mt-2 rounded-2xl border border-border bg-page p-3">
                 <div className="flex min-h-10 items-center justify-between gap-3">
                   <button
@@ -969,7 +969,7 @@ export default function ClientDetailPage() {
                     <ChevronLeft size={17} strokeWidth={1.7} />
                   </button>
                   <button
-                    className="focus-ring min-h-9 rounded-xl px-3 text-[15px] font-medium text-text-primary transition hover:bg-subtle"
+                    className="focus-ring min-h-9 rounded-xl px-3 text-label font-medium text-text-primary transition hover:bg-subtle"
                     type="button"
                     onClick={toggleStatusCalendarMode}
                   >
@@ -990,7 +990,7 @@ export default function ClientDetailPage() {
                 </div>
                 {statusCalendarMode === "days" ? (
                   <>
-                    <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-text-tertiary">
+                    <div className="mt-2 grid grid-cols-7 gap-1 text-center text-caption font-medium text-text-tertiary">
                       {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
                         <span key={`${day}-${index}`}>{day}</span>
                       ))}
@@ -1001,7 +1001,7 @@ export default function ClientDetailPage() {
                           <button
                             key={toInputDate(date)}
                             className={cn(
-                              "focus-ring relative grid h-9 place-items-center rounded-xl text-[13px] font-medium transition",
+                              "focus-ring relative grid h-9 place-items-center rounded-xl text-list font-medium transition",
                               statusDate === toInputDate(date)
                                 ? "bg-accent text-text-primary shadow-sm"
                                 : "text-text-secondary hover:bg-subtle hover:text-text-primary",
@@ -1033,7 +1033,7 @@ export default function ClientDetailPage() {
                         <button
                           key={year}
                           className={cn(
-                            "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                            "focus-ring min-h-9 rounded-xl text-list font-medium transition",
                             statusCalendarMonth.getFullYear() === year
                               ? "bg-accent text-text-primary shadow-sm"
                               : "text-text-secondary hover:bg-subtle hover:text-text-primary"
@@ -1050,7 +1050,7 @@ export default function ClientDetailPage() {
                         <button
                           key={month}
                           className={cn(
-                            "focus-ring min-h-9 rounded-xl text-[13px] font-medium transition",
+                            "focus-ring min-h-9 rounded-xl text-list font-medium transition",
                             statusCalendarMonth.getMonth() === index
                               ? "bg-accent text-text-primary shadow-sm"
                               : "text-text-secondary hover:bg-subtle hover:text-text-primary"
@@ -1066,7 +1066,7 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </div>
-            {error ? <p className="mt-3 text-[13px] text-danger">{error}</p> : null}
+            {error ? <p className="mt-3 text-list text-danger">{error}</p> : null}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button
                 variant="ghost"
@@ -1093,8 +1093,8 @@ export default function ClientDetailPage() {
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-[28px] font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">Edit client</h2>
-                <p className="mt-1 text-[15px] text-text-secondary">Keep the details light, useful, and easy to scan.</p>
+                <h2 className="text-display-sm font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">Edit client</h2>
+                <p className="mt-1 text-label text-text-secondary">Keep the details light, useful, and easy to scan.</p>
               </div>
               <CloseButton onClick={() => setEditorOpen(false)} />
             </div>
@@ -1131,11 +1131,11 @@ function PaymentInfoRow({
 }) {
   return (
     <div>
-      <div className="text-[11px] font-medium text-text-tertiary">{label}</div>
+      <div className="text-caption font-medium text-text-tertiary">{label}</div>
       <div className="mt-0.5 flex min-w-0 items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-[14px] font-semibold leading-5 text-text-primary">{value}</div>
-          {detail ? <div className="truncate text-[11px] leading-4 text-text-tertiary">{detail}</div> : null}
+          <div className="truncate text-body font-semibold leading-5 text-text-primary">{value}</div>
+          {detail ? <div className="truncate text-caption leading-4 text-text-tertiary">{detail}</div> : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -1179,14 +1179,14 @@ function FinancialBlock({
     <section>
       <div className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[16px] font-semibold text-text-primary">Financial overview</h2>
+          <h2 className="text-label font-semibold text-text-primary">Financial overview</h2>
           <div className="flex justify-end">
             <div className="grid h-7 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
               {FINANCIAL_PERIODS.map((item) => (
                 <button
                   key={item}
                   className={cn(
-                    "focus-ring min-w-14 rounded-md px-2 text-[10px] font-medium leading-none transition duration-150 ease-out",
+                    "focus-ring min-w-14 rounded-md px-2 text-micro font-medium leading-none transition duration-150 ease-out",
                     period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
                   )}
                   type="button"
@@ -1239,7 +1239,7 @@ function FinancialBlock({
 }
 
 function FinancialHelper({ children }: { children: React.ReactNode }) {
-  return <p className="mt-0.5 text-[10px] font-normal leading-4 text-text-tertiary">{children}</p>;
+  return <p className="mt-0.5 text-micro font-normal leading-4 text-text-tertiary">{children}</p>;
 }
 
 function BreakdownRow({
@@ -1255,14 +1255,14 @@ function BreakdownRow({
 }) {
   return (
     <div className="flex min-h-7 items-center justify-between gap-4">
-      <span className="text-[11px] font-medium leading-5 text-text-secondary">
+      <span className="text-caption font-medium leading-5 text-text-secondary">
         {label}
       </span>
       <span
         className={cn(
-          "text-right text-[13px] font-semibold leading-5 tabular-nums text-text-primary",
+          "text-right text-list font-semibold leading-5 tabular-nums text-text-primary",
           muted && "font-normal text-text-tertiary",
-          emphasized && "text-[20px] font-bold text-amber-700"
+          emphasized && "text-figure font-bold text-amber-700"
         )}
       >
         {value}

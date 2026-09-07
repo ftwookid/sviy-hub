@@ -374,7 +374,7 @@ export function MobileTabBar({
               aria-current={index === activeIndex ? "page" : undefined}
               draggable={false}
               className={cn(
-                "relative z-10 flex min-h-14 select-none flex-col items-center justify-center gap-1 rounded-[18px] text-[11px] transition-colors duration-200 ease-out",
+                "relative z-10 flex min-h-14 select-none flex-col items-center justify-center gap-1 rounded-[18px] text-caption transition-colors duration-200 ease-out",
                 on ? "font-semibold text-accent" : "font-medium text-text-tertiary"
               )}
             >

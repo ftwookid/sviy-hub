@@ -214,7 +214,7 @@ function ClientsPageContent() {
                 <button
                   key={view.id}
                   className={cn(
-                    "focus-ring flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 text-center text-[12px] font-medium leading-tight transition duration-150 ease-out sm:min-h-9 sm:px-3 sm:text-[14px]",
+                    "focus-ring flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 text-center text-meta font-medium leading-tight transition duration-150 ease-out sm:min-h-9 sm:px-3 sm:text-body",
                     selected ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
                   )}
                   type="button"
@@ -250,8 +250,8 @@ function ClientsPageContent() {
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-subtle">
                 <PauseCircle size={28} strokeWidth={1.5} className="text-text-tertiary" />
               </div>
-              <h2 className="mt-5 text-[22px] font-medium text-text-primary">No paused clients</h2>
-              <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+              <h2 className="mt-5 text-figure-lg font-medium text-text-primary">No paused clients</h2>
+              <p className="mx-auto mt-2 max-w-sm text-label text-text-secondary">
                 Clients only show here after they are paused from an existing profile.
               </p>
             </section>
@@ -260,8 +260,8 @@ function ClientsPageContent() {
               <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-accent-soft">
                 <HeartHandshake size={32} strokeWidth={1.5} className="text-accent" />
               </div>
-              <h2 className="mt-5 text-[22px] font-medium text-text-primary">No clients here yet</h2>
-              <p className="mx-auto mt-2 max-w-sm text-[15px] text-text-secondary">
+              <h2 className="mt-5 text-figure-lg font-medium text-text-primary">No clients here yet</h2>
+              <p className="mx-auto mt-2 max-w-sm text-label text-text-secondary">
                 Add your first client and the hub will start estimating visits, taxes, and monthly income.
               </p>
               <Button className="mt-6" variant="accent" onClick={openNewClient}>
@@ -314,10 +314,10 @@ function ClientsPageContent() {
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-[28px] font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">
+                <h2 className="text-display-sm font-medium leading-[1.1] tracking-[-0.01em] text-text-primary">
                   {editingClient ? "Edit client" : "Add client"}
                 </h2>
-                <p className="mt-1 text-[15px] text-text-secondary">Keep the details light, useful, and easy to scan.</p>
+                <p className="mt-1 text-label text-text-secondary">Keep the details light, useful, and easy to scan.</p>
               </div>
               <CloseButton onClick={closeEditor} />
             </div>

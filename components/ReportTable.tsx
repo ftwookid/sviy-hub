@@ -32,7 +32,7 @@ export function ReportTable({ expenses }: { expenses: Expense[] }) {
     <div className="overflow-hidden rounded-[24px] border border-border bg-surface p-5 shadow-card">
       <table className="w-full border-collapse">
         <thead>
-          <tr className="border-b border-border text-left text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+          <tr className="border-b border-border text-left text-caption font-medium uppercase tracking-[0.04em] text-text-tertiary">
             <th className="pb-3 font-medium">Category</th>
             <th className="pb-3 text-right font-medium">Transactions</th>
             <th className="pb-3 text-right font-medium">Total</th>
@@ -41,17 +41,17 @@ export function ReportTable({ expenses }: { expenses: Expense[] }) {
         <tbody>
           {rows.map((row) => (
             <tr key={row.category} className="border-b border-border last:border-0">
-              <td className="py-3 text-[13px] text-text-primary">{row.category}</td>
-              <td className="py-3 text-right text-[13px] font-medium text-text-primary">{row.transactions}</td>
-              <td className="py-3 text-right text-[13px] font-medium text-text-primary">
+              <td className="py-3 text-list text-text-primary">{row.category}</td>
+              <td className="py-3 text-right text-list font-medium text-text-primary">{row.transactions}</td>
+              <td className="py-3 text-right text-list font-medium text-text-primary">
                 {formatCurrency(row.total)}
               </td>
             </tr>
           ))}
           <tr>
-            <td className="pt-4 text-[13px] font-medium text-text-primary">Total</td>
-            <td className="pt-4 text-right text-[13px] font-medium text-text-primary">{totalTransactions}</td>
-            <td className="pt-4 text-right text-[13px] font-medium text-text-primary">
+            <td className="pt-4 text-list font-medium text-text-primary">Total</td>
+            <td className="pt-4 text-right text-list font-medium text-text-primary">{totalTransactions}</td>
+            <td className="pt-4 text-right text-list font-medium text-text-primary">
               {formatCurrency(totalAmount)}
             </td>
           </tr>

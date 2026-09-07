@@ -11,7 +11,7 @@ function Avatar({ label, size = "sm", active }: { label: string; size?: "sm" | "
     <span
       className={cn(
         "grid shrink-0 place-items-center rounded-full font-medium text-text-primary",
-        size === "sm" ? "h-9 w-9 text-[13px]" : "h-8 w-8 text-[13px]",
+        size === "sm" ? "h-9 w-9 text-list" : "h-8 w-8 text-list",
         active ? "bg-accent" : "bg-accent-soft"
       )}
     >
@@ -93,7 +93,7 @@ export function PersonMenu({
                   setOpen(false);
                 }}
                 className={cn(
-                  "focus-ring flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2 text-left text-[14px] transition-colors duration-200 ease-out",
+                  "focus-ring flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2 text-left text-body transition-colors duration-200 ease-out",
                   active ? "bg-accent-soft/70 font-medium text-text-primary" : "text-text-secondary hover:bg-subtle"
                 )}
               >

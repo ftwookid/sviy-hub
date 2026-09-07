@@ -62,25 +62,25 @@ export function ClientCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-[20px] font-medium leading-[1.15] text-text-primary" title={pets}>
+          <div className="truncate text-figure font-medium leading-[1.15] text-text-primary" title={pets}>
             {pets}
           </div>
-          <div className="mt-0.5 truncate text-[13px] font-medium text-text-tertiary" title={client.name}>
+          <div className="mt-0.5 truncate text-list font-medium text-text-tertiary" title={client.name}>
             {client.name}
           </div>
-          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] text-text-tertiary" title={service}>
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-meta text-text-tertiary" title={service}>
             <ServiceIcon service={service} />
             <span className="truncate">{service}</span>
           </div>
           {ownerLabel ? (
-            <div className="mt-1.5 truncate text-[11px] font-medium text-text-tertiary" title={ownerLabel}>
+            <div className="mt-1.5 truncate text-caption font-medium text-text-tertiary" title={ownerLabel}>
               {ownerLabel}
             </div>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-3">
           <div className="flex items-start gap-2">
-            <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-[10px]" method={client.payment_method} />
+            <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-micro" method={client.payment_method} />
             {onDelete ? (
               <span
                 className="focus-ring inline-grid h-7 w-7 place-items-center rounded-xl text-text-tertiary transition hover:bg-danger-soft hover:text-danger"
@@ -105,13 +105,13 @@ export function ClientCard({
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <div className="text-right">
-              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
+              <div className="text-micro font-medium uppercase tracking-[0.08em] text-text-tertiary">Weekly income</div>
               <div className="mt-0.5 flex items-baseline justify-end gap-1.5 text-text-primary">
-                <span className="text-[22px] font-medium leading-none">{formatCurrency(weeklyNet)}</span>
-                <span className="text-[13px] font-medium text-text-tertiary">/wk</span>
+                <span className="text-figure-lg font-medium leading-none">{formatCurrency(weeklyNet)}</span>
+                <span className="text-list font-medium text-text-tertiary">/wk</span>
               </div>
             </div>
-            <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-1 text-[11px] font-medium text-text-tertiary">
+            <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-1 text-caption font-medium text-text-tertiary">
               <span>{formatCurrency(estimate.monthlyNet)} /mo</span>
               <span>{formatCurrency(annualNet)} /yr</span>
             </div>

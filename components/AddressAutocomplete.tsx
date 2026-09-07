@@ -287,7 +287,7 @@ export function AddressAutocomplete({
             className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
           />
           <input
-            className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-4 pl-11 text-[16px] text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis"
+            className="focus-ring min-h-11 w-full rounded-xl border border-border bg-subtle px-4 pl-11 text-label text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis"
             value={value}
             placeholder={placeholder}
             autoComplete="street-address"
@@ -323,11 +323,11 @@ export function AddressAutocomplete({
         {(open || loading) && value.trim().length >= 3 ? (
           <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_18px_48px_rgba(80,66,44,0.14)]">
             {loading || selecting ? (
-              <div className="px-4 py-3 text-[14px] text-text-secondary">
+              <div className="px-4 py-3 text-body text-text-secondary">
                 {selecting ? "Adding address..." : "Finding addresses..."}
               </div>
             ) : null}
-            {!loading && lookupError ? <div className="px-4 py-3 text-[14px] text-danger">{lookupError}</div> : null}
+            {!loading && lookupError ? <div className="px-4 py-3 text-body text-danger">{lookupError}</div> : null}
             {!loading && !lookupError && predictions.length > 0 ? (
               <div className="max-h-64 overflow-y-auto p-1.5">
                 {predictions.map((prediction, index) => (
@@ -343,15 +343,15 @@ export function AddressAutocomplete({
                   >
                     <MapPin size={16} strokeWidth={1.6} className="mt-0.5 shrink-0 text-accent" />
                     <span className="min-w-0">
-                      <span className="block text-[14px] font-normal leading-snug text-text-primary">
+                      <span className="block text-body font-normal leading-snug text-text-primary">
                         {prediction.displayName}
                       </span>
                       {prediction.formattedAddress ? (
-                        <span className="mt-0.5 block whitespace-normal text-[12px] leading-snug text-text-secondary">
+                        <span className="mt-0.5 block whitespace-normal text-meta leading-snug text-text-secondary">
                           {prediction.formattedAddress}
                         </span>
                       ) : prediction.description !== prediction.displayName ? (
-                        <span className="mt-0.5 block whitespace-normal text-[12px] leading-snug text-text-secondary">
+                        <span className="mt-0.5 block whitespace-normal text-meta leading-snug text-text-secondary">
                           {prediction.description}
                         </span>
                       ) : null}
@@ -361,7 +361,7 @@ export function AddressAutocomplete({
               </div>
             ) : null}
             {!loading && !lookupError && predictions.length === 0 ? (
-              <div className="px-4 py-3 text-[14px] text-text-secondary">No address suggestions found.</div>
+              <div className="px-4 py-3 text-body text-text-secondary">No address suggestions found.</div>
             ) : null}
           </div>
         ) : null}

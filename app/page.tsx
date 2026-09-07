@@ -462,7 +462,7 @@ export default function TransactionsPage() {
                 <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} />
               </div>
               <button
-                className="focus-ring inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 text-[15px] font-medium text-text-primary transition hover:bg-[#BE9E62]"
+                className="focus-ring inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 text-label font-medium text-text-primary transition hover:bg-[#BE9E62]"
                 type="button"
                 onClick={() => {
                   setScanError("");
@@ -478,7 +478,7 @@ export default function TransactionsPage() {
 
             {unfinishedImports.length > 0 ? (
               <button
-                className="focus-ring flex w-full items-center gap-2.5 rounded-xl border border-accent/35 bg-accent-soft px-3 py-2 text-left text-[13px] text-text-primary transition hover:brightness-[0.98]"
+                className="focus-ring flex w-full items-center gap-2.5 rounded-xl border border-accent/35 bg-accent-soft px-3 py-2 text-left text-list text-text-primary transition hover:brightness-[0.98]"
                 type="button"
                 onClick={() => setReviewingId(unfinishedImports[0].id)}
               >
@@ -493,7 +493,7 @@ export default function TransactionsPage() {
 
             {loadError ? (
               <section className="rounded-xl border border-warning/30 bg-warning-soft px-3 py-2.5">
-                <p className="text-[13px] text-text-secondary">{loadError}</p>
+                <p className="text-list text-text-secondary">{loadError}</p>
               </section>
             ) : null}
 
@@ -504,7 +504,7 @@ export default function TransactionsPage() {
                 onClick={() => setPeriodMonth((current) => shiftPeriodMonth(current, -1))}
               >
                 <CircleAlert size={15} strokeWidth={1.8} className="shrink-0 text-danger" />
-                <span className="min-w-0 flex-1 text-[13px] text-danger">
+                <span className="min-w-0 flex-1 text-list text-danger">
                   {olderMissingCount} transaction{olderMissingCount === 1 ? "" : "s"} in earlier
                   months still {olderMissingCount === 1 ? "has" : "have"} no proof.
                 </span>
@@ -539,17 +539,17 @@ export default function TransactionsPage() {
                     <div className="mx-auto grid h-12 w-12 place-items-center rounded-[16px] bg-accent-soft">
                       <ReceiptIcon size={21} strokeWidth={1.5} className="text-accent" />
                     </div>
-                    <h3 className="mt-3 text-[16px] font-medium text-text-primary">
+                    <h3 className="mt-3 text-label font-medium text-text-primary">
                       {onlyMissing ? "Everything has proof" : "Nothing logged this month"}
                     </h3>
-                    <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-snug text-text-secondary">
+                    <p className="mx-auto mt-1.5 max-w-sm text-list leading-snug text-text-secondary">
                       {onlyMissing
                         ? "Every transaction this month has a receipt or an explicit waiver."
                         : "Type a transaction in, or upload the month's statement and keep the business ones."}
                     </p>
                     {!onlyMissing ? (
                       <button
-                        className="focus-ring mt-4 inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-accent px-4 text-[14px] font-medium text-text-primary transition hover:bg-[#BE9E62]"
+                        className="focus-ring mt-4 inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-accent px-4 text-body font-medium text-text-primary transition hover:bg-[#BE9E62]"
                         type="button"
                         onClick={() => {
                           setScanError("");
@@ -565,7 +565,7 @@ export default function TransactionsPage() {
 
                 {!loading && visibleExpenses.length > 0 ? (
                   <>
-                    <label className="mb-1.5 flex w-fit cursor-pointer items-center gap-2 px-2 text-[12px] text-text-secondary">
+                    <label className="mb-1.5 flex w-fit cursor-pointer items-center gap-2 px-2 text-meta text-text-secondary">
                       <input
                         className="h-4 w-4 cursor-pointer accent-[#C9A96E]"
                         type="checkbox"
@@ -720,12 +720,12 @@ function StatCell({
 }) {
   const content = (
     <>
-      <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+      <div className="text-micro font-medium uppercase tracking-[0.06em] text-text-tertiary">
         {label}
       </div>
       <div
         className={cn(
-          "mt-0.5 truncate text-[17px] font-medium leading-tight sm:text-[19px]",
+          "mt-0.5 truncate text-subhead font-medium leading-tight sm:text-figure",
           tone === "danger" ? "text-danger" : "text-text-primary"
         )}
       >
@@ -747,7 +747,7 @@ function StatCell({
       onClick={onClick}
     >
       {content}
-      <span className="mt-0.5 block text-[11px] font-medium text-danger">
+      <span className="mt-0.5 block text-caption font-medium text-danger">
         {active ? "Showing these" : "Show these"}
       </span>
     </button>
@@ -797,12 +797,12 @@ function ExpenseRow({
       >
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[14.5px] font-medium text-text-primary">
+            <span className="truncate text-body font-medium text-text-primary">
               {expense.merchant}
             </span>
             {state !== "Attached" ? <ProofBadge state={state} /> : null}
           </span>
-          <span className="mt-0.5 block text-[12px] text-text-tertiary">
+          <span className="mt-0.5 block text-meta text-text-tertiary">
             {formatShortDate(expense.date)}
           </span>
         </span>
@@ -810,11 +810,11 @@ function ExpenseRow({
         {/* Fixed width, right aligned: an amount column that sizes to its own
             digits drags everything beside it around from row to row. */}
         <span className="w-[92px] shrink-0 text-right">
-          <span className="block text-[14.5px] font-medium tabular-nums text-text-primary">
+          <span className="block text-body font-medium tabular-nums text-text-primary">
             {formatCurrency(expense.amount)}
           </span>
           {state === "Attached" ? (
-            <span className="block text-[11px] font-medium text-success">Proof</span>
+            <span className="block text-caption font-medium text-success">Proof</span>
           ) : null}
         </span>
       </button>

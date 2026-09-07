@@ -166,7 +166,7 @@ export default function HealthPage() {
       <div className="space-y-3">
         {schemaError ? (
           <section className="rounded-[16px] border border-warning/20 bg-warning-soft p-3">
-            <p className="text-[13px] text-text-secondary">
+            <p className="text-list text-text-secondary">
               {isMissingTable(schemaError) ? (
                 <>
                   Run <code className="rounded bg-white/70 px-1.5 py-0.5">supabase/health-schema.sql</code> in Supabase,
@@ -176,7 +176,7 @@ export default function HealthPage() {
                 "Health could not be loaded."
               )}
             </p>
-            <p className="mt-1.5 text-[11px] text-warning">{schemaError}</p>
+            <p className="mt-1.5 text-caption text-warning">{schemaError}</p>
           </section>
         ) : loading || !personId ? (
           <SkeletonRows />

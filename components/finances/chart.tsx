@@ -130,8 +130,8 @@ export function BarRow({ row, action }: { row: BarRowData; action?: () => void }
 
   const body = (
     <>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-text-secondary">{row.label}</span>
-      <span className="shrink-0 text-right text-[13px] tabular-nums text-text-primary">
+      <span className="min-w-0 flex-1 truncate text-list text-text-secondary">{row.label}</span>
+      <span className="shrink-0 text-right text-list tabular-nums text-text-primary">
         {formatCurrency(row.amount)}
       </span>
     </>
@@ -181,13 +181,13 @@ export function BarRow({ row, action }: { row: BarRowData; action?: () => void }
           width={240}
           className="p-3"
         >
-          <p className="mb-1.5 truncate text-[11px] font-medium uppercase tracking-[0.04em] text-text-tertiary">
+          <p className="mb-1.5 truncate text-caption font-medium uppercase tracking-[0.04em] text-text-tertiary">
             {row.label}
           </p>
           {detailLines.map((line) => (
             <div key={line.label} className="flex items-baseline justify-between gap-3 py-0.5">
-              <span className="min-w-0 truncate text-[12.5px] text-text-secondary">{line.label}</span>
-              <span className="shrink-0 text-[12.5px] tabular-nums text-text-primary">{line.value}</span>
+              <span className="min-w-0 truncate text-meta text-text-secondary">{line.label}</span>
+              <span className="shrink-0 text-meta tabular-nums text-text-primary">{line.value}</span>
             </div>
           ))}
           {/* Under the rows the note is a footnote — the run rate, the share —
@@ -198,8 +198,8 @@ export function BarRow({ row, action }: { row: BarRowData; action?: () => void }
             <p
               className={cn(
                 detailLines.length > 0
-                  ? "mt-1.5 border-t border-border/60 pt-1.5 text-[11.5px] text-text-tertiary"
-                  : "text-[12.5px] text-text-secondary"
+                  ? "mt-1.5 border-t border-border/60 pt-1.5 text-caption text-text-tertiary"
+                  : "text-meta text-text-secondary"
               )}
             >
               {detail.note}
@@ -270,11 +270,11 @@ export function ChartCard({
   return (
     <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
       <div className="flex items-baseline justify-between gap-3 border-b border-border px-3.5 py-3 sm:px-4">
-        <h2 className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.01em] text-text-primary">
+        <h2 className="min-w-0 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
           {title}
         </h2>
         {note ? (
-          <span className="shrink-0 text-[17px] font-semibold tabular-nums text-text-primary">{note}</span>
+          <span className="shrink-0 text-subhead font-semibold tabular-nums text-text-primary">{note}</span>
         ) : null}
       </div>
       {children}

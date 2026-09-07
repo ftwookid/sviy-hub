@@ -101,7 +101,7 @@ export function TodayCard({
               // `input-display` is not a utility — it is the opt-out from the 16px
               // phone floor in globals.css, which every other field wants and this
               // one would be shrunk by.
-              className="focus-ring input-display w-[124px] shrink-0 rounded-xl border border-border bg-subtle px-3 py-2 text-[26px] font-medium leading-none tracking-[-0.01em] text-text-primary placeholder:text-text-tertiary/70"
+              className="focus-ring input-display w-[124px] shrink-0 rounded-xl border border-border bg-subtle px-3 py-2 text-display-sm font-medium leading-none tracking-[-0.01em] text-text-primary placeholder:text-text-tertiary/70"
               type="number"
               step="0.1"
               min="0"
@@ -118,18 +118,18 @@ export function TodayCard({
                 }
               }}
             />
-            <span className="text-[14px] text-text-tertiary">lb</span>
+            <span className="text-body text-text-tertiary">lb</span>
             {value ? (
               <button
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="focus-ring ml-auto rounded-xl bg-accent px-3.5 py-2 text-[14px] font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-[#BE9E62]"
+                className="focus-ring ml-auto rounded-xl bg-accent px-3.5 py-2 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-[#BE9E62]"
               >
                 {saving ? "..." : "Save"}
               </button>
             ) : (
-              <span className="ml-auto truncate text-right text-[12px] text-text-tertiary">
+              <span className="ml-auto truncate text-right text-meta text-text-tertiary">
                 {current ? `Last ${current.value.toFixed(1)} · ${daysAgo(current.date).toLowerCase()}` : "First weigh-in"}
               </span>
             )}
@@ -145,16 +145,16 @@ export function TodayCard({
             }}
             className="focus-ring flex min-w-0 flex-1 items-baseline gap-2 text-left"
           >
-            <span className="text-[30px] font-medium leading-none tracking-[-0.02em] text-text-primary">
+            <span className="text-display font-medium leading-none tracking-[-0.02em] text-text-primary">
               {Number(todayEntry?.weight_lb).toFixed(1)}
             </span>
-            <span className="text-[14px] text-text-tertiary">
+            <span className="text-body text-text-tertiary">
               lb{personLabel ? ` · ${personLabel}` : ""} today
             </span>
             {change != null ? (
               <span
                 className={cn(
-                  "text-[13px]",
+                  "text-list",
                   change < 0 ? "text-success" : change > 0 ? "text-danger" : "text-text-tertiary"
                 )}
               >
@@ -187,7 +187,7 @@ export function TodayCard({
           className="focus-ring flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/50"
         >
           <Sparkline points={trend} />
-          <span className="min-w-0 flex-1 truncate text-[13px] text-text-secondary">
+          <span className="min-w-0 flex-1 truncate text-list text-text-secondary">
             {rate != null ? (
               <>
                 <span className={cn("font-medium", rate < -0.05 ? "text-success" : rate > 0.05 ? "text-danger" : "")}>

@@ -515,8 +515,8 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
       <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card sm:rounded-[24px]">
         <div className="flex flex-col gap-3 border-b border-border p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
           <div className="min-w-0">
-            <h2 className="text-[19px] font-medium leading-tight text-text-primary sm:text-[22px]">House sitting calendar</h2>
-            <p className="mt-1 text-[13px] text-text-secondary sm:text-[14px]">
+            <h2 className="text-figure font-medium leading-tight text-text-primary-lg">House sitting calendar</h2>
+            <p className="mt-1 text-list text-text-secondary sm:text-body">
               Past and future overnight stays, separate from regular walks.
             </p>
           </div>
@@ -532,7 +532,7 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
               <button
                 key={view}
                 className={cn(
-                  "focus-ring rounded-xl px-3 text-[13px] font-medium capitalize transition duration-150 ease-out",
+                  "focus-ring rounded-xl px-3 text-list font-medium capitalize transition duration-150 ease-out",
                   calendarView === view ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
                 )}
                 type="button"
@@ -548,7 +548,7 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
               <ChevronLeft size={18} strokeWidth={1.7} />
             </Button>
             <button
-              className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-xl px-2 text-center text-[15px] font-medium text-text-primary transition hover:bg-subtle sm:flex-none sm:px-3 sm:text-[16px] lg:min-w-48"
+              className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-xl px-2 text-center text-label font-medium text-text-primary transition hover:bg-subtle sm:flex-none sm:px-3 lg:min-w-48"
               type="button"
               onClick={() => setCursorDate(parseLocalDate(todayInputValue()))}
             >
@@ -564,8 +564,8 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
           {loading ? <SkeletonRows /> : null}
           {!loading && loadError ? (
             <section className="rounded-[20px] border border-warning/30 bg-warning-soft px-4 py-5 sm:px-5 sm:py-6">
-              <h3 className="text-[17px] font-medium text-text-primary sm:text-[18px]">House sitting needs database setup</h3>
-              <p className="mt-2 text-[14px] text-text-secondary">{loadError}</p>
+              <h3 className="text-subhead font-medium text-text-primary">House sitting needs database setup</h3>
+              <p className="mt-2 text-body text-text-secondary">{loadError}</p>
             </section>
           ) : null}
           {!loading && !loadError && bookings.length === 0 ? (
@@ -573,8 +573,8 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] bg-accent-soft">
                 <Home size={28} strokeWidth={1.5} className="text-accent" />
               </div>
-              <h3 className="mt-5 text-[19px] font-medium text-text-primary sm:text-[20px]">No house sitting stays yet</h3>
-              <p className="mx-auto mt-2 max-w-sm text-[14px] text-text-secondary">
+              <h3 className="mt-5 text-figure font-medium text-text-primary">No house sitting stays yet</h3>
+              <p className="mx-auto mt-2 max-w-sm text-body text-text-secondary">
                 Add a booked date range and it will appear on the calendar for weekly, monthly, and yearly planning.
               </p>
               <Button className="mt-5 w-full sm:w-auto" variant="accent" onClick={() => openNewStay()}>
@@ -687,7 +687,7 @@ export function HouseSittingDashboard({ userId, regularClients }: HouseSittingDa
 
 function WeekdayHeader() {
   return (
-    <div className="grid grid-cols-7 gap-1 pb-1.5 text-center text-[10px] font-medium uppercase tracking-[0.05em] text-text-tertiary sm:pb-2 sm:text-[11px] lg:gap-2">
+    <div className="grid grid-cols-7 gap-1 pb-1.5 text-center text-micro font-medium uppercase tracking-[0.05em] text-text-tertiary sm:pb-2 sm:text-caption lg:gap-2">
       {WEEK_DAYS.map((day) => (
         <span key={day}>
           <span className="sm:hidden">{day.slice(0, 1)}</span>
@@ -741,7 +741,7 @@ function WeekCalendar({
       </div>
 
       <div className="lg:hidden">
-        <h3 className="text-[13px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Stays this week</h3>
+        <h3 className="text-list font-medium uppercase tracking-[0.04em] text-text-tertiary">Stays this week</h3>
         <div className="mt-2 space-y-2">
           {weekBookings.length > 0 ? (
             weekBookings.map((booking) => (
@@ -789,7 +789,7 @@ function MonthCalendar({
           );
         })}
       </div>
-      <p className="mt-3 text-center text-[12px] text-text-tertiary lg:hidden">Tap a day to see or add stays.</p>
+      <p className="mt-3 text-center text-meta text-text-tertiary lg:hidden">Tap a day to see or add stays.</p>
     </div>
   );
 }
@@ -833,7 +833,7 @@ function CalendarDayCell({
       <div className="flex items-center justify-between gap-1">
         <span
           className={cn(
-            "grid h-6 w-6 place-items-center rounded-full text-[12px] font-medium sm:h-7 sm:w-7 sm:text-[13px]",
+            "grid h-6 w-6 place-items-center rounded-full text-meta font-medium sm:h-7 sm:w-7 sm:text-list",
             today ? "bg-accent text-text-primary" : "text-text-secondary",
             muted && !today && "text-text-tertiary"
           )}
@@ -841,7 +841,7 @@ function CalendarDayCell({
           {date.getDate()}
         </span>
         {plannedCount > 0 ? (
-          <span className="hidden text-[11px] font-medium text-accent lg:inline">{plannedCount}</span>
+          <span className="hidden text-caption font-medium text-accent lg:inline">{plannedCount}</span>
         ) : null}
       </div>
 
@@ -855,7 +855,7 @@ function CalendarDayCell({
             )}
           />
         ))}
-        {bookings.length > 3 ? <span className="text-[9px] font-medium text-text-tertiary sm:text-[10px]">+{bookings.length - 3}</span> : null}
+        {bookings.length > 3 ? <span className="text-micro font-medium text-text-tertiary">+{bookings.length - 3}</span> : null}
       </div>
 
       <div className="mt-2 hidden space-y-1 lg:block">
@@ -863,7 +863,7 @@ function CalendarDayCell({
           <BookingPill key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
         ))}
         {bookings.length > (compact ? 2 : 4) ? (
-          <div className="px-2 text-[11px] font-medium text-text-tertiary">+{bookings.length - (compact ? 2 : 4)} more</div>
+          <div className="px-2 text-caption font-medium text-text-tertiary">+{bookings.length - (compact ? 2 : 4)} more</div>
         ) : null}
       </div>
     </div>
@@ -919,15 +919,15 @@ function YearCalendar({
 
             <div className="flex items-start justify-between gap-2 lg:gap-3">
               <div className="min-w-0">
-                <h3 className="text-[15px] font-medium text-text-primary sm:text-[16px]">
+                <h3 className="text-label font-medium text-text-primary">
                   <span className="sm:hidden">{shortMonthTitle(monthDate)}</span>
                   <span className="hidden sm:inline">{monthTitle(monthDate)}</span>
                 </h3>
-                <p className="mt-1 text-[12px] text-text-secondary sm:text-[13px]">
+                <p className="mt-1 text-meta text-text-secondary sm:text-list">
                   {nights} {nights === 1 ? "night" : "nights"}
                 </p>
               </div>
-              <span className="shrink-0 text-[12px] font-medium tabular-nums text-text-secondary sm:text-[13px]">
+              <span className="shrink-0 text-meta font-medium tabular-nums text-text-secondary sm:text-list">
                 {formatCurrency(net)}
               </span>
             </div>
@@ -943,18 +943,18 @@ function YearCalendar({
                 />
               ))}
               {monthBookings.length > 4 ? (
-                <span className="text-[10px] font-medium text-text-tertiary">+{monthBookings.length - 4}</span>
+                <span className="text-micro font-medium text-text-tertiary">+{monthBookings.length - 4}</span>
               ) : null}
-              {monthBookings.length === 0 ? <span className="text-[12px] text-text-tertiary">Open month</span> : null}
+              {monthBookings.length === 0 ? <span className="text-meta text-text-tertiary">Open month</span> : null}
             </div>
 
             <div className="mt-3 hidden space-y-1 lg:block">
               {monthBookings.slice(0, 3).map((booking) => (
                 <BookingPill key={booking.id} booking={booking} ownerLabel={ownerLabels[booking.user_id]} onOpenBooking={onOpenBooking} />
               ))}
-              {monthBookings.length === 0 ? <p className="text-[13px] text-text-tertiary">Open month</p> : null}
+              {monthBookings.length === 0 ? <p className="text-list text-text-tertiary">Open month</p> : null}
               {monthBookings.length > 3 ? (
-                <p className="px-2 text-[11px] font-medium text-text-tertiary">+{monthBookings.length - 3} more stays</p>
+                <p className="px-2 text-caption font-medium text-text-tertiary">+{monthBookings.length - 3} more stays</p>
               ) : null}
             </div>
           </div>
@@ -968,7 +968,7 @@ function CancelledChip({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full bg-[#F1F0ED] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em] text-text-tertiary",
+        "inline-flex shrink-0 items-center rounded-full bg-[#F1F0ED] px-2 py-0.5 text-micro font-medium uppercase tracking-[0.04em] text-text-tertiary",
         className
       )}
     >
@@ -992,7 +992,7 @@ function BookingPill({
   return (
     <button
       className={cn(
-        "focus-ring block w-full min-w-0 rounded-xl px-2 py-1 text-left text-[12px] font-medium transition hover:brightness-[0.98]",
+        "focus-ring block w-full min-w-0 rounded-xl px-2 py-1 text-left text-meta font-medium transition hover:brightness-[0.98]",
         cancelled ? "bg-[#F1F0ED] text-text-tertiary" : paymentTone(booking.payment_method)
       )}
       type="button"
@@ -1000,7 +1000,7 @@ function BookingPill({
       title={`${booking.customer_name}${cancelled ? " (cancelled)" : ""}${label ? ` · ${label}` : ""}`}
     >
       <div className={cn("truncate", cancelled && "line-through")}>{booking.customer_name}</div>
-      <div className="truncate text-[11px] opacity-75">
+      <div className="truncate text-caption opacity-75">
         {cancelled ? "Cancelled" : label || dateRangeLabel(booking.start_date, booking.end_date)}
       </div>
     </button>
@@ -1026,7 +1026,7 @@ function BookingList({
   return (
     <section className="grid gap-3 sm:gap-4 lg:grid-cols-[1.35fr_0.9fr]">
       <div className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:rounded-[24px] sm:p-4">
-        <h2 className="text-[17px] font-medium text-text-primary sm:text-[18px]">Upcoming stays</h2>
+        <h2 className="text-subhead font-medium text-text-primary">Upcoming stays</h2>
         <div className="mt-3 space-y-2">
           {upcoming.length > 0 ? (
             upcoming.map((booking) => (
@@ -1038,7 +1038,7 @@ function BookingList({
         </div>
       </div>
       <div className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:rounded-[24px] sm:p-4">
-        <h2 className="text-[17px] font-medium text-text-primary sm:text-[18px]">Recently finished</h2>
+        <h2 className="text-subhead font-medium text-text-primary">Recently finished</h2>
         <div className="mt-3 space-y-2">
           {recent.length > 0 ? (
             recent.map((booking) => (
@@ -1084,20 +1084,20 @@ function BookingRow({
     >
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <span className={cn("truncate text-[15px] font-medium text-text-primary", cancelled && "line-through")}>
+          <span className={cn("truncate text-label font-medium text-text-primary", cancelled && "line-through")}>
             {booking.customer_name}
           </span>
           {cancelled ? <CancelledChip /> : null}
         </div>
-        <div className="mt-0.5 truncate text-[13px] text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
-        {ownerLabel ? <div className="mt-0.5 truncate text-[12px] font-medium text-text-tertiary">{ownerLabel}</div> : null}
-        {!compact ? <div className="mt-0.5 truncate text-[12px] text-text-tertiary">{booking.pet_names || "Pets not listed"}</div> : null}
+        <div className="mt-0.5 truncate text-list text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+        {ownerLabel ? <div className="mt-0.5 truncate text-meta font-medium text-text-tertiary">{ownerLabel}</div> : null}
+        {!compact ? <div className="mt-0.5 truncate text-meta text-text-tertiary">{booking.pet_names || "Pets not listed"}</div> : null}
       </div>
       <div className="shrink-0 text-right">
-        <div className={cn("text-[15px] font-medium tabular-nums text-text-primary", cancelled && "line-through")}>
+        <div className={cn("text-label font-medium tabular-nums text-text-primary", cancelled && "line-through")}>
           {formatCurrency(estimate.net)}
         </div>
-        <div className="mt-0.5 text-[12px] text-text-tertiary">
+        <div className="mt-0.5 text-meta text-text-tertiary">
           {estimate.nights} {estimate.nights === 1 ? "night" : "nights"}
         </div>
       </div>
@@ -1106,7 +1106,7 @@ function BookingRow({
 }
 
 function EmptyLine({ text }: { text: string }) {
-  return <p className="rounded-2xl bg-subtle px-3 py-4 text-[14px] text-text-secondary">{text}</p>;
+  return <p className="rounded-2xl bg-subtle px-3 py-4 text-body text-text-secondary">{text}</p>;
 }
 
 function DaySheet({
@@ -1141,8 +1141,8 @@ function DaySheet({
       >
         <div className="flex items-start justify-between gap-3 border-b border-border p-4">
           <div className="min-w-0">
-            <h2 className="text-[19px] font-medium leading-tight text-text-primary">{fullDate(date)}</h2>
-            <p className="mt-0.5 text-[13px] text-text-secondary">
+            <h2 className="text-figure font-medium leading-tight text-text-primary">{fullDate(date)}</h2>
+            <p className="mt-0.5 text-list text-text-secondary">
               {bookings.length === 0 ? "No stays booked" : `${bookings.length} ${bookings.length === 1 ? "stay" : "stays"}`}
             </p>
           </div>
@@ -1205,20 +1205,20 @@ function DaySheetRow({
       >
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <span className={cn("truncate text-[15px] font-medium text-text-primary", cancelled && "line-through")}>
+            <span className={cn("truncate text-label font-medium text-text-primary", cancelled && "line-through")}>
               {booking.customer_name}
             </span>
             {cancelled ? <CancelledChip /> : null}
           </div>
-          <div className="mt-0.5 truncate text-[13px] text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
-          <div className="mt-0.5 truncate text-[12px] text-text-tertiary">{booking.pet_names || "Pets not listed"}</div>
-          {ownerLabel ? <div className="mt-0.5 truncate text-[12px] font-medium text-text-tertiary">{ownerLabel}</div> : null}
+          <div className="mt-0.5 truncate text-list text-text-secondary">{dateRangeLabel(booking.start_date, booking.end_date)}</div>
+          <div className="mt-0.5 truncate text-meta text-text-tertiary">{booking.pet_names || "Pets not listed"}</div>
+          {ownerLabel ? <div className="mt-0.5 truncate text-meta font-medium text-text-tertiary">{ownerLabel}</div> : null}
         </div>
         <div className="shrink-0 text-right">
-          <div className={cn("text-[15px] font-medium tabular-nums text-text-primary", cancelled && "line-through")}>
+          <div className={cn("text-label font-medium tabular-nums text-text-primary", cancelled && "line-through")}>
             {formatCurrency(estimate.net)}
           </div>
-          <div className="mt-0.5 text-[12px] text-text-tertiary">
+          <div className="mt-0.5 text-meta text-text-tertiary">
             {estimate.nights} {estimate.nights === 1 ? "night" : "nights"}
           </div>
         </div>
@@ -1226,7 +1226,7 @@ function DaySheetRow({
 
       <div className="mt-3 flex gap-2 border-t border-border pt-3">
         <Button
-          className="flex-1 text-[14px]"
+          className="flex-1 text-body"
           variant="soft"
           type="button"
           onClick={() => onRequestAction({ type: cancelled ? "restore" : "cancel", booking })}
@@ -1584,10 +1584,10 @@ function HouseSittingForm({
       >
         <div className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
-            <h2 className="text-[23px] font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-[28px] sm:leading-[1.1]">
+            <h2 className="text-figure-lg font-medium leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm sm:leading-[1.1]">
               {isEditing ? "House sitting details" : "Add house sitting"}
             </h2>
-            <p className="mt-1 text-[14px] text-text-secondary sm:text-[15px]">
+            <p className="mt-1 text-body text-text-secondary sm:text-label">
               {isEditing
                 ? "Review the booked stay and update details when plans change."
                 : "Log the booked stay without adding anyone to regular customers."}
@@ -1599,7 +1599,7 @@ function HouseSittingForm({
         {cancelled ? (
           <div className="mb-5 flex items-start gap-3 rounded-[18px] border border-border bg-subtle p-3.5">
             <CalendarX size={18} strokeWidth={1.6} className="mt-0.5 shrink-0 text-text-tertiary" />
-            <p className="text-[13px] leading-snug text-text-secondary">
+            <p className="text-list leading-snug text-text-secondary">
               This stay is cancelled. It stays on the calendar for reference but does not count toward booked nights or earnings.
             </p>
           </div>
@@ -1612,7 +1612,7 @@ function HouseSittingForm({
                 <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={17} strokeWidth={1.6} />
                 <input
                   className={cn(
-                    "focus-ring min-h-11 w-full rounded-xl border bg-subtle py-2 pl-11 pr-10 text-[16px] text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
+                    "focus-ring min-h-11 w-full rounded-xl border bg-subtle py-2 pl-11 pr-10 text-label text-text-primary placeholder:text-text-tertiary transition duration-200 ease-in-out hover:border-border-emphasis",
                     errors.customer_name ? "border-danger" : "border-border"
                   )}
                   value={values.customer_name}
@@ -1638,16 +1638,16 @@ function HouseSittingForm({
                       onClick={() => chooseCustomer(option)}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[14px] font-medium text-text-primary">{option.label}</span>
-                        <span className="block truncate text-[12px] text-text-tertiary">{option.petNames || option.address || "No saved details"}</span>
+                        <span className="block truncate text-body font-medium text-text-primary">{option.label}</span>
+                        <span className="block truncate text-meta text-text-tertiary">{option.petNames || option.address || "No saved details"}</span>
                       </span>
-                      <span className="shrink-0 rounded-full bg-subtle px-2 py-1 text-[11px] font-medium capitalize text-text-secondary">
+                      <span className="shrink-0 rounded-full bg-subtle px-2 py-1 text-caption font-medium capitalize text-text-secondary">
                         {option.source === "regular" ? "Regular" : "House sitting"}
                       </span>
                     </button>
                   ))}
                   {values.customer_name.trim() ? (
-                    <div className="rounded-xl px-3 py-2 text-[13px] text-text-secondary">
+                    <div className="rounded-xl px-3 py-2 text-list text-text-secondary">
                       Saving without choosing a match creates a house-sitting-only customer.
                     </div>
                   ) : null}
@@ -1661,7 +1661,7 @@ function HouseSittingForm({
               <div ref={ownerMenuRef} className="relative">
                 <button
                   className={cn(
-                    "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-[16px] text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
+                    "focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-subtle px-4 text-left text-label text-text-primary transition duration-200 ease-in-out hover:border-border-emphasis",
                     errors.owner ? "border-danger" : "border-border"
                   )}
                   type="button"
@@ -1681,7 +1681,7 @@ function HouseSittingForm({
                       <button
                         key={owner.id}
                         className={cn(
-                          "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-[14px] font-medium transition duration-150 ease-out",
+                          "focus-ring flex min-h-10 w-full items-center rounded-xl px-3 text-left text-body font-medium transition duration-150 ease-out",
                           owner.id === ownerId ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
                         )}
                         type="button"
@@ -1765,7 +1765,7 @@ function HouseSittingForm({
               <Plus size={16} strokeWidth={1.8} />
               Add pet
             </Button>
-            {errors.pets ? <p className="text-[12px] text-danger">{errors.pets}</p> : null}
+            {errors.pets ? <p className="text-meta text-danger">{errors.pets}</p> : null}
           </div>
 
           <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:p-4">
@@ -1776,7 +1776,7 @@ function HouseSittingForm({
                     <button
                       key={method}
                       className={cn(
-                        "focus-ring rounded-xl text-[13px] font-medium transition duration-150 ease-out sm:text-[14px]",
+                        "focus-ring rounded-xl text-list font-medium transition duration-150 ease-out sm:text-body",
                         values.payment_method === method ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
                       )}
                       onClick={() => update("payment_method", method)}
@@ -1805,7 +1805,7 @@ function HouseSittingForm({
           </section>
 
           <section className="rounded-[20px] border border-border bg-[#FFFEFB] p-3.5 shadow-card sm:p-4">
-            <div className="flex items-center gap-2 text-[15px] font-medium text-text-primary">
+            <div className="flex items-center gap-2 text-label font-medium text-text-primary">
               <Sparkles size={17} strokeWidth={1.6} className="text-accent" />
               Stay estimate
             </div>
@@ -1816,17 +1816,17 @@ function HouseSittingForm({
               <EstimateMetric label="Taxable" value={estimate.taxable ? "Yes" : "No"} />
             </div>
             {values.payment_method === "Rover" ? (
-              <p className="mt-3 text-[13px] text-text-secondary">
+              <p className="mt-3 text-list text-text-secondary">
                 Rover commission is estimated at {Math.round(ROVER_COMMISSION_RATE * 100)}%.
               </p>
             ) : null}
           </section>
 
-          {formError ? <p className="text-[13px] text-danger">{formError}</p> : null}
+          {formError ? <p className="text-list text-danger">{formError}</p> : null}
 
           {isEditing && booking ? (
             <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card sm:p-4">
-              <h3 className="text-[13px] font-medium uppercase tracking-[0.04em] text-text-tertiary">Manage this stay</h3>
+              <h3 className="text-list font-medium uppercase tracking-[0.04em] text-text-tertiary">Manage this stay</h3>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Button
                   className="w-full sm:flex-1"
@@ -1847,7 +1847,7 @@ function HouseSittingForm({
                   Delete
                 </Button>
               </div>
-              <p className="mt-2.5 text-[12px] leading-snug text-text-secondary">
+              <p className="mt-2.5 text-meta leading-snug text-text-secondary">
                 Cancelling keeps the stay on the calendar as a record. Deleting removes it permanently.
               </p>
             </section>
@@ -1870,10 +1870,10 @@ function HouseSittingForm({
 function EstimateMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex h-[82px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl bg-subtle p-3 sm:h-[94px]">
-      <div className="line-clamp-2 min-h-[28px] text-[11px] font-medium uppercase leading-[1.25] tracking-[0.04em] text-text-tertiary">
+      <div className="line-clamp-2 min-h-[28px] text-caption font-medium uppercase leading-[1.25] tracking-[0.04em] text-text-tertiary">
         {label}
       </div>
-      <div className="truncate text-[17px] font-medium tabular-nums leading-none text-text-primary sm:text-[clamp(15px,3.6vw,18px)]">
+      <div className="truncate text-subhead font-medium tabular-nums leading-none text-text-primary sm:text-[clamp(15px,3.6vw,18px)]">
         {value}
       </div>
     </div>

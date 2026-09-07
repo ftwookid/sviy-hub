@@ -46,7 +46,7 @@ export function CadencePicker({
             // hit — but only the words inside are painted, or a 12px caption
             // lights up a 39px block on every hover.
             ? "focus-ring-child group -my-2.5 -ml-2 px-2 py-3"
-            : "focus-ring h-11 gap-1 rounded-xl border border-border bg-subtle px-2.5 text-[13px] text-text-secondary transition-colors duration-200 ease-out hover:border-border-emphasis hover:text-text-primary",
+            : "focus-ring h-11 gap-1 rounded-xl border border-border bg-subtle px-2.5 text-list text-text-secondary transition-colors duration-200 ease-out hover:border-border-emphasis hover:text-text-primary",
           className
         )}
         type="button"
@@ -58,7 +58,7 @@ export function CadencePicker({
           className={cn(
             "flex min-w-0 items-center rounded-md transition-colors duration-200 ease-out",
             variant === "caption"
-              ? "gap-0.5 px-1 py-0.5 text-[12px] font-medium uppercase tracking-[0.04em] text-text-tertiary group-hover:bg-subtle group-hover:text-text-secondary"
+              ? "gap-0.5 px-1 py-0.5 text-meta font-medium uppercase tracking-[0.04em] text-text-tertiary group-hover:bg-subtle group-hover:text-text-secondary"
               : "gap-1"
           )}
         >
@@ -72,7 +72,7 @@ export function CadencePicker({
           <button
             key={cadence}
             className={cn(
-              "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-200 ease-out",
+              "focus-ring flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-body transition-colors duration-200 ease-out",
               cadence === value ? "bg-accent-soft text-text-primary" : "text-text-secondary hover:bg-subtle"
             )}
             type="button"
@@ -83,7 +83,7 @@ export function CadencePicker({
           >
             <span>
               {cadence}
-              <span className="block text-[11.5px] text-text-tertiary">{CADENCE_SUFFIX[cadence]}</span>
+              <span className="block text-caption text-text-tertiary">{CADENCE_SUFFIX[cadence]}</span>
             </span>
             {cadence === value ? <Check size={15} strokeWidth={2} className="shrink-0" /> : null}
           </button>

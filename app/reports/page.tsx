@@ -123,7 +123,7 @@ export default function ReportsPage() {
             row on the transactions page. */}
         <div className="flex items-center gap-2">
           <select
-            className="focus-ring h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-[15px] font-medium text-text-primary shadow-sm sm:max-w-[160px]"
+            className="focus-ring h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-label font-medium text-text-primary shadow-sm sm:max-w-[160px]"
             aria-label="Year"
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
@@ -150,13 +150,13 @@ export default function ReportsPage() {
         ) : (
           <>
             <section className="rounded-[20px] border border-border bg-[#F5EFE3] p-4 shadow-card">
-              <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+              <div className="text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
                 Deductible in {year}
               </div>
-              <div className="mt-2.5 text-[30px] font-medium leading-none tracking-[-0.01em] text-text-primary">
+              <div className="mt-2.5 text-display font-medium leading-none tracking-[-0.01em] text-text-primary">
                 {formatCurrency(spentTotal + mileageTotal)}
               </div>
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-text-secondary">
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-list text-text-secondary">
                 <span>{formatCurrency(spentTotal)} spent</span>
                 <span>
                   {formatCurrency(mileageTotal)} driven · {mileageMiles.toFixed(0)} mi
@@ -167,8 +167,8 @@ export default function ReportsPage() {
             <ReportTable expenses={expenses} />
             <section className="rounded-[20px] border border-border bg-surface p-3.5 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-[15px] font-medium leading-tight text-text-primary">Monthly breakdown</h2>
-                <div className="flex items-center gap-3 text-[12px] text-text-tertiary">
+                <h2 className="text-label font-medium leading-tight text-text-primary">Monthly breakdown</h2>
+                <div className="flex items-center gap-3 text-meta text-text-tertiary">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-accent" />
                     Spent
@@ -182,7 +182,7 @@ export default function ReportsPage() {
               <div className="mt-3 space-y-2">
                 {monthlyTotals.map((row) => (
                   <div key={row.month} className="grid grid-cols-[72px_1fr_92px] items-center gap-3">
-                    <div className="text-[12px] text-text-secondary">{row.month.slice(0, 3)}</div>
+                    <div className="text-meta text-text-secondary">{row.month.slice(0, 3)}</div>
                     <div className="flex h-2 overflow-hidden rounded-full bg-subtle">
                       <div
                         className="h-full bg-accent transition-all duration-200 ease-in-out"
@@ -193,7 +193,7 @@ export default function ReportsPage() {
                         style={{ width: `${(row.driven / maxMonthTotal) * 100}%` }}
                       />
                     </div>
-                    <div className="text-right text-[12px] font-medium text-text-primary">
+                    <div className="text-right text-meta font-medium text-text-primary">
                       {formatCurrency(row.total)}
                     </div>
                   </div>
