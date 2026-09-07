@@ -17,7 +17,7 @@ export function SetupNotice() {
 
 export function AppLoading({ message = "Preparing your workspace..." }: { message?: string }) {
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
+    <main className="grid min-h-viewport place-items-center px-4 py-10">
       <div className="flex flex-col items-center text-center">
         <Image src="/Logo v2.png" alt="Sviy Hub" width={136} height={136} className="h-[136px] w-[136px] object-contain" priority />
         <p className="mt-3 text-[15px] text-text-secondary">{message}</p>

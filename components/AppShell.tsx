@@ -45,7 +45,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-page text-text-primary md:grid md:grid-cols-[240px_1fr]">
+    <div className="min-h-viewport bg-page text-text-primary md:grid md:grid-cols-[240px_1fr]">
       <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-border bg-[#F7F4EE]/90 px-4 py-5 backdrop-blur-xl md:flex md:flex-col">
         <Link href="/" className="flex h-36 w-36 items-center justify-center self-center rounded-xl">
           <Image src="/Logo v2.png" alt="Sviy Hub" width={144} height={144} className="h-36 w-36 object-contain" priority />
@@ -105,7 +105,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
       <div className="md:col-start-2">
         <main
           className={cn(
-            "mx-auto min-h-screen w-full max-w-[980px] px-4 pt-6 transition-opacity duration-200 ease-in-out sm:px-6 md:px-8 md:pb-10 md:pt-8",
+            "mx-auto min-h-viewport w-full max-w-[980px] px-4 pt-6 transition-opacity duration-200 ease-in-out sm:px-6 md:px-8 md:pb-10 md:pt-8",
             isClientDetailPage
               ? "pb-[calc(72px+env(safe-area-inset-bottom))]"
               : "pb-[calc(96px+env(safe-area-inset-bottom))]"

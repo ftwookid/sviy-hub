@@ -57,7 +57,7 @@ export default function LoginPage() {
   if (!isSupabaseConfigured) return <SetupNotice />;
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
+    <main className="grid min-h-viewport place-items-center px-4 py-10">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-[400px] rounded-xl border border-border bg-surface p-5 shadow-card"

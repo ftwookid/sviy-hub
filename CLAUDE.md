@@ -185,6 +185,31 @@ be *shrunk* by a flat rule on the screen it matters most on. It opts out with
 not a fix: it works by taking pinch-zoom away from everybody, on every screen,
 permanently.
 
+**Full-height is `dvh`, never `vh`.** `100vh` on iOS Safari is the **large**
+viewport — the height the page gets once the address bar has retracted — not the
+height you can see while the bar is expanded, which is what you are looking at
+when a page loads. On an 844pt iPhone the visible strip is about 745pt, so the
+shell's `min-h-screen` built a document roughly **99px taller than the window on
+every page in the app, with no content in it at all**.
+
+That phantom 99px is not harmless, and Ivan hit it on Finances. Its first card
+starts at y84, so scrolling by it hides the title and the Utilities/Setup buttons
+exactly — and because the page is genuinely scrollable, Safari records the offset
+and restores it on the next refresh. So a reload landed on the month cards with
+the header gone, having never scrolled on purpose. Nothing in the app scrolls the
+page: there is no `scrollIntoView`, no `scrollTo` and no autofocus outside the
+panels, which is what ruled out every other explanation.
+
+The fix is `.min-h-viewport` in `globals.css` — `100vh` with a
+`@supports (min-height: 100dvh)` block above it — rather than `min-h-screen` on
+the two shell elements and the three centred screens (login, onboarding, the
+setup notice). `dvh` measures the viewport as it currently stands, so a page with
+nothing in it is exactly as tall as the window and there is nothing to scroll;
+the `vh` line stays as the fallback below Safari 15.4, where the behaviour is no
+worse than it was. Measured at 390x844 and 1280x800: the document is exactly the
+window height on a short page, the desktop sidebar still fills it, and a tall
+page scrolls exactly as before.
+
 ## Tech Stack
 
 - Next.js 14 App Router
@@ -1789,8 +1814,9 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/profile/page.tsx`: Profile section.
 - `components/AppShell.tsx`: Desktop sidebar and mobile bottom nav.
 - `components/PageHeader.tsx`: The section title every page shares.
-- `app/globals.css`: Press, focus rings, panel motion, and the 16px phone floor
-  on form controls that stops iOS zooming the page and never zooming back.
+- `app/globals.css`: Press, focus rings, panel motion, the 16px phone floor on
+  form controls that stops iOS zooming the page and never zooming back, and
+  `.min-h-viewport` — full height in `dvh`, so no page is scrollable when empty.
 - `scripts/verify-ui.mjs`: Renders pages in Chromium and measures them.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.
