@@ -222,41 +222,6 @@ export function BarRow({
   );
 }
 
-/**
- * A single ratio against a limit — the one job a meter is the right form for.
- *
- * Both ends are labelled directly, so the reader is never asked what the filled
- * part is a part of.
- */
-export function Meter({
-  filled,
-  total,
-  filledLabel,
-  restLabel
-}: {
-  filled: number;
-  total: number;
-  filledLabel: string;
-  restLabel: string;
-}) {
-  const share = total > 0 ? Math.max(0, Math.min(1, filled / total)) : 0;
-
-  return (
-    <div className="px-3.5 py-2.5 sm:px-4">
-      <span className="block h-2.5 w-full overflow-hidden rounded-[3px]" style={{ background: TRACK }}>
-        <span
-          className="block h-full rounded-r-[4px]"
-          style={{ width: `${share * 100}%`, background: OUT_INK }}
-        />
-      </span>
-      <div className="mt-1.5 flex items-baseline justify-between gap-3">
-        <span className="min-w-0 truncate text-[11.5px] tabular-nums text-text-secondary">{filledLabel}</span>
-        <span className="min-w-0 truncate text-[11.5px] tabular-nums text-success">{restLabel}</span>
-      </div>
-    </div>
-  );
-}
-
 /** A card title. Names the single series, which is why no legend is needed. */
 export function ChartCard({
   title,

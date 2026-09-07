@@ -2,9 +2,10 @@
 
 import { Fragment } from "react";
 
+import { cn } from "@/lib/cn";
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
-import { BarRow, ChartCard, IN_INK, Meter, OUT_INK } from "@/components/finances/chart";
+import { BarRow, ChartCard, IN_INK, OUT_INK } from "@/components/finances/chart";
 import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
@@ -78,11 +79,30 @@ function detailFor(row: FinanceRow, extra?: string) {
  * for months. Three columns across the full width, because the row has three
  * facts and the space is there.
  */
-function SectionHeader({ section, moneyIn }: { section: FinanceSection; moneyIn: number }) {
+function SectionHeader({
+  section,
+  moneyIn,
+  first
+}: {
+  section: FinanceSection;
+  moneyIn: number;
+  /**
+   * The first block in a card sits directly under `ChartCard`'s own
+   * `border-b`, so its `border-t` would stack into a 2px rule where every
+   * other block boundary is 1px. The meter used to sit in that gap and hide
+   * it; with the meter gone the block draws no top border of its own.
+   */
+  first: boolean;
+}) {
   const share = section.total > 0 && moneyIn > 0 ? `${percent(shareOfIncome(section.total, moneyIn))} of money in` : null;
 
   return (
-    <div className="flex items-baseline gap-3 border-t border-border bg-subtle/50 px-3.5 py-1.5 sm:px-4">
+    <div
+      className={cn(
+        "flex items-baseline gap-3 bg-subtle/50 px-3.5 py-1.5 sm:px-4",
+        first ? null : "border-t border-border"
+      )}
+    >
       <h3 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-text-primary">
         {SECTION_STYLE[section.key].title}
       </h3>
@@ -99,9 +119,15 @@ function SectionHeader({ section, moneyIn }: { section: FinanceSection; moneyIn:
 /**
  * Everything the month is already promised to, by block.
  *
- * The meter sits at the top because it is the one figure the whole card is a
- * breakdown of: how much of what came in is spoken for. Both its ends are
- * labelled, so nothing has to be inferred from a length.
+ * **No meter at the top.** A single bar sat here splitting money in into
+ * committed and left over, with both ends labelled — and labelling both ends is
+ * not the same as being readable. It was one bar in a card full of bars, drawn
+ * against a different denominator than every other bar under it, so its length
+ * meant something the rest of the card's lengths did not; and both its figures
+ * are already stated, as figures, in `MonthSummary` directly above the card.
+ * A ratio nobody can name is noise however carefully it is labelled, so it is
+ * gone rather than relabelled. Each block's share of income stays on the block's
+ * own header row, where it is a number rather than a length.
  */
 export function MoneyOut({ month }: { month: MonthFinances }) {
   const sections = month.sections.filter((section) => section.direction === "out");
@@ -111,22 +137,9 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
 
   return (
     <ChartCard title="Money out" note={formatCurrency(month.moneyOut)}>
-      {month.moneyIn > 0 ? (
-        <Meter
-          filled={month.moneyOut}
-          total={month.moneyIn}
-          filledLabel={`${percent(shareOfIncome(month.moneyOut, month.moneyIn))} committed · ${formatCurrency(
-            month.moneyOut
-          )}`}
-          restLabel={`${percent(shareOfIncome(month.leftOver, month.moneyIn))} left · ${formatCurrency(
-            month.leftOver
-          )}`}
-        />
-      ) : null}
-
-      {sections.map((section) => (
+      {sections.map((section, index) => (
         <Fragment key={section.key}>
-          <SectionHeader section={section} moneyIn={month.moneyIn} />
+          <SectionHeader section={section} moneyIn={month.moneyIn} first={index === 0} />
           {/* An empty block is its header row and nothing else — there is no
               line to draw and no zero worth printing twice. */}
           <div className="divide-y divide-border/40">
@@ -167,9 +180,11 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
 
   return (
     <ChartCard title="Money in" note={formatCurrency(month.moneyIn)}>
-      {sections.map((section) => (
+      {sections.map((section, index) => (
         <Fragment key={section.key}>
-          {showHeaders ? <SectionHeader section={section} moneyIn={month.moneyIn} /> : null}
+          {showHeaders ? (
+            <SectionHeader section={section} moneyIn={month.moneyIn} first={index === 0} />
+          ) : null}
           <div className="divide-y divide-border/40">
             {section.rows.map((row) => (
               <BarRow

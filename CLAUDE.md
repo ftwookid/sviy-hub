@@ -1359,9 +1359,16 @@ come to, what is it made of, how does it compare with the year:
     the question the page is opened with — what does each part of the month
     cost — because a line could not be found where it lives, and tax withheld
     sat three rows away from tax withheld. Neither card is coming back.
-  - **The meter stays**, at the top of `Money out`: how much of what came in is
-    spoken for is one ratio against a limit, both ends directly labelled
-    ("37% committed · $4,328.16" / "63% left · $7,485.08").
+  - **The meter is gone**, and is not coming back. A single bar sat at the top
+    of `Money out` splitting money in into committed and left over, both ends
+    directly labelled ("37% committed · $4,328.16" / "63% left · $7,485.08") —
+    and labelling both ends is not the same as being readable. It was one bar in
+    a card full of bars, drawn against a different denominator than every other
+    bar beneath it, so its length meant something none of theirs did; and both
+    its figures are already stated, as figures, in `MonthSummary` immediately
+    above the card. A ratio the reader cannot name is noise however carefully it
+    is annotated. Each block's share of income stays on that block's header row,
+    where it is a number rather than a length.
   - **One scale across the whole card, not one per block.** Every bar in
     `Money out` is measured against the largest line in the month, so a $15
     subscription draws a $15 bar next to rent and the cross-block comparison the
@@ -1711,7 +1718,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `lib/financeClient.ts`: Reads and writes for the standing figures.
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
-- `components/finances/chart.tsx`: Bars, meter, chart ink and the mark spec.
+- `components/finances/chart.tsx`: Bars, chart ink and the mark spec.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
