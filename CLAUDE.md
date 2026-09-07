@@ -1135,14 +1135,64 @@ so entering a month twice corrects it rather than doubling the month.
   behind it is the zero-pretending-to-be-a-figure this page keeps catching.
 - **The run rate is the twelve-month average × 12, never this month × 12.** A
   January heating bill annualised is a number nobody will ever pay.
-- **The rows are the chart, and the chart is the form.** There is no separate
-  entry field: twelve months, oldest at the top, each a label, a bar and a figure
-  — and tapping one turns that month's row into its own amount field with Save,
-  Cancel and, when a bill is already there, Delete. That is the same rule the
-  Setup panel arrived at the hard way: one form, in the place the figure is read,
-  so there are never two identical forms on a card to type a bill into the wrong
-  one of. It also means the month is never ambiguous — it is the row you tapped.
-  The rows are 44px, because they are the control as well as the reading.
+- **A year at a time, as a grid — and the grid is the form.** There is no
+  separate entry field: the twelve months of one calendar year are cells, three
+  across on a phone and six on a desktop, each a month, its figure and its bar.
+  Tapping one lights it and opens a single amount field underneath, naming the
+  month, with Save, Cancel and — when a bill is already there — Delete. That is
+  the same rule the Setup panel arrived at the hard way: one form, in the place
+  the figure is read, so there are never two identical forms on a card to type a
+  bill into the wrong one of. The month is never ambiguous: the form names it and
+  the cell above is lit.
+
+  It was **twelve 44px rows over a rolling twelve months anchored on the page's
+  month**, and that was wrong in two ways at once as soon as an account had any
+  history:
+
+  - **It could not reach the history at all.** A rolling window only ever shows
+    the last twelve months, so an electricity account billed since 2023 had three
+    of its four years with no way in: the only route to March 2024 was to close
+    the panel, walk the whole Finances page back to that month, and reopen it.
+    That is the failure worth remembering — the section exists to hold years of
+    bills, and the reader could only see one of them.
+  - **It was 701px on a phone**, measured, for a single utility — most of the
+    fold, and 67px of scrolling before the name and delete at the bottom.
+
+  A calendar year is what a reader navigates by. Nobody hunts for "the bill
+  eleven months back"; they think "March, the year the boiler went". So the year
+  steps with two arrows either side of the year itself — never at the two ends of
+  the row, which is the mistake the month picker made four times — and the whole
+  year is on screen at once. Measured at 390: **701px → 499px with no scrolling
+  at all**, 601px with the editor open and still no scrolling; 358px on a
+  desktop. A fifth year of bills now costs nothing in height, which is the whole
+  point.
+
+  Two things the arrows are bounded by, and neither reads the clock — the page's
+  own month is what "now" means here, so the same book renders identically on the
+  server and in the browser. Forward stops at the later of the page's year and
+  the newest bill. Back reaches **one year before the first bill**, so an older
+  year can be backfilled, and that bound extends by itself as soon as it has one.
+
+- **The bars are scaled across every bill on the account, not just the year on
+  screen.** A per-year scale would redraw 2023 at the same lengths as 2026 and
+  hide exactly the drift the section exists to show — the one thing that would
+  make this chart lie, the same reasoning as bars running from zero. A month with
+  no bill draws no mark; it keeps its space so the grid stays square, because an
+  empty track is a bar drawn for a quantity that does not exist.
+
+- **The three figures follow the year being browsed**, so they read `2024 avg`,
+  `2023 avg`, `Change` rather than `12-mo avg` / `Year before`. The comparison
+  names the two years it is comparing instead of leaving the reader to work out
+  which twelve months were meant.
+
+- **The editor's buttons take their own line on a phone.** Sharing one row with
+  them left the amount field **84px** of a 390px screen — the part that is read
+  and typed into being the part that got shortened, which is the exact failure
+  the Setup panel already has written down. A field shares its row with another
+  field, never with a button; there is no second field here, so below `sm` the
+  field gets the whole line (244px, at the 16px floor under `pointer: coarse`)
+  and the controls drop beneath it, destructive at the far left where it is not
+  on the way to Save.
 - **Three figures above the chart**: twelve-month average, the twelve before it,
   and the change between them as a signed percentage. That is the answer to "is
   it going up", stated as figures. **No prose verdict**, same as Mileage and the
@@ -1615,7 +1665,8 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `components/finances/UtilitiesSheet.tsx`: The metered bills, over the month.
 - `components/finances/UtilityGroups.tsx`: One utility, its months, and where its bill is typed.
-- `lib/utilities.ts`: What a utility is worth in a month, and which way it is going. Pure.
+- `lib/utilities.ts`: What a utility is worth in a month, which way it is going,
+  and the twelve months of a year (`monthsOfYear`). Pure.
 - `lib/utilityClient.ts`: Reads and writes for the accounts and their bills.
 - `supabase/utilities-schema.sql`: `utility_accounts` and `utility_bills`.
 - `types/utility.ts`: Accounts, bills, and the buckets a utility may land in.

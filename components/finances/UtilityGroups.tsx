@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { AnchoredPanel } from "@/components/ui/AnchoredPanel";
 import { Bar, OUT_INK } from "@/components/finances/chart";
 import { SECTION_STYLE } from "@/lib/finances";
+import { MONTHS } from "@/lib/months";
 import { periodMonthLabel, periodMonthShortLabel } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/formatters";
-import { billFor, monthValue, monthsEnding, utilityTrend } from "@/lib/utilities";
+import { billFor, firstBillYear, monthValue, monthsOfYear, periodMonthOf, utilityTrend } from "@/lib/utilities";
 import { DEFAULT_UTILITY_BUCKET, UTILITY_BUCKETS } from "@/types/utility";
 import type { UtilityAccountBills, UtilityBill, UtilityBook, UtilityBucket } from "@/types/utility";
 
@@ -22,15 +23,26 @@ import type { UtilityAccountBills, UtilityBill, UtilityBook, UtilityBucket } fro
  * with a utility every month is a change, and the only question worth opening
  * the row for is whether the line is drifting upward.
  *
- * So there is no separate entry form: the months are the rows, and the row for a
- * month **is** where that month's bill is typed. That is the same rule the Setup
- * panel arrived at the hard way — one form, in the place the figure is read, so
- * there are never two identical forms on a card to type a figure into the wrong
- * one of.
+ * So there is no separate entry form: the month you tap **is** where that month's
+ * bill is typed. That is the same rule the Setup panel arrived at the hard way —
+ * one form, in the place the figure is read, so there are never two identical
+ * forms on a card to type a figure into the wrong one of.
+ *
+ * What opens is **a year at a time, as a grid**. It was a rolling twelve months
+ * anchored on the page's month, laid out as twelve 44px rows, and that was wrong
+ * in two ways at once on an account with any history. It was 701px on a phone —
+ * most of the fold spent on one utility. And the rolling window could only ever
+ * reach the last twelve months, so an electricity account billed since 2023 had
+ * three of its four years with no way in at all: the only route to March 2024 was
+ * to leave the panel, move the whole Finances page back to that month, and come
+ * back in.
+ *
+ * A calendar year is what a reader actually navigates by — nobody hunts for "the
+ * bill eleven months back", they think "March, the year the boiler went" — and a
+ * 3-up grid puts all twelve of them in 242px instead of 528. The year steps with
+ * two arrows, so the reachable history is every year there is a bill for, at a
+ * fixed cost in height however many years that becomes.
  */
-
-/** How many months the chart shows, ending at the month the page is on. */
-const WINDOW = 12;
 
 function parseAmount(value: string) {
   const parsed = Number(value.replace(/[^0-9.]/g, ""));
@@ -102,13 +114,19 @@ function BucketPicker({ value, onChange }: { value: UtilityBucket; onChange: (ne
   );
 }
 
-/** Three figures, one set of chrome — the house pattern, without a card of its own. */
-function TrendStrip({ bills, periodMonth }: { bills: UtilityAccountBills["bills"]; periodMonth: string }) {
-  const { recentAverage, priorAverage, change } = utilityTrend(bills, periodMonth);
+/**
+ * Three figures, one set of chrome — the house pattern, without a card of its own.
+ *
+ * It follows the year being browsed rather than a rolling twelve anchored on the
+ * page, so the comparison names the two years it is comparing instead of leaving
+ * the reader to work out which twelve months "12-mo avg" meant.
+ */
+function TrendStrip({ bills, year }: { bills: UtilityAccountBills["bills"]; year: number }) {
+  const { recentAverage, priorAverage, change } = utilityTrend(bills, periodMonthOf(year, 11));
 
   const cells: { label: string; value: string }[] = [
-    { label: "12-mo avg", value: recentAverage === null ? "—" : formatCurrency(recentAverage) },
-    { label: "Year before", value: priorAverage === null ? "—" : formatCurrency(priorAverage) },
+    { label: `${year} avg`, value: recentAverage === null ? "—" : formatCurrency(recentAverage) },
+    { label: `${year - 1} avg`, value: priorAverage === null ? "—" : formatCurrency(priorAverage) },
     { label: "Change", value: changeLabel(change) }
   ];
 
@@ -129,11 +147,73 @@ function TrendStrip({ bills, periodMonth }: { bills: UtilityAccountBills["bills"
 }
 
 /**
- * One account, opened: what it has done, and where this month's bill is typed.
+ * One month of the year: what it cost, and the way in to typing it.
  *
- * Oldest at the top. A bill list is read for a direction, and a direction read
- * downwards is what everybody already means by "going up" — the same order the
- * Reports breakdown and the year list use.
+ * The bar is scaled against **every** bill on the account, not just this year's,
+ * so stepping from 2023 to 2026 makes a rise visible as length rather than
+ * redrawing the same bars at a new scale each year — which is the one thing that
+ * would make this chart lie. A month with no bill draws no mark at all; it keeps
+ * the space so the grid stays square, but an empty track is a bar drawn for a
+ * quantity that does not exist.
+ */
+function MonthCell({
+  periodMonth,
+  monthIndex,
+  bill,
+  largest,
+  selected,
+  onSelect
+}: {
+  periodMonth: string;
+  monthIndex: number;
+  bill: UtilityBill | null;
+  largest: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "focus-ring rounded-xl border px-2 py-1.5 text-left transition-colors duration-200 ease-out",
+        selected
+          ? "border-accent bg-accent-soft"
+          : "border-border/60 bg-surface hover:border-border hover:bg-subtle/60"
+      )}
+      type="button"
+      aria-pressed={selected}
+      aria-label={
+        bill
+          ? `Edit the ${periodMonthLabel(periodMonth)} bill of ${formatCurrency(bill.amount)}`
+          : `Enter the ${periodMonthLabel(periodMonth)} bill`
+      }
+      onClick={onSelect}
+    >
+      <span className="block text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+        {MONTHS[monthIndex].slice(0, 3)}
+      </span>
+      <span
+        className={cn(
+          "mt-0.5 block truncate text-[13.5px] tabular-nums leading-tight",
+          bill ? "text-text-primary" : "text-text-tertiary"
+        )}
+      >
+        {bill ? formatCurrency(bill.amount) : "—"}
+      </span>
+      {/* The space is held either way so the grid stays square; only a real
+          bill is drawn. */}
+      <span className="mt-1.5 block h-2.5">
+        {bill ? <Bar share={largest > 0 ? bill.amount / largest : 0} ink={OUT_INK} /> : null}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * One account, opened: what it has done, one year at a time.
+ *
+ * The year is stepped rather than scrolled, so a fourth year of history costs
+ * nothing in height — which is the whole point, since the previous version could
+ * not reach a fourth year at all.
  */
 function AccountDetail({
   entry,
@@ -153,14 +233,35 @@ function AccountDetail({
   onDelete: () => void;
 }) {
   const { account, bills } = entry;
+  const pageYear = Number(periodMonth.slice(0, 4));
+
   const [name, setName] = useState(account.name);
+  const [year, setYear] = useState(pageYear);
   const [editingMonth, setEditingMonth] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
 
-  const months = monthsEnding(bills, periodMonth, WINDOW);
-  // One scale down the column, so a bar's length means the same thing in every
-  // row of it — the same rule the month breakdown follows across its blocks.
-  const largest = Math.max(...months.map((month) => month.bill?.amount ?? 0), 0);
+  const months = monthsOfYear(bills, year);
+  // Scaled across every bill on the account, not just this year's: a per-year
+  // scale would redraw 2023 at the same lengths as 2026 and hide exactly the
+  // drift the section exists to show.
+  const largest = bills.reduce((most, bill) => Math.max(most, bill.amount), 0);
+
+  const billed = months.filter((month) => month.bill !== null);
+  const yearTotal = billed.reduce((total, month) => total + (month.bill?.amount ?? 0), 0);
+
+  // The clock is never read here: the page's own month is what "now" means, so
+  // the same book renders the same way on the server and in the browser. One
+  // year before the first bill stays reachable, which is what backfilling an
+  // older year needs — and it extends by itself as soon as that year has a bill.
+  const earliest = firstBillYear(bills) ?? pageYear;
+  const lastBillYear = bills.length > 0 ? Number(bills[bills.length - 1].period_month.slice(0, 4)) : pageYear;
+  const minYear = Math.min(earliest, pageYear) - 1;
+  const maxYear = Math.max(lastBillYear, pageYear);
+
+  function goToYear(next: number) {
+    setYear(next);
+    setEditingMonth(null);
+  }
 
   function startEditing(month: string) {
     const existing = billFor(bills, month);
@@ -183,92 +284,120 @@ function AccountDetail({
     if (next !== account.name) onRename(next);
   }
 
+  const editingBill = editingMonth ? billFor(bills, editingMonth) : null;
+
   return (
     <div className="bg-subtle/50 px-3.5 py-2.5 sm:px-4 sm:py-3">
       {/* Where this bill lands on the month. It is a caption rather than a field
           because it is set once per account and read every time the row opens. */}
       <BucketPicker value={account.bucket} onChange={onSetBucket} />
 
-      <TrendStrip bills={bills} periodMonth={periodMonth} />
+      <TrendStrip bills={bills} year={year} />
 
-      <div className="divide-y divide-border/50">
-        {months.map(({ periodMonth: month, bill }) =>
-          editingMonth === month ? (
-            /* The month's row becomes the field, in place. A form anywhere else
-               on the card would leave the reader checking which month they were
-               about to type into. */
-            <div key={month} className="flex min-h-11 items-center gap-1.5 py-1.5">
-              <span className="w-[68px] shrink-0 text-[12.5px] text-text-secondary sm:w-[86px]">
-                {periodMonthShortLabel(month)}
-              </span>
-              <input
-                className="focus-ring min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-right text-[15px] tabular-nums text-text-primary placeholder:text-text-tertiary"
-                value={amount}
-                aria-label={`Bill for ${periodMonthLabel(month)}`}
-                placeholder="0.00"
-                inputMode="decimal"
-                autoFocus
-                onChange={(event) => setAmount(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") save();
-                  if (event.key === "Escape") setEditingMonth(null);
-                }}
-              />
-              {/* Deleting a bill is offered only while its row is open — a trash
-                  icon on twelve rows is one mis-tap from losing a figure — and it
-                  sits at the far end from Save. It still asks: this row is the
-                  control as well as the reading, so the finger that opened the
-                  month is already inside the strip the trash sits in. */}
-              {bill ? (
-                <SquareButton
-                  label={`Delete the ${periodMonthLabel(month)} bill`}
-                  tone="danger"
-                  onClick={() => {
-                    onDeleteBill(bill, month);
-                    setEditingMonth(null);
-                  }}
-                >
-                  <Trash2 size={16} strokeWidth={1.8} />
-                </SquareButton>
-              ) : null}
-              <SquareButton label="Cancel" onClick={() => setEditingMonth(null)}>
-                <X size={17} strokeWidth={1.9} />
-              </SquareButton>
-              <SquareButton label="Save this bill" tone="accent" disabled={!amount.trim()} onClick={save}>
-                <Check size={17} strokeWidth={2} />
-              </SquareButton>
-            </div>
-          ) : (
-            <button
-              key={month}
-              // 44px, like everything else that is tapped. These rows are the
-              // chart *and* the way a bill is entered, so a comfortable target
-              // here is not chrome — it is the control.
-              className="focus-ring -mx-1.5 flex min-h-11 w-[calc(100%+12px)] items-center gap-2.5 rounded-lg px-1.5 text-left transition-colors duration-200 ease-out hover:bg-surface"
-              type="button"
-              aria-label={
-                bill
-                  ? `Edit the ${periodMonthLabel(month)} bill of ${formatCurrency(bill.amount)}`
-                  : `Enter the ${periodMonthLabel(month)} bill`
-              }
-              onClick={() => startEditing(month)}
-            >
-              <span className="w-[68px] shrink-0 text-[12.5px] text-text-secondary sm:w-[86px]">
-                {periodMonthShortLabel(month)}
-              </span>
-              {/* No mark for a month with no bill: an empty track is a bar drawn
-                  for a quantity that does not exist. The row stays, because it is
-                  where that month's bill gets typed. */}
-              <span className="min-w-0 flex-1">
-                {bill ? <Bar share={largest > 0 ? bill.amount / largest : 0} ink={OUT_INK} /> : null}
-              </span>
-              <span className="w-[80px] shrink-0 text-right text-[13px] tabular-nums text-text-primary">
-                {bill ? formatCurrency(bill.amount) : <span className="text-text-tertiary">—</span>}
-              </span>
-            </button>
-          )
-        )}
+      {/* The arrows sit either side of the year they move, not at the two ends
+          of the row: a control whose halves are 300px apart was the mistake the
+          month picker made four times. What the year came to goes at the far
+          end, where it is read rather than operated. */}
+      <div className="flex items-center gap-0.5">
+        <button
+          className="focus-ring -my-1 grid h-11 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
+          type="button"
+          aria-label={`Show ${year - 1}`}
+          disabled={year <= minYear}
+          onClick={() => goToYear(year - 1)}
+        >
+          <ChevronLeft size={18} strokeWidth={1.9} />
+        </button>
+        <span className="min-w-[52px] text-center text-[15px] font-medium tabular-nums text-text-primary">
+          {year}
+        </span>
+        <button
+          className="focus-ring -my-1 grid h-11 w-9 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors duration-200 ease-out hover:bg-surface hover:text-text-primary disabled:opacity-30"
+          type="button"
+          aria-label={`Show ${year + 1}`}
+          disabled={year >= maxYear}
+          onClick={() => goToYear(year + 1)}
+        >
+          <ChevronRight size={18} strokeWidth={1.9} />
+        </button>
+        <span className="ml-auto truncate pl-2 text-[12px] tabular-nums text-text-tertiary">
+          {billed.length === 0
+            ? "No bills"
+            : `${billed.length} ${billed.length === 1 ? "bill" : "bills"} · ${formatCurrency(yearTotal)}`}
+        </span>
       </div>
+
+      {/* Three across on a phone, six on a desktop — either way the whole year is
+          on screen at once, which twelve 44px rows never were. */}
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+        {months.map(({ periodMonth: month, monthIndex, bill }) => (
+          <MonthCell
+            key={month}
+            periodMonth={month}
+            monthIndex={monthIndex}
+            bill={bill}
+            largest={largest}
+            selected={editingMonth === month}
+            onSelect={() => startEditing(month)}
+          />
+        ))}
+      </div>
+
+      {/* One form, under the month it belongs to, naming it outright — the grid
+          cell above is lit at the same time, so which month is being typed into
+          is never a question. */}
+      {editingMonth ? (
+        /* The buttons take their own line on a phone. Sharing one row with them
+           left the amount **84px** of a 390px screen — the part that is read and
+           typed into being the part that got shortened, which is the exact
+           failure the Setup panel already has written down. A field shares its
+           row with another field, never with a button; here there is no second
+           field, so below `sm` the field gets the whole line and the controls
+           drop beneath it, destructive at the far left where it is not on the
+           way to Save. */
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="w-[68px] shrink-0 text-[12.5px] text-text-secondary sm:w-[86px]">
+            {periodMonthShortLabel(editingMonth)}
+          </span>
+          <input
+            className="focus-ring min-h-11 min-w-0 flex-1 basis-[120px] rounded-xl border border-border bg-surface px-3 text-right text-[15px] tabular-nums text-text-primary placeholder:text-text-tertiary"
+            value={amount}
+            aria-label={`Bill for ${periodMonthLabel(editingMonth)}`}
+            placeholder="0.00"
+            inputMode="decimal"
+            autoFocus
+            onChange={(event) => setAmount(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") save();
+              if (event.key === "Escape") setEditingMonth(null);
+            }}
+          />
+          <div className="flex w-full items-center gap-1.5 sm:w-auto">
+            {/* Deleting a bill is offered only while its month is open — a trash
+                on all twelve cells would be one mis-tap from losing a figure —
+                and it sits at the far end from Save. It still asks. */}
+            {editingBill ? (
+              <SquareButton
+                label={`Delete the ${periodMonthLabel(editingMonth)} bill`}
+                tone="danger"
+                className="mr-auto sm:mr-0"
+                onClick={() => {
+                  onDeleteBill(editingBill, editingMonth);
+                  setEditingMonth(null);
+                }}
+              >
+                <Trash2 size={16} strokeWidth={1.8} />
+              </SquareButton>
+            ) : null}
+            <SquareButton label="Cancel" className="ml-auto sm:ml-0" onClick={() => setEditingMonth(null)}>
+              <X size={17} strokeWidth={1.9} />
+            </SquareButton>
+            <SquareButton label="Save this bill" tone="accent" disabled={!amount.trim()} onClick={save}>
+              <Check size={17} strokeWidth={2} />
+            </SquareButton>
+          </div>
+        </div>
+      ) : null}
 
       {/* One row: the name, and the one action that destroys history. Red at
           rest, because a phone has no hover to turn it red on. */}
@@ -296,12 +425,14 @@ function SquareButton({
   label,
   tone = "plain",
   disabled,
+  className,
   onClick,
   children
 }: {
   label: string;
   tone?: "plain" | "danger" | "accent";
   disabled?: boolean;
+  className?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -313,7 +444,8 @@ function SquareButton({
           ? "border-danger/30 bg-danger-soft/50 text-danger hover:bg-danger-soft"
           : tone === "accent"
             ? "border-transparent bg-accent text-text-primary hover:brightness-95"
-            : "border-border bg-surface text-text-secondary hover:bg-subtle hover:text-text-primary"
+            : "border-border bg-surface text-text-secondary hover:bg-subtle hover:text-text-primary",
+        className
       )}
       type="button"
       aria-label={label}
