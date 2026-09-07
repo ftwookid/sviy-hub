@@ -1222,14 +1222,37 @@ so entering a month twice corrects it rather than doubling the month.
   names the two years it is comparing instead of leaving the reader to work out
   which twelve months were meant.
 
-- **The editor's buttons take their own line on a phone.** Sharing one row with
-  them left the amount field **84px** of a 390px screen — the part that is read
-  and typed into being the part that got shortened, which is the exact failure
-  the Setup panel already has written down. A field shares its row with another
-  field, never with a button; there is no second field here, so below `sm` the
-  field gets the whole line (244px, at the 16px floor under `pointer: coarse`)
-  and the controls drop beneath it, destructive at the far left where it is not
-  on the way to Save.
+- **The editor's field is the last thing in its block on a phone, and the
+  controls sit above it.** This one took two goes and the second is a rule worth
+  keeping.
+
+  Sharing one row left the amount field **84px** of a 390px screen — the part
+  that is read and typed into being the part that got shortened, the exact
+  failure the Setup panel already has written down. So the controls went onto
+  their own line. Below the field, which was the obvious place and the wrong one:
+  **focusing an input raises the iOS keyboard, and Safari scrolls that input into
+  view over whatever is left of the page.** With the number pad, the autofill
+  accessory bar and Safari's own bottom URL bar, that is about **381pt of an
+  844pt screen**. Anything below the field is therefore under the keyboard —
+  measured, Save landed at y387–431 against a 381pt fold, so it was sliced in
+  half by the URL bar the moment a bill was typed. It shipped that way and Ivan
+  hit it on the first bill he entered.
+
+  So on a phone the month label and the controls share the first line and the
+  field takes the whole of the second (318px, at the 16px floor under
+  `pointer: coarse` — wider than the 244px it had). Whatever Safari scrolls to
+  bring the field into view now necessarily leaves the row above it on screen:
+  measured in a 381pt strip, the controls sit at y155–199 with the field at
+  y205–249, both fully visible. No keyboard measuring, no `visualViewport`
+  listener, nothing fighting Safari for the scroll position — the fix is the
+  order of two elements.
+
+  **The general rule, since every panel in this app is used on a phone: in a form
+  inside a scrolling panel, nothing the user must reach goes below the field they
+  will be typing in.** A desktop has no keyboard to dodge, so from `sm` it goes
+  back to one row — label, field, controls — via `order` rather than a second
+  copy of the buttons. Destructive stays at the far left of the row, across from
+  Save rather than beside it.
 - **Three figures above the chart**: twelve-month average, the twelve before it,
   and the change between them as a signed percentage. That is the answer to "is
   it going up", stated as figures. **No prose verdict**, same as Mileage and the

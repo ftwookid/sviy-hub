@@ -473,20 +473,32 @@ function AccountDetail({
           cell above is lit at the same time, so which month is being typed into
           is never a question. */}
       {editingMonth ? (
-        /* The buttons take their own line on a phone. Sharing one row with them
-           left the amount **84px** of a 390px screen — the part that is read and
-           typed into being the part that got shortened, which is the exact
-           failure the Setup panel already has written down. A field shares its
-           row with another field, never with a button; here there is no second
-           field, so below `sm` the field gets the whole line and the controls
-           drop beneath it, destructive at the far left where it is not on the
-           way to Save. */
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="w-[68px] shrink-0 text-[12.5px] text-text-secondary sm:w-[86px]">
+        /* **The field is the last thing in this block, and that is the whole
+           point on a phone.**
+           
+           Focusing an input raises the iOS keyboard, and Safari scrolls that
+           input into view over whatever is left of the page — which with the
+           number pad and the URL bar is about 380pt of an 844pt screen. Anything
+           *below* the field is therefore under the keyboard, and this block had
+           the buttons there: Save and Cancel were sliced in half by the URL bar
+           the moment a bill was typed.
+           
+           So on a phone the label and the controls share the first line and the
+           field takes the whole of the second. Whatever Safari scrolls to bring
+           the field into view now necessarily leaves the row above it on screen,
+           without measuring the keyboard or fighting Safari for the scroll
+           position. The field also ends up wider than it was — the full line
+           rather than 244px of it.
+           
+           `order` rather than two copies of the buttons: a desktop has no
+           keyboard to dodge, so from `sm` it goes back to one row, label, field,
+           controls. */
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
+          <span className="order-1 w-[68px] shrink-0 text-[12.5px] text-text-secondary sm:w-[86px]">
             {periodMonthShortLabel(editingMonth)}
           </span>
           <input
-            className="focus-ring min-h-11 min-w-0 flex-1 basis-[120px] rounded-xl border border-border bg-surface px-3 text-right text-[15px] tabular-nums text-text-primary placeholder:text-text-tertiary"
+            className="focus-ring order-3 min-h-11 w-full min-w-0 rounded-xl border border-border bg-surface px-3 text-right text-[15px] tabular-nums text-text-primary placeholder:text-text-tertiary sm:order-2 sm:w-auto sm:flex-1"
             value={amount}
             aria-label={`Bill for ${periodMonthLabel(editingMonth)}`}
             placeholder="0.00"
@@ -498,10 +510,11 @@ function AccountDetail({
               if (event.key === "Escape") setEditingMonth(null);
             }}
           />
-          <div className="flex w-full items-center gap-1.5 sm:w-auto">
+          <div className="order-2 flex flex-1 items-center justify-end gap-1.5 sm:order-3 sm:flex-none">
             {/* Deleting a bill is offered only while its month is open — a trash
                 on all twelve cells would be one mis-tap from losing a figure —
-                and it sits at the far end from Save. It still asks. */}
+                and it stays at the far end from Save, across the row rather than
+                beside it. It still asks. */}
             {editingBill ? (
               <SquareButton
                 label={`Delete the ${periodMonthLabel(editingMonth)} bill`}
@@ -515,7 +528,7 @@ function AccountDetail({
                 <Trash2 size={16} strokeWidth={1.8} />
               </SquareButton>
             ) : null}
-            <SquareButton label="Cancel" className="ml-auto sm:ml-0" onClick={() => setEditingMonth(null)}>
+            <SquareButton label="Cancel" onClick={() => setEditingMonth(null)}>
               <X size={17} strokeWidth={1.9} />
             </SquareButton>
             <SquareButton label="Save this bill" tone="accent" disabled={!amount.trim()} onClick={save}>
