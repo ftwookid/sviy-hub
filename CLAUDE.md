@@ -1373,10 +1373,33 @@ come to, what is it made of, how does it compare with the year:
   surplus, red in deficit**, which is also the only cue the sign needs.
 - **The month reads by section, in the order the buckets are declared.** Two
   cards — `Money in` and `Money out` — each split by `border-t` into its blocks:
-  a header row carrying the bucket's name, its share of money in and its total,
-  with that bucket's lines beneath it (biggest first inside the block). The
-  order is fixed rather than sorted by size, so a block sits in the same place
-  every month.
+  a header row carrying the bucket's name, that bucket's lines beneath it
+  (biggest first inside the block), and the block's **total at the foot of it**.
+  The order is fixed rather than sorted by size, so a block sits in the same
+  place every month.
+  - **The total closes the block; it does not title it.** The heading used to
+    carry the total and the share of income, so the card read answer-then-
+    working: you took a figure off a title, dropped into a list, and climbed
+    back out to a title for the next block. The six figures a person actually
+    compares — the block totals — were in a differently-styled row from every
+    figure they are made of, and lined up with none of them. A total belongs at
+    the foot of the column it totals, which is where a ledger, a receipt and a
+    bank statement all put it. Three things make `SectionTotal` read as a sum:
+    it sits on the **same right edge** as the lines above it, it carries a
+    **full-weight rule** where the lines are divided by `border-border/40`, and
+    it is **not tinted** — the tint is the heading's, and is what says a new
+    block has started. The share of income comes down with the total, since
+    "22% of money in" is only meaningful beside the figure it is 22% of.
+  - **The figure column has one right edge, always.** A row with no `ⓘ` used to
+    skip the icon entirely, which pushed that row's figure 44px further right
+    than its neighbours — two right edges in the one card that exists to be read
+    straight down. `ROW_END_SLOT` in `chart.tsx` is that 34px permanently: the
+    icon where there is something to open, empty space where there is not, and
+    matched by the total beneath so the sum lands under the numbers it adds up.
+    Measured at 390 and 1280, every line figure and every total share one edge.
+  - The totals cost about 189px on a twelve-line `Money out` (five blocks with
+    rows, 37.8px each). That is the price of the thing being asked for, and it
+    buys back the climb-to-the-title the old arrangement charged on every block.
   - The version before this one dissolved the sections: it sorted the blocks by
     size in one card (`WhereItGoes`) and poured **every line in the month** into
     another, biggest first, with its block written under it in 10px grey
@@ -1521,7 +1544,12 @@ come to, what is it made of, how does it compare with the year:
     see is interactive is a row nobody taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
-  - An empty block is its header row and nothing else.
+  - An empty block is its header row and nothing else — no line to draw, and no
+    total either. A block with nothing in it has nothing to add up, and
+    `Total $0.00` is the zero-pretending-to-be-a-figure this page keeps catching;
+    the name standing alone says it. (`Money out`'s own total still sits in the
+    card's header, and `Money in`'s single block shows no total of its own,
+    since it would restate that note directly above it.)
 - **Magnitude is length from a shared baseline, never colour.** The block palette
   (sand, stone, gold, slate, terracotta, sage) was run through the colour-vision
   checks and **fails as a categorical encoding**: worst adjacent pair ΔE 5.9 under
@@ -1592,7 +1620,7 @@ come to, what is it made of, how does it compare with the year:
   "May 2026", "September 2026" and the `Now` chip all re-centre inside it while
   the controls either side stay put. Centring a variable-width group was the
   version that crept.
-- Empty blocks are a header row and nothing else.
+- Empty blocks are a header row and nothing else — no lines, and no total.
 
 The month costs about 160px of scroll on a 390x844 phone with every line and every
 month on screen, against roughly 1600px when each block was its own card. Zero

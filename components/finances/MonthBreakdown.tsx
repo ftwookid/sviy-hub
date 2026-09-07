@@ -5,7 +5,7 @@ import { Fragment } from "react";
 import { cn } from "@/lib/cn";
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
-import { BarRow, ChartCard } from "@/components/finances/chart";
+import { BarRow, ChartCard, ROW_END_SLOT } from "@/components/finances/chart";
 import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
@@ -70,20 +70,29 @@ function detailFor(row: FinanceRow, extra?: string) {
 }
 
 /**
- * A bucket's own row: name, what it takes of the month's income, its total.
+ * A bucket's name, and only its name.
  *
- * The name outranks the lines under it — that is the whole job of a heading, and
- * a 10px uppercase whisper above near-black rows failed it on the Setup screen
- * for months. Three columns across the full width, because the row has three
- * facts and the space is there.
+ * It used to carry the block's total and its share of income as well, and that
+ * is the arrangement this replaced: the heading announced the answer and the
+ * lines underneath were its working, so reading the card meant taking a figure
+ * from a title, dropping into a list, and climbing back out to a title for the
+ * next one. Every figure a person wants to compare — the six block totals —
+ * sat in a differently-styled row from every figure they are made of, and none
+ * of them lined up.
+ *
+ * A total belongs at the foot of the column it totals, which is where every
+ * ledger, receipt and bank statement puts it, and where the eye already looks
+ * for it. So the heading opens the block and `SectionTotal` closes it.
+ *
+ * The name still outranks the lines under it — that is the whole job of a
+ * heading, and a 10px uppercase whisper above near-black rows failed it on the
+ * Setup screen for months.
  */
 function SectionHeader({
   section,
-  moneyIn,
   first
 }: {
   section: FinanceSection;
-  moneyIn: number;
   /**
    * The first block in a card sits directly under `ChartCard`'s own
    * `border-b`, so its `border-t` would stack into a 2px rule where every
@@ -92,8 +101,6 @@ function SectionHeader({
    */
   first: boolean;
 }) {
-  const share = section.total > 0 && moneyIn > 0 ? `${percent(shareOfIncome(section.total, moneyIn))} of money in` : null;
-
   return (
     <div
       className={cn(
@@ -104,12 +111,46 @@ function SectionHeader({
       <h3 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-text-primary">
         {SECTION_STYLE[section.key].title}
       </h3>
+    </div>
+  );
+}
+
+/**
+ * The sum at the foot of the block, under the figures it adds up.
+ *
+ * Three things make it read as a sum rather than as one more line:
+ *
+ * - **It is on the same right edge as the lines above it**, which is what the
+ *   permanent `ROW_END_SLOT` is for. A total that does not line up with its
+ *   own column is not a total, it is a number nearby.
+ * - **A full-weight rule above it**, where the lines are separated by
+ *   `border-border/40`. That is the ruled-off line of a paper ledger, and it
+ *   is the cheapest possible way to say "everything above this adds to this".
+ * - **It is not tinted.** The tint is the heading's, and it is what tells you a
+ *   new block has started; a tinted footer against the next block's tinted
+ *   header would put a two-row band between blocks and leave neither belonging
+ *   to anything obvious.
+ *
+ * The share of income comes down here with it, because it is a fact about the
+ * total rather than about the block: "22% of money in" is only meaningful
+ * beside the figure it is 22% of.
+ */
+function SectionTotal({ section, moneyIn }: { section: FinanceSection; moneyIn: number }) {
+  const share =
+    section.total > 0 && moneyIn > 0 ? `${percent(shareOfIncome(section.total, moneyIn))} of money in` : null;
+
+  return (
+    <div className="flex items-center gap-2.5 border-t border-border px-3.5 py-2 sm:px-4">
+      <span className="min-w-0 flex-1 truncate text-[11px] font-medium uppercase tracking-[0.05em] text-text-tertiary">
+        Total
+      </span>
       {share ? (
         <span className="shrink-0 text-[10.5px] tabular-nums text-text-tertiary">{share}</span>
       ) : null}
-      <span className="shrink-0 text-[13px] font-medium tabular-nums text-text-primary">
+      <span className="shrink-0 text-right text-[13px] font-semibold tabular-nums text-text-primary">
         {formatCurrency(section.total)}
       </span>
+      <span aria-hidden className={ROW_END_SLOT} />
     </div>
   );
 }
@@ -134,9 +175,11 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
     <ChartCard title="Money out" note={formatCurrency(month.moneyOut)}>
       {sections.map((section, index) => (
         <Fragment key={section.key}>
-          <SectionHeader section={section} moneyIn={month.moneyIn} first={index === 0} />
-          {/* An empty block is its header row and nothing else — there is no
-              line to draw and no zero worth printing twice. */}
+          <SectionHeader section={section} first={index === 0} />
+          {/* An empty block is its header row and nothing else — no line to
+              draw, and no total either: a block with nothing in it has nothing
+              to add up, and `Total $0.00` is the zero pretending to be a figure
+              this page keeps catching. The name standing alone says it. */}
           <div className="divide-y divide-border/40">
             {section.rows.map((row) => (
               <BarRow
@@ -156,6 +199,7 @@ export function MoneyOut({ month }: { month: MonthFinances }) {
               />
             ))}
           </div>
+          {section.rows.length > 0 ? <SectionTotal section={section} moneyIn={month.moneyIn} /> : null}
         </Fragment>
       ))}
     </ChartCard>
@@ -174,9 +218,7 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
     <ChartCard title="Money in" note={formatCurrency(month.moneyIn)}>
       {sections.map((section, index) => (
         <Fragment key={section.key}>
-          {showHeaders ? (
-            <SectionHeader section={section} moneyIn={month.moneyIn} first={index === 0} />
-          ) : null}
+          {showHeaders ? <SectionHeader section={section} first={index === 0} /> : null}
           <div className="divide-y divide-border/40">
             {section.rows.map((row) => (
               <BarRow
@@ -201,6 +243,9 @@ export function MoneyIn({ month }: { month: MonthFinances }) {
               />
             ))}
           </div>
+          {showHeaders && section.rows.length > 0 ? (
+            <SectionTotal section={section} moneyIn={month.moneyIn} />
+          ) : null}
         </Fragment>
       ))}
     </ChartCard>

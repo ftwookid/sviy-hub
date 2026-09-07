@@ -40,6 +40,20 @@ import { formatCurrency } from "@/lib/formatters";
 export const OUT_INK = "#A8823C";
 const TRACK = "#EDEAE3";
 
+/**
+ * The width the row's `ⓘ` takes out of the line, and the space anything without
+ * one has to leave in its place.
+ *
+ * The icon is a 42px tap target pulled 8px into the row's right padding, so it
+ * consumes 34px plus the row's 10px gap. A row with no detail used to simply
+ * not render it, which pushed that row's figure 44px further right than its
+ * neighbours — a column of figures with two right edges, in the one card that
+ * exists to be read straight down. The slot is permanent now: filled by the
+ * icon where there is something to open, empty where there is not, and matched
+ * by the section total beneath so the sum lands under the numbers it adds up.
+ */
+export const ROW_END_SLOT = "w-[34px] shrink-0";
+
 /** A bar, grown from the left baseline. Never wider than its track. */
 export function Bar({ share, ink }: { share: number; ink: string }) {
   return (
@@ -200,6 +214,7 @@ export function BarRow({ row, action }: { row: BarRowData; action?: () => void }
     return (
       <div className={cn("flex items-center gap-2.5", padding)} title={title}>
         {body}
+        <span aria-hidden className={ROW_END_SLOT} />
       </div>
     );
   }
@@ -215,6 +230,7 @@ export function BarRow({ row, action }: { row: BarRowData; action?: () => void }
       )}
     >
       {body}
+      <span aria-hidden className={ROW_END_SLOT} />
     </button>
   );
 }
