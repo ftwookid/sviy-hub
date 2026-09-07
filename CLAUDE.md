@@ -1544,9 +1544,9 @@ come to, what is it made of, how does it compare with the year:
     it is **not tinted** — the tint is the heading's, and is what says a new
     block has started. The share of income comes down with the total, since
     "22% of money in" is only meaningful beside the figure it is 22% of.
-  - **The figure column has one right edge, always.** A row with no `ⓘ` used to
-    skip the icon entirely, which pushed that row's figure 44px further right
-    than its neighbours — two right edges in the one card that exists to be read
+  - **The figure column has one right edge, always.** A row with nothing on its
+    end used to skip the slot entirely, which pushed that row's figure 44px
+    further right than its neighbours — two right edges in the one card that exists to be read
     straight down. `ROW_END_SLOT` in `chart.tsx` is that 34px permanently: the
     icon where there is something to open, empty space where there is not, and
     matched by the total beneath so the sum lands under the numbers it adds up.
@@ -1592,113 +1592,156 @@ come to, what is it made of, how does it compare with the year:
     the `Money out` meter and the meter was removed instead, which is why the
     row bars are named here explicitly.
 
-    Rows went **51px → 42.5px** (the `ⓘ`'s 42px tap target is the floor now,
-    not the bar) — about 100px off a twelve-line `Money out`. The comparison
+    Rows went **51px → 42.5px**, and then to 44px once the row itself became the
+    tap target (the thumb is the floor now, not the bar) — about 100px off a twelve-line `Money out`. The comparison
     the bars were for survives where it belongs: each block's share of income
     on its header row, and `YearList` for month against month. `Bar` and
     `OUT_INK` stay in `chart.tsx` for the utility grid, where twelve cells of
     one account is a shape worth seeing; `IN_INK` went with the money-in bars.
-  - **A line on the month is its name and its figure — the rest is
-    behind its chevron.** Every row used to print three more facts: "2 payments ·
-    $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
-    on `Money in` a share as well. Down a dozen rows that is two lines of grey
-    between every figure, competing with the one thing the card exists to show —
-    what this costs *this month*. That took the phone view from **1249px to
-    1098px** and a detailed row from 66px to 51.
+  - **A line on the month is its name, its figure, and a chevron.** Every row
+    used to print three more facts: "2 payments · $316.84 every 2 weeks" under
+    the name, "$8,238 a year" beside the amount, and on `Money in` a share as
+    well. Down a dozen rows that is two lines of grey between every figure,
+    competing with the one thing the card exists to show — what this costs *this
+    month*. That took the phone view from **1249px to 1098px** and a detailed row
+    from 66px to 51.
 
-    **It opens over the list, not inside it — a `ⓘ`, not a disclosure.** Two
-    attempts got here. Joining the facts into one grey sentence (`2 payments ·
-    $316.84 every 2 weeks · $8,238 a year`) read as an annotation *on* the row
-    rather than an answer to it. Expanding the row in place answered properly and
-    **moved the page**: this is a list read by scanning down a column of figures,
-    and pushing everything below the row down by four lines costs the reader
-    their place — for a glance that is over in a second. Reflow is the wrong
-    price for a peek.
+    Those facts moved behind a small `ⓘ` on the row, opening an `AnchoredPanel`
+    over the list — and that `ⓘ` is now **gone**, along with the panel, because
+    the row itself opens `LineDetailSheet` (below) and carries every one of them.
+    Two affordances on one row — a 42px target for four facts, and the row for
+    the same four plus a chart — is a choice nobody should have to make. Two
+    things from that version are worth keeping written down, because both were
+    arrived at the hard way:
 
-    So the row carries a small `ⓘ` and the detail opens in an `AnchoredPanel`,
-    the same primitive the pickers use: portalled clear of the card's
-    `overflow-hidden`, pinned under the icon, flipping above it near the bottom
-    of the screen. Measured at 390: page height is **identical open and closed**,
-    nothing scrolls, and dismissing puts the reader back exactly where they were.
+    - **Reflow is the wrong price for a peek.** Expanding the row in place
+      answered properly and moved everything below it down by four lines. This is
+      a list read by scanning down a column of figures, and losing your place
+      costs more than the answer is worth. Whatever opens, opens *over*.
+    - **A row nobody can see is interactive is a row nobody taps.** The `ⓘ` was
+      deliberate rather than a secretly-tappable row; now that the row *is* the
+      control, the chevron does that job. It sits in the permanent
+      `ROW_END_SLOT`, so the figures keep their single right edge and the section
+      total still lands under the numbers it adds up. The row is `min-h-11`
+      — 42.5px → 44px, about 18px across a twelve-line `Money out`, which is
+      what a thumb costs.
+
+  - **A row opens to its timeline** — `LineDetailSheet`, over the month.
+
+    The card answers what each part of the month costs. The question straight
+    after it is **has this been creeping up**, and for a metered bill or a
+    subscription that is the only question worth asking: $15 a month is a shrug,
+    $15 that was $9 two years ago is a decision. Nothing on the page could
+    answer it — the Utilities panel could, for utilities alone, four taps away.
+
+    A **panel, not a route**, for the third time on this page and the strongest
+    case yet: every figure it needs is already in memory behind it, so it opens
+    instantly and closing puts the reader back on the row they left. Whole screen
+    on a phone, a 600px centred dialog on a desktop.
+
+    One card, four blocks. **Three stats, the chart, `This month`, `Month by
+    month`** — with the name, this month's figure and the month it is for in the
+    header above it. Measured at 390: the chart ends at y415 of 844, so the whole
+    answer is on the first screen; the table under it is the scroll.
+
+    - **The three stats say what the chart cannot**: `12-mo avg` (the level the
+      line is noise around), `Change` (trailing twelve against the twelve before,
+      red when a commitment rises and green when income does — the tone follows
+      the block, not the sign), and `A year`. The high and the low are marked on
+      the plot itself and this month's figure is the headline, so neither is
+      repeated here.
+    - **The run rate is never this month × 12.** A typed line uses its own rate
+      and cadence, as before. A *linked* row has no rate, and the fallback is the
+      twelve-month average × 12 rather than the month — a quiet September of
+      house sitting annualised at $3,600 against a real $6,040.
+    - **`This month` is the old `ⓘ` panel, unchanged**, and still governed by the
+      same test: every row in it has to say something the month row cannot.
+      `lineDetail()` in `lib/finances.ts` still decides it — what one payment is
+      worth, how many landed against how many usually do, when the amount last
+      moved and what it was, and the dates only in a month that holds a change.
+      Deliberately **not** in it: the date a line's first rate carries, which for
+      most lines is when the figure was typed into the app rather than when the
+      commitment started.
+    - **A utility now carries no `This month` block at all.** `utilityDetail()`
+      is deleted: last month, the same month a year ago and the twelve-month
+      average were the whole of it, and all three are drawn on the chart directly
+      above. It was the same figures twice.
+    - **`Month by month` is the chart's table twin**, two columns filled
+      *downwards* (a CSS grid fills row-by-row by default, which would make the
+      reader zig-zag to follow a sequence — the lesson `YearList` already
+      learned). It is what makes the panel readable without seeing colour.
+
+    **What the timeline plots is the same measure as the row** — whatever the
+    month prints for that line — so the last point and the headline are the same
+    number rather than two nearly-equal ones. `lib/financeHistory.ts` resolves it
+    per row: `amountForMonth` over a typed line's life, the actual bills for a
+    utility, the year's nights for house sitting, and nothing for the regular
+    clients, which are one current estimate and have no month-by-month record to
+    draw. It is computed **on the tap**, not on the row: the month is assembled
+    twelve times over for `YearList`, and hanging two years of history on every
+    row of every one of those is twelve identical answers to a question nobody
+    has asked yet.
+
+    Three decisions in the arithmetic, all of them the kind this page keeps
+    catching:
+
+    - **Only real readings.** An unbilled month carries the average of the last
+      three *on the dashboard*, because the water bill is coming whether or not
+      it has arrived — and plotting that estimate here, on the one chart whose
+      job is to show what was really charged, would put an invented flat stretch
+      on the end of it. The line simply stops at the last bill.
+    - **A part-month at either end is dropped.** A line whose first change is
+      dated the 25th collected one paycheck in that month rather than two, so it
+      plots at half height — and read as the low of a timeline about the *level*
+      of a commitment, that is a claim the data does not make. It only ever
+      trims, and it gives way when trimming would leave fewer than two points.
+    - **A month the line did not exist in is absent, not zero**; a month that
+      genuinely earned nothing is zero and stays.
+
+  - **The chart is read without touching anything** (`HistoryChart`). No hover,
+    no tooltip, no crosshair — this is a phone, where a hover does not exist.
 
     ```text
-    Federal Income Tax (Ivan)     $950.52  ⓘ
-                        ┌────────────────────────────┐
-                        │ FEDERAL INCOME TAX (IVAN)  │
-                        │ Every 2 weeks      $316.84 │
-                        │ Payments     3 · usually 2 │
-                        │ Since Aug 6, 2026  was $302.30 │
-                        │ ────────────────────────── │
-                        │ $8,238 a year              │
-                        └────────────────────────────┘
+                          Nov 2025
+       $147  ─────────────────●──────────────
+                    ╭──╮    ╭╯ ╰╮        ╭──●
+                   ╭╯  ╰─╮ ╭╯   ╰╮    ╭──╯
+       $96   ──────●──────╯──────╰────╯──────
+                 Mar 2025
+       Oct 2024                       Sep 2026
     ```
 
-    The panel names its row, because it floats away from it.
+    - **The scale is the data's own band, and it says so.** The utility grid's
+      bars run from zero and must — a bar encodes a quantity by its *length*, so
+      cropping one exaggerates a difference. A line encodes by position and reads
+      by slope, and a zero-based axis on a bill moving between $101 and $131
+      draws a flat line across the top of the plot: it hides the very drift the
+      panel exists to show. The honest version of a cropped axis is a **stated**
+      one, so the high and the low are hairlines in a 56px gutter with their
+      values beside them, rounded together or to the cent together (`$3` for a
+      $2.99 subscription was the miss that added that switch).
+    - **The two month captions live in the padding bands, where no data can
+      reach.** First version put each caption just inside its marker, where the
+      line runs — grey 11px over a 2px gold stroke, unreadable. Second put it on
+      a surface chip: legible, and it cut a white gap through the line at its own
+      peak. Nothing is ever drawn above the high rule or below the low one, so
+      out there a caption needs neither a backing nor a compromise. A caption is
+      dropped when its month is the first or last, which the axis row already
+      names.
+    - **Positioned by time, not by index**, so a utility with no bill in March
+      shows a longer stretch of line rather than two adjacent months.
+    - **Dots on every point up to 14**, past which the line reads as a comb;
+      the high, the low and the latest keep an 8px marker with a surface ring
+      whatever the count. A flat line gets a 96px plot rather than 188px — a
+      straight rule with 188px of white under it reads as a chart that failed to
+      load.
+    - **HTML dots over an SVG line.** The plot is full-width at a fixed height,
+      so the SVG stretches (`preserveAspectRatio="none"`, with
+      `non-scaling-stroke` keeping the 2px honest) — which would squash a
+      `<circle>` into an ellipse and a `<text>` into a smear. The line is the
+      only thing in the SVG; every dot and label is an ordinary element at a
+      percentage.
 
-    **Every row in it has to say something the month row cannot**, and the first
-    version failed that test badly enough to be worth recording: it listed every
-    payment by date. On a line whose payments are all worth the same — which is
-    almost every line, almost every month — "Sep 3 $302.30 / Sep 17 $302.30" is
-    one figure printed twice, and two lines of it made the panel look like it was
-    answering while it was padding. `lineDetail()` in `lib/finances.ts` decides
-    the contents now, and four things pass:
-
-    - **What one payment is worth**, when the month's figure is not simply it. A
-      monthly line's payment *is* the row, so it is left out; a fortnightly one's
-      is the actual paycheck, which is the figure a person recognises.
-    - **How many landed, against how many usually do.** This was missing, and it
-      is the answer to the only question a month total really raises — why is
-      this bigger than last month. `3 · usually 2` says it outright, and it is
-      stated even when the dates are listed above it, since the comparison is the
-      point and cannot be counted off them. Only Weekly and Bi-weekly have a
-      "usually" at all; every other cadence lands the same number of times in
-      every month it is due.
-    - **When the amount last moved, and what it was.** Nowhere else on the month
-      is a line's history visible, and "Since May 1, 2026 · was $10.99" is what
-      turns a subscription figure into a subscription that crept. Only across a
-      change of amount at the same cadence — monthly → fortnightly moves the unit
-      as well, so "was $2,600" would compare two different things — and never in
-      the month the change lands in, where the dated list already showed it
-      happening.
-    - **The dates**, only in that month, where the payments are worth different
-      amounts and nothing but the list says which is which.
-
-    Deliberately **not** in it: the date a line's first rate carries. For most
-    lines that is when the figure was typed into the app, not when the commitment
-    started, so "Since Dec 25, 2025" on a rent line running since 2021 would be a
-    claim the data cannot support.
-
-    A linked figure has no schedule to describe — it is an estimate off another
-    table — so there the hint that used to sit on the row is the whole detail.
-    **When the note is the only thing in the panel it is set as content**, not as
-    the 11.5px grey footnote it is under a list of rows: a single grey line under
-    a heading reads as a panel that failed to load. And a line that has ended is
-    worth 0 a year from the day after, so the run rate is dropped rather than
-    printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
-    catching itself doing.
-
-    **The figure and the `ⓘ` centre against the whole row.** This mattered more
-    when the row's first child was a stacked column — the name above its bar —
-    where aligning to the top put the amount level with the name and left it
-    sitting high over the bar. The row is one line now and `items-center` lands
-    all three on the same centre, measured identical at 390 and 1280.
-
-    **The row stays a reading; only the icon is a control.** Its target is 42×42,
-    bought with padding pulled back by an equal negative margin so the row keeps
-    the 51px it had — and **only the 26px circle inside that target is painted**.
-    Hover, press and focus all landed on the 42px box first time out, which lit a
-    square three times the icon's size; `.focus-ring-child` and a `group-hover`
-    on the child are what keep the treatment the size of the thing being touched.
-
-    Nothing is deleted, and the **yearly run rate is still the reason the detail
-    exists** — $15 a month is a shrug and $180 a year is a decision. It is still
-    rounded (`formatCurrencyRounded`), because a run rate is an extrapolation
-    rather than an amount anybody was charged, and still taken from the line's
-    own rate rather than this month × 12, which would annualise a three-paycheck
-    August at 1.5×. It is simply not mandatory on every row.
-
-    The icon is deliberate rather than a secretly-tappable row: a row nobody can
-    see is interactive is a row nobody taps.
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
   - **An empty block gets no total and one dash.** Nothing in it means nothing
@@ -1876,7 +1919,7 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   measured, the cadence caption is a 94×47 target painting 78×23, and `Remove` a
   70×47 target painting 54×23. Left on the button, the hover filled the whole
   inflated box and a 12px caption lit up a 47px block. Same rule, same helper
-  (`.focus-ring-child`), as the month's `ⓘ`.
+  (`.focus-ring-child`), as the month's `ⓘ` did.
 - **The amount field says it is the amount.** Its caption was the cadence alone,
   so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
   and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
@@ -1951,6 +1994,9 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
 - `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
+- `components/finances/LineDetailSheet.tsx`: One line, opened — its timeline over the month.
+- `components/finances/HistoryChart.tsx`: The line chart, and its table twin.
+- `lib/financeHistory.ts`: A line's past, month by month. Pure.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.

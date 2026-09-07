@@ -1,6 +1,6 @@
-import { periodMonthShortLabel, shiftPeriodMonth } from "@/lib/expenses";
-import { formatCurrency, parseLocalDate, toInputDate } from "@/lib/formatters";
-import type { FinanceBucket, FinanceDetailRow, FinanceRow } from "@/types/finance";
+import { shiftPeriodMonth } from "@/lib/expenses";
+import { parseLocalDate, toInputDate } from "@/lib/formatters";
+import type { FinanceBucket, FinanceRow } from "@/types/finance";
 import type {
   UtilityAccount,
   UtilityBill,
@@ -21,7 +21,7 @@ import type {
  * and the wrong one: the water bill is certainly coming, and a month that omits
  * it understates what is already promised by exactly the amount the page exists
  * to keep track of. So an unbilled month carries the average of the last few
- * bills and says so, on the row and in its detail. Before the *first* bill there
+ * bills and says so, on the row itself. Before the *first* bill there
  * is nothing to average and the account is worth nothing — a guess with no data
  * behind it is the zero-pretending-to-be-a-figure this app keeps catching.
  */
@@ -167,51 +167,19 @@ export function latestBill(bills: UtilityBill[]) {
 }
 
 /**
- * What the row's `ⓘ` opens to — same test as every other row on the month: does
- * it say something the figure cannot?
- *
- * Four things do. That the figure is an estimate rather than a bill, which
- * changes how much weight it carries. Last month, which is the comparison a
- * reader makes anyway and would otherwise mean opening the panel. The same month
- * a year ago, because a utility is seasonal and January against December says
- * nothing. And the twelve-month average, which is the line every single month is
- * noise around.
- */
-function utilityDetail(bills: UtilityBill[], periodMonth: string, value: UtilityMonthValue) {
-  const rows: FinanceDetailRow[] = [];
-
-  if (value.basis === "estimate") {
-    rows.push({
-      label: "Estimated",
-      value: `avg of last ${value.from} ${value.from === 1 ? "bill" : "bills"}`
-    });
-  }
-
-  const previous = billFor(bills, shiftPeriodMonth(periodMonth, -1));
-  if (previous) {
-    rows.push({ label: periodMonthShortLabel(previous.period_month), value: formatCurrency(previous.amount) });
-  }
-
-  const yearAgo = billFor(bills, shiftPeriodMonth(periodMonth, -12));
-  if (yearAgo) {
-    rows.push({ label: periodMonthShortLabel(yearAgo.period_month), value: formatCurrency(yearAgo.amount) });
-  }
-
-  const { recentAverage } = utilityTrend(bills, periodMonth);
-  if (recentAverage !== null && bills.length > 1) {
-    rows.push({ label: "12-month average", value: formatCurrency(recentAverage) });
-  }
-
-  return { rows };
-}
-
-/**
  * The rows a bucket gets from the utilities in one month.
  *
  * They are `source: "Utilities"` — a linked figure, like the clients and the
  * house sitting, and for the same reason: the amount is recorded somewhere that
  * already owns it, so a second editable copy on the month would be a figure that
  * silently goes stale. It is edited where it is entered.
+ *
+ * The row carries no `detail`. It used to — the estimate basis, last month, the
+ * same month a year ago, the twelve-month average — for a small panel behind an
+ * `ⓘ` that no longer exists. Every one of those is answered better by the
+ * timeline the row now opens to (`LineDetailSheet`), which draws the whole two
+ * years rather than naming three months of it; repeating them in a block above
+ * that chart would be the same figures twice.
  */
 export function utilityRowsForBucket(
   book: UtilityBook,
@@ -235,7 +203,6 @@ export function utilityRowsForBucket(
         // The run rate off the twelve-month average, not this month × 12: a
         // January heating bill annualised is a number nobody will ever pay.
         yearAmount: (recentAverage ?? value.amount) * 12,
-        detail: utilityDetail(bills, periodMonth, value),
         hint:
           value.basis === "none"
             ? "No bills entered yet"

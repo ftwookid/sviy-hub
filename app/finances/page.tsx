@@ -8,6 +8,7 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { MoneyIn, MoneyOut } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
+import { LineDetailSheet } from "@/components/finances/LineDetailSheet";
 import { SetupSheet } from "@/components/finances/SetupSheet";
 import { UtilitiesSheet } from "@/components/finances/UtilitiesSheet";
 import { YearList } from "@/components/finances/YearList";
@@ -38,7 +39,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
-import type { FinanceBucket, FinanceLine } from "@/types/finance";
+import type { FinanceBucket, FinanceLine, FinanceRow } from "@/types/finance";
 import type { UtilityAccount, UtilityBill, UtilityBucket } from "@/types/utility";
 
 /**
@@ -82,6 +83,10 @@ export default function FinancesPage() {
   const [loading, setLoading] = useState(true);
   const [setupOpen, setSetupOpen] = useState(false);
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
+  // The line whose timeline is open over the month. The row itself is held
+  // rather than its key, because the panel's headline is this month's figure and
+  // the row already carries it, along with its hint and its working.
+  const [openRow, setOpenRow] = useState<FinanceRow | null>(null);
   const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
@@ -164,19 +169,30 @@ export default function FinancesPage() {
   // Grouped once, not once per month per bucket.
   const book = useMemo(() => utilityBook(accounts, bills), [accounts, bills]);
 
+  // The stays, spread over the nights they were slept in. Built once here rather
+  // than inside the month memo, because a line's timeline reads the same array.
+  const houseSitting = useMemo(() => houseSittingByMonth(bookings, year), [bookings, year]);
+
   const months = useMemo(
     () =>
       buildYear({
         year,
         lines,
         clientIncome: clientMonthlyIncome(clients),
-        houseSitting: houseSittingByMonth(bookings, year),
+        houseSitting,
         utilities: book
       }),
-    [book, bookings, clients, lines, year]
+    [book, clients, houseSitting, lines, year]
   );
 
   const month = months[monthIndex];
+  // Everything a line's past can be read out of, gathered once. The page already
+  // holds all of it to build the month at all, which is why opening a line costs
+  // no query and can be a panel over the month rather than a route away from it.
+  const historySources = useMemo(
+    () => ({ lines, book, houseSitting }),
+    [book, houseSitting, lines]
+  );
   // One box, not two stacked above the month: they are both "run this migration",
   // and a second warning costs more height than the sentence is worth.
   const notice = [lineNotice, utilityNotice].filter(Boolean).join(" ");
@@ -294,11 +310,11 @@ export default function FinancesPage() {
                   left column for both rows and the two short blocks stack
                   beside it. */}
               <div className="order-3 lg:col-start-2 lg:row-start-2 lg:self-start">
-                <MoneyIn month={month} />
+                <MoneyIn month={month} onOpenRow={setOpenRow} />
               </div>
 
               <div className="order-4 lg:col-start-1 lg:row-start-2 lg:row-span-2 lg:self-start">
-                <MoneyOut month={month} />
+                <MoneyOut month={month} onOpenRow={setOpenRow} />
               </div>
 
               <div className="order-5 lg:col-start-2 lg:row-start-3 lg:self-start">
@@ -384,6 +400,23 @@ export default function FinancesPage() {
             )
           }
           onDeleteBill={(billId) => runUtilityChange(() => deleteUtilityBill(billId), "Bill removed")}
+        />
+      ) : null}
+
+      {/* A line, opened: its timeline first, then this month's working and every
+          figure behind the chart as text. It reads the same sources the month
+          behind it was built from, so it opens instantly and closing puts the
+          reader back on the row they left. */}
+      {openRow ? (
+        <LineDetailSheet
+          row={openRow}
+          direction={
+            month?.sections.find((section) => section.rows.some((row) => row.key === openRow.key))
+              ?.direction ?? "out"
+          }
+          periodMonth={periodMonth}
+          sources={historySources}
+          onClose={() => setOpenRow(null)}
         />
       ) : null}
 
