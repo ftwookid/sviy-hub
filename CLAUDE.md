@@ -1135,14 +1135,124 @@ so entering a month twice corrects it rather than doubling the month.
   behind it is the zero-pretending-to-be-a-figure this page keeps catching.
 - **The run rate is the twelve-month average × 12, never this month × 12.** A
   January heating bill annualised is a number nobody will ever pay.
-- **The rows are the chart, and the chart is the form.** There is no separate
-  entry field: twelve months, oldest at the top, each a label, a bar and a figure
-  — and tapping one turns that month's row into its own amount field with Save,
-  Cancel and, when a bill is already there, Delete. That is the same rule the
-  Setup panel arrived at the hard way: one form, in the place the figure is read,
-  so there are never two identical forms on a card to type a bill into the wrong
-  one of. It also means the month is never ambiguous — it is the row you tapped.
-  The rows are 44px, because they are the control as well as the reading.
+- **A year at a time, as a grid — and the grid is the form.** There is no
+  separate entry field: the twelve months of one calendar year are cells, three
+  across on a phone and six on a desktop, each a month, its figure and its bar.
+  Tapping one lights it and opens a single amount field underneath, naming the
+  month, with Save, Cancel and — when a bill is already there — Delete. That is
+  the same rule the Setup panel arrived at the hard way: one form, in the place
+  the figure is read, so there are never two identical forms on a card to type a
+  bill into the wrong one of. The month is never ambiguous: the form names it and
+  the cell above is lit.
+
+  It was **twelve 44px rows over a rolling twelve months anchored on the page's
+  month**, and that was wrong in two ways at once as soon as an account had any
+  history:
+
+  - **It could not reach the history at all.** A rolling window only ever shows
+    the last twelve months, so an electricity account billed since 2023 had three
+    of its four years with no way in: the only route to March 2024 was to close
+    the panel, walk the whole Finances page back to that month, and reopen it.
+    That is the failure worth remembering — the section exists to hold years of
+    bills, and the reader could only see one of them.
+  - **It was 701px on a phone**, measured, for a single utility — most of the
+    fold, and 67px of scrolling before the name and delete at the bottom.
+
+  A calendar year is what a reader navigates by. Nobody hunts for "the bill
+  eleven months back"; they think "March, the year the boiler went". So the year
+  steps with two arrows either side of the year itself — never at the two ends of
+  the row, which is the mistake the month picker made four times — and the whole
+  year is on screen at once. Measured at 390: **701px → 499px with no scrolling
+  at all**, 601px with the editor open and still no scrolling; 358px on a
+  desktop. A fifth year of bills now costs nothing in height, which is the whole
+  point.
+
+  **The year is a picker as well as two arrows.** The arrows are for the step
+  made most — last year, next year — and the label opens the rest, because a
+  reader with paper from 2023 should not tap three times to reach it, and because
+  a control that changes what you are looking at shows you the options rather
+  than making you cycle to find them. Same shape as the app's own `MonthPicker`.
+  Each year in the list carries its bill count, so "is there anything in 2024?"
+  is answered without stepping into it to find out; a year with none reads `—`.
+
+  **That trigger is a chip painted at rest, not a number that lights up on
+  hover.** It shipped as the inflated-target pattern — a 72×52 hit area painting
+  only its 64×28 label — which is right for a caption sitting on a label line
+  and wrong for this. On the screen this is used on there is no hover, so nothing
+  said it was a control at all, and the part you aim at read as about half the
+  size of the thing you were aiming for. It is the house chip now
+  (`ClientFilterMenu`'s shape): target and paint are the same **88×44** box,
+  bordered like the month cells directly beneath it so it stands off the tinted
+  panel, with the focus ring on the chip itself rather than on an invisible box
+  around it. The arrows went 36×44 → **44×44**, so a thumb gets the floor in both
+  directions. The year row is still 44px and the panel grew 8px.
+
+  **The year's figure is its total, and nothing else.** It read
+  `12 bills · $1,272.60` until the controls beside it grew, at which point it
+  clipped at 360px — and the count was the half being stated twice, since the
+  grid directly underneath shows exactly which months are filled. The count still
+  earns its place in the picker, where those years cannot be seen. A year with no
+  bills says nothing on this row; twelve dashes below already say it.
+
+  **How far back it goes is fixed, not derived from the bills, and that is the
+  whole point.** It was "one year before the first bill", on the reasoning that
+  the range would extend itself as history was entered — which is exactly
+  backwards for the case that matters. An account whose bills start in 2025, or
+  which has none at all, could not reach 2023 to type its history in: you would
+  have had to enter a bill in 2025 to unlock 2024, and one in 2024 to unlock
+  2023. It shipped that way and Ivan hit it on the first account he opened. The
+  years a reader wants are the ones they have paper for, and the app cannot know
+  which those are until they are typed. Ten years back is always reachable —
+  enough for any household utility history, and one short scroll in the picker —
+  and anything older that already has a bill lowers the floor further still.
+  Forward stops at the later of the page's year and the newest bill.
+
+  Neither bound reads the clock: the page's own month is what "now" means here,
+  so the same book renders identically on the server and in the browser.
+
+- **The bars are scaled across every bill on the account, not just the year on
+  screen.** A per-year scale would redraw 2023 at the same lengths as 2026 and
+  hide exactly the drift the section exists to show — the one thing that would
+  make this chart lie, the same reasoning as bars running from zero. A month with
+  no bill draws no mark; it keeps its space so the grid stays square, because an
+  empty track is a bar drawn for a quantity that does not exist.
+
+- **The three figures follow the year being browsed**, so they read `2024 avg`,
+  `2023 avg`, `Change` rather than `12-mo avg` / `Year before`. The comparison
+  names the two years it is comparing instead of leaving the reader to work out
+  which twelve months were meant.
+
+- **The editor's field is the last thing in its block on a phone, and the
+  controls sit above it.** This one took two goes and the second is a rule worth
+  keeping.
+
+  Sharing one row left the amount field **84px** of a 390px screen — the part
+  that is read and typed into being the part that got shortened, the exact
+  failure the Setup panel already has written down. So the controls went onto
+  their own line. Below the field, which was the obvious place and the wrong one:
+  **focusing an input raises the iOS keyboard, and Safari scrolls that input into
+  view over whatever is left of the page.** With the number pad, the autofill
+  accessory bar and Safari's own bottom URL bar, that is about **381pt of an
+  844pt screen**. Anything below the field is therefore under the keyboard —
+  measured, Save landed at y387–431 against a 381pt fold, so it was sliced in
+  half by the URL bar the moment a bill was typed. It shipped that way and Ivan
+  hit it on the first bill he entered.
+
+  So on a phone the month label and the controls share the first line and the
+  field takes the whole of the second (318px, at the 16px floor under
+  `pointer: coarse` — wider than the 244px it had). Whatever Safari scrolls to
+  bring the field into view now necessarily leaves the row above it on screen:
+  measured in a 381pt strip, the controls sit at y155–199 with the field at
+  y205–249, both fully visible. No keyboard measuring, no `visualViewport`
+  listener, nothing fighting Safari for the scroll position — the fix is the
+  order of two elements.
+
+  **The general rule, since every panel in this app is used on a phone: in a form
+  inside a scrolling panel, nothing the user must reach goes below the field they
+  will be typing in.** A desktop has no keyboard to dodge, so from `sm` it goes
+  back to one row — label, field, controls — via `order` rather than a second
+  copy of the buttons. Destructive stays at the far left of the row, across from
+  Save rather than beside it.
 - **Three figures above the chart**: twelve-month average, the twelve before it,
   and the change between them as a signed percentage. That is the answer to "is
   it going up", stated as figures. **No prose verdict**, same as Mileage and the
@@ -1160,8 +1270,44 @@ so entering a month twice corrects it rather than doubling the month.
   the panel is still open. On a phone the Setup chip drops its word and keeps its
   icon; Utilities keeps its label, because a bill arrives most weeks and Setup is
   visited a few times a year.
-- Deleting an account takes every bill ever entered against it — the history the
-  whole section exists for — so it is the one write here that asks first.
+- **Nothing here is destroyed without being asked about.** Deleting an account
+  takes every bill ever entered against it — the history the whole section
+  exists for — and deleting one month's bill throws away a figure copied off a
+  paper statement that is not coming back, in a strip the finger is already
+  inside, since the month rows are the control as well as the chart. Both go
+  through `ConfirmDialog`, and the question names what goes: the account's bill
+  count, or the month and its amount.
+
+  The same rule now covers the other two places a trash icon sat on every row of
+  a list with nothing between the tap and the write — a Health weigh-in
+  (`WeightDetail`) and a car cost (`VehicleSettingsCard`). A weigh-in in
+  particular cannot be taken again: yesterday's morning is gone.
+
+  Two things about `ConfirmDialog` were wrong for as long as it has existed, and
+  both are fixed rather than worked around:
+
+  - **Its backdrop click passed through.** The dialog is rendered inside panels
+    whose own backdrop closes them (Utilities, Setup), and nothing stopped the
+    event, so dismissing the question also shut the panel behind it — the
+    opposite of what a confirmation is for.
+  - **Its destructive button was not red.** `cn` is a plain join with no
+    Tailwind merge, so the `bg-danger` bolted onto `variant="primary"` sat
+    beside `bg-text-primary` and lost on source order. Every destructive
+    confirmation in the app rendered in the ordinary near-black. The tone is a
+    Button variant now (`destructive`, solid red), not a class layered over
+    another variant — the same "red at rest, because a phone has no hover"
+    rule the Setup panel's buttons already follow.
+
+  Deliberately still without a dialog, and why: removing a saved payment card
+  (it sits behind the pencil and rewrites no history), deleting a dated change
+  in Setup or a statement-import row (both are already the second step inside an
+  opened edit form, and the import row is not in the books yet).
+
+  Still on native `window.confirm` rather than `ConfirmDialog`, which is a
+  consistency debt rather than a missing guard: deleting a client
+  (`app/clients/page.tsx`), deleting a price-history entry
+  (`app/clients/[id]/page.tsx`), and the three mileage prompts — delete, restore
+  and reassign an import (`app/mileage/page.tsx`).
 
 Rules the arithmetic follows:
 
@@ -1579,7 +1725,8 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
 - `components/finances/UtilitiesSheet.tsx`: The metered bills, over the month.
 - `components/finances/UtilityGroups.tsx`: One utility, its months, and where its bill is typed.
-- `lib/utilities.ts`: What a utility is worth in a month, and which way it is going. Pure.
+- `lib/utilities.ts`: What a utility is worth in a month, which way it is going,
+  and the twelve months of a year (`monthsOfYear`). Pure.
 - `lib/utilityClient.ts`: Reads and writes for the accounts and their bills.
 - `supabase/utilities-schema.sql`: `utility_accounts` and `utility_bills`.
 - `types/utility.ts`: Accounts, bills, and the buckets a utility may land in.

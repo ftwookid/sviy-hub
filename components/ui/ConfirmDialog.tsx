@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 
 export function ConfirmDialog({
@@ -32,7 +31,14 @@ export function ConfirmDialog({
       className="fixed inset-0 z-[80] flex items-end justify-center bg-[#1A1916]/30 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
-      onClick={onCancel}
+      // Stop here. This dialog is rendered inside panels whose own backdrop
+      // closes them (Utilities, Setup), so a click meant to dismiss the question
+      // would otherwise carry on through and shut the panel behind it — which is
+      // the opposite of what a confirmation is for.
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!busy) onCancel();
+      }}
     >
       <div
         className="sheet-panel w-full max-w-[420px] rounded-t-[28px] border border-border bg-surface p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_24px_70px_rgba(48,38,24,0.24)] sm:rounded-[24px] sm:pb-5"
@@ -45,9 +51,14 @@ export function ConfirmDialog({
           <Button className="w-full" variant="soft" type="button" disabled={busy} onClick={onCancel}>
             {cancelLabel}
           </Button>
+          {/* The tone is the variant, not a class bolted onto another one:
+              `cn` is a plain join, so `bg-danger` beside `primary`'s
+              `bg-text-primary` was decided by Tailwind's own source order — and
+              lost. Every destructive confirmation in the app has been rendering
+              in the ordinary near-black. */}
           <Button
-            className={cn("w-full", tone === "danger" && "bg-danger text-white hover:bg-[#B14444]")}
-            variant={tone === "danger" ? "primary" : "accent"}
+            className="w-full"
+            variant={tone === "danger" ? "destructive" : "accent"}
             type="button"
             disabled={busy}
             onClick={onConfirm}

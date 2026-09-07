@@ -11,3 +11,6 @@ work/node-runtime/
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 .DS_Store
+
+# Screenshots written by scripts/verify-ui.mjs on every run.
+ui-shots/

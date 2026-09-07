@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DateField } from "@/components/ui/DateField";
 import { cn } from "@/lib/cn";
 import { formatCurrency, todayInputValue } from "@/lib/formatters";
@@ -33,6 +34,9 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
   const [costAmount, setCostAmount] = useState("");
   const [costNote, setCostNote] = useState("");
   const [saving, setSaving] = useState(false);
+  // A logged cost is a receipt somebody typed up months ago, and the trash sits
+  // on every row of the ledger — so it asks before the row goes.
+  const [deletingCost, setDeletingCost] = useState<VehicleCost | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -263,7 +267,7 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
                   type="button"
                   aria-label="Delete cost"
                   className="focus-ring justify-self-end rounded-lg p-1.5 text-text-tertiary hover:bg-subtle hover:text-danger"
-                  onClick={() => removeCost(cost.id)}
+                  onClick={() => setDeletingCost(cost)}
                 >
                   <Trash2 size={15} strokeWidth={1.7} />
                 </button>
@@ -277,6 +281,20 @@ export function VehicleSettingsCard({ userId }: { userId: string }) {
           Nothing logged. Fuel is worked out from the miles.
         </p>
       )}
+
+      {deletingCost ? (
+        <ConfirmDialog
+          title={`Delete this ${deletingCost.kind.toLowerCase()} cost?`}
+          description={`${formatCurrency(deletingCost.amount)} leaves the ledger, and what the car has taken back comes down by that much.`}
+          confirmLabel="Delete it"
+          onCancel={() => setDeletingCost(null)}
+          onConfirm={() => {
+            const target = deletingCost;
+            setDeletingCost(null);
+            void removeCost(target.id);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

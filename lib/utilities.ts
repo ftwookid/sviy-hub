@@ -98,6 +98,27 @@ export function monthValue(bills: UtilityBill[], periodMonth: string): UtilityMo
   return { amount: average, basis: "estimate", from: earlier.length };
 }
 
+/**
+ * The twelve months of one calendar year, each with its bill or null.
+ *
+ * A calendar year rather than a rolling window, because this is what a reader
+ * navigates by: nobody hunts for "the bill eleven months back", they think
+ * "March, the year the boiler went". It is also what makes the history reachable
+ * at all — a rolling twelve anchored on the page's month can only ever show the
+ * last twelve, so four years of electricity had three of them with no way in.
+ */
+export function monthsOfYear(bills: UtilityBill[], year: number) {
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const month = periodMonthOf(year, monthIndex);
+    return { periodMonth: month, monthIndex, bill: billFor(bills, month) };
+  });
+}
+
+/** The year of the first bill on an account, or null while none has been entered. */
+export function firstBillYear(bills: UtilityBill[]) {
+  return bills.length > 0 ? parseLocalDate(bills[0].period_month).getFullYear() : null;
+}
+
 /** The bills covering `count` months ending at `periodMonth`, months without one included as null. */
 export function monthsEnding(bills: UtilityBill[], periodMonth: string, count: number) {
   return Array.from({ length: count }, (_, index) => {
