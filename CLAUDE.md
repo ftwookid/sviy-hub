@@ -21,12 +21,21 @@ Ivan reviews on the `staging` preview, so a feature branch means he opens the
 preview, sees the old app, and the work may as well not exist. It has happened,
 and the failure is silent — the commit looks finished from this side.
 
-`main` is production and is touched **only** when Ivan types `push live`. Nothing
-else promotes it: not "commit and push", not "ship it", not a task being
-finished. The full promote flow is in `## Git Workflow` at the bottom of this
-file.
+`main` is production and is touched **only** when Ivan asks for it by naming the
+promote. **`push live`, `push main`, `push to main`, `promote`, `deploy` — all of
+them mean the same thing: merge `staging` into `main` and push it.** They are one
+instruction wearing different words, so none of them needs a confirming question
+back; asking "did you mean push live?" when he typed `push main` is the pedantry
+this line exists to stop.
 
-So, in one line: **branch never, `staging` always, `main` only on `push live`.**
+What still does *not* promote it: "commit and push", "ship it", "done", or a task
+simply being finished. The difference is whether `main`, `live`, `production`,
+`promote` or `deploy` is named — if none of them is, the work goes to `staging`
+and stops there. The full promote flow is in `## Git Workflow` at the bottom of
+this file.
+
+So, in one line: **branch never, `staging` always, `main` when the promote is
+named.**
 
 ## Before you ship any screen — the gate
 
@@ -2397,7 +2406,7 @@ The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically p
 https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
 ```
 
-Only deploy production when explicitly told `push live`. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
+Only deploy production when Ivan names the promote — `push live`, `push main`, `push to main`, `promote`, `deploy` are all the same instruction. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
 
 ```bash
 git checkout main
@@ -2424,7 +2433,7 @@ The promote commit message is the production changelog entry. Summarize the user
 https://sviy-hub.vercel.app
 ```
 
-Do not commit normal task work directly to `main`, and do not treat requests to `commit and push` as production deployment unless the user explicitly says `push live`.
+Do not commit normal task work directly to `main`, and do not treat a request to `commit and push` as production deployment — that one names nothing and means `staging`. Any wording that names `main`, `live`, `production`, `promote` or `deploy` is a promote, and is carried out without asking which phrasing was meant.
 
 ## Versioning Rules
 
