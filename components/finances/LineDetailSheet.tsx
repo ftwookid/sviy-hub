@@ -346,7 +346,12 @@ export function LineDetailSheet({
               {range === "homes" ? <HomeComparison spells={spells} direction={direction} /> : null}
 
               {visible.length >= 2 ? (
-                <HistoryChart points={visible} marks={marks} periodMonth={periodMonth} />
+                <HistoryChart
+                  points={visible}
+                  marks={marks}
+                  periodMonth={periodMonth}
+                  direction={direction}
+                />
               ) : (
                 <p className="px-3.5 py-6 text-center text-list text-text-secondary sm:px-4">
                   {history.note ?? "Not enough months yet to draw a line."}

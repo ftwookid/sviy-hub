@@ -1777,6 +1777,36 @@ come to, what is it made of, how does it compare with the year:
     default range is twelve rows, which fits a phone screen whole; `All time` is
     a vertical scroll, which is what a phone is for.
 
+    **A leader across every row, and the average drawn.** Two things the first
+    rotated version was missing, both of them Ivan's:
+
+    - The dot sits somewhere in the middle of a ~170px track with the month name
+      to its left and the figure to its right, and with nothing joining the three
+      there was a beat of work in tying a dot to the number it stands for — "I
+      don't see any line connecting the chart from the left side of December 2025
+      to a number 112". A **hairline runs the width of the track behind the dot**,
+      overlapping both columns by 5px, so the eye is carried label → dot → figure
+      without leaving the row. It is one step off the surface, well under the
+      polyline it crosses: it is there to be followed, not looked at.
+    - **A faint vertical rule stands at the average of the months on screen**, and
+      each dot and its figure take a muted tone for which side of it that month
+      fell — `danger` when a commitment ran over, `success` when it did not, and
+      flipped on a money-in line, since a big month of income is good news. That
+      is the tone rule the `Change` stat already follows, so `direction` is threaded
+      into the chart. **At the average counts as under it**, which is the kind
+      reading and the one Ivan asked for.
+
+      This is the one place in the app where colour carries a reading, so it is
+      **redundant rather than load-bearing** — the rule is drawn, so above-average
+      is a position before it is a colour, and the exact figure is printed either
+      way. It does not reopen "magnitude is length, never colour": the quantity is
+      still the dot's position and the printed number, and the tone is a two-state
+      comparison against a line that is on screen. The average is taken over the
+      months **in view**, because the reading is "which of these was over".
+      The `avg` caption is only printed where it clears both ends of the scale;
+      squeezed against the low or the high it would overprint one of them, and the
+      rule says the same thing on its own.
+
     **`Month by month` is gone as a separate block** — the timeline *is* the
     table now. Two lists of the same twelve figures, one rounded and one not, was
     the duplication the horizontal chart forced.
