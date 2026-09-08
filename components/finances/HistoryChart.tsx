@@ -1,254 +1,334 @@
 "use client";
 
-import { cn } from "@/lib/cn";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { periodMonthShortLabel } from "@/lib/expenses";
-import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
-import { monthsBetween } from "@/lib/financeHistory";
+import {
+  formatCurrency,
+  formatCurrencyRounded,
+  parseLocalDate,
+} from "@/lib/formatters";
 import { OUT_INK } from "@/components/finances/chart";
 import type { FinanceHistoryPoint } from "@/types/finance";
 
 /**
- * A line's timeline — two years of one figure, read without touching anything.
+ * A line's timeline: every month, every amount, on the mark.
  *
- * **Everything is on the first screen.** No hover, no tap, no crosshair: this is
- * used on a phone, where a hover does not exist, and the one thing a reader
- * wants is the shape plus the numbers at the ends of it. So the scale is printed
- * in the left gutter, the high and the low are marked where they happened, the
- * span is named under the plot, and every single figure is listed underneath in
- * `HistoryTable`. Nothing is gated behind an interaction.
+ * The first version was a shape with two annotations — the high and the low
+ * labelled, the rest of the months left to the reader's eye and to a table
+ * further down. Ivan opened the water bill and could not read anything off it,
+ * which is the only verdict that counts: a chart in this app is not decoration
+ * over a table, it **is** how the figures are read. So it is now an ordinary
+ * plotted chart and it obeys the ordinary rules of one.
  *
- * **The scale is the data's own band, and it says so.** The utility grid's bars
- * run from zero and must — a bar encodes a quantity by its *length*, so cropping
- * one exaggerates the difference between two lengths. A line encodes by position
- * and reads by slope, and a zero-based axis on a bill that moves between $101
- * and $131 draws a flat line across the top of the plot: it hides the very drift
- * this panel exists to show. The honest version of a cropped axis is a **stated**
- * one, so the top and bottom of the band are drawn as hairlines with their
- * values beside them rather than left to be assumed.
+ * - **A labelled Y axis**, on round steps, in a fixed gutter that does not
+ *   scroll away.
+ * - **An X axis naming every month**, with the year under the first column of
+ *   each one.
+ * - **A dot on every month, and its amount printed directly above the dot.**
+ *   The house data-viz rule says never a number on every point; that rule is
+ *   about a dense series where the labels become a wall, and it gives way to an
+ *   explicit request on a series of at most 24 points that a person reads one
+ *   month at a time. It is what the panel is opened for.
  *
- * The drawing follows the house spec: one hue (the card's title names the
- * series, so no legend), a 2px line, markers at 8px, hairline rules one step off
- * the surface, no gridlines beyond the two that carry the scale, and a value on
- * an extreme rather than on every point.
+ * **Which is why it scrolls sideways.** A phone gives the plot about 330px. An
+ * amount needs ~45px of that and a month name ~28px, so a column cannot be
+ * narrower than about 60px without the labels colliding — 24 months is 1,440px
+ * and there is no arrangement of a 390px screen that shows them all with their
+ * figures on. Something had to give, and it is not the figures: the chart opens
+ * **scrolled to the right**, on the months just gone, and older ones are a swipe
+ * away. That is the same shape as the Mileage bar chart, which reached the same
+ * conclusion for the same reason.
  *
- * **Why HTML dots over an SVG line.** The plot is full-width and its height is
- * fixed, so the SVG stretches — `preserveAspectRatio="none"` — which keeps the
- * stroke honest via `non-scaling-stroke` but would squash a `<circle>` into an
- * ellipse and a `<text>` into a smear. The line is the only thing in the SVG;
- * the dots and every label are ordinary elements positioned at a percentage, so
- * they stay round and crisp at any width.
+ * The Y gutter sits outside the scroller, so the scale stays put while the
+ * months move under it.
  */
 
 /**
- * The band above the high mark and below the low one.
+ * Room per month — the floor, and how it grows.
  *
- * It is 20% rather than just enough to keep a marker from clipping, because it
- * is where the two month captions go — and **no data can reach it**, which is
- * exactly why they go there. The first version put each caption just inside its
- * marker, where the line runs, and grey 11px over a 2px gold stroke is
- * unreadable; the second put it on a surface chip, which was legible and cut a
- * white gap through the line at its own peak. Nothing above the high rule or
- * below the low one is ever drawn, so out there a caption needs neither a
- * backing nor a compromise.
+ * A column has to hold whichever is wider, the amount above the dot or the month
+ * name under it, plus a gap. A flat 62px was set to the worst case and made a
+ * seven-month water bill scroll when it would have fitted on the screen whole,
+ * so it is measured off the widest label the chart actually carries: roughly
+ * 6.3px a character at 11px, plus breathing room, never under 44.
  */
-const PAD = 20;
+const MIN_COLUMN = 44;
 
-/** Points at or under this many get a dot each; past it the line would read as a comb. */
-const DOTS_UP_TO = 14;
+function columnWidth(labels: string[]) {
+  const longest = labels.reduce(
+    (widest, label) => Math.max(widest, label.length),
+    0,
+  );
+  return Math.max(MIN_COLUMN, Math.round(longest * 6.3 + 12));
+}
 
-/** The gutter the two scale figures sit in, left of the plot. */
-const GUTTER = 56;
+/** The plot's own height, gridlines and all. */
+const PLOT = 178;
 
-type Placed = FinanceHistoryPoint & { x: number; y: number };
+/**
+ * Space above the top gridline for the highest point's own label.
+ *
+ * A point sitting on the top of the scale still has its figure printed above it,
+ * so this is a label's height plus its gap plus air — at 20px the two touched on
+ * a line that ran near the top of its band.
+ */
+const TOP = 26;
 
-/** Where a label sits relative to its point, so nothing runs off either end. */
-function anchor(x: number) {
-  if (x < 14) return { transform: "translateX(0)", align: "text-left" };
-  if (x > 86) return { transform: "translateX(-100%)", align: "text-right" };
-  return { transform: "translateX(-50%)", align: "text-center" };
+/** A little air under the bottom gridline. */
+const BOTTOM = 8;
+
+/** The gutter the Y axis labels sit in, left of the scroller. */
+const GUTTER = 52;
+
+/** About this many gridlines; the round step decides the exact count. */
+const TICKS = 5;
+
+/**
+ * A scale on round numbers.
+ *
+ * The axis is the data's band rounded outwards to a step a person recognises —
+ * 80/100/120/140/160 rather than 96.12/108.9/121.7/134.5/147.3. It is **not**
+ * forced to zero: a bar encodes by length so cropping one lies, but a line reads
+ * by slope, and a zero-based axis on a bill that moves between $101 and $131
+ * draws it flat across the top of the plot and hides the drift the panel exists
+ * to show. The crop is stated rather than assumed — every gridline carries its
+ * value, and every point carries its own.
+ */
+function niceScale(low: number, high: number) {
+  if (!(high > low)) {
+    // A line that never moved. Zero to a round step above it, so the flat line
+    // sits in the plot with something to measure it against.
+    const top = high > 0 ? high : 1;
+    return ticksBetween(0, top, Math.max(top / 2, 0.01));
+  }
+
+  const rough = (high - low) / (TICKS - 1);
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const step =
+    [1, 2, 2.5, 5, 10]
+      .map((factor) => factor * magnitude)
+      .find((size) => size >= rough) ?? magnitude * 10;
+  return ticksBetween(
+    Math.floor(low / step) * step,
+    Math.ceil(high / step) * step,
+    step,
+  );
+}
+
+function ticksBetween(min: number, max: number, step: number) {
+  const values: number[] = [];
+  for (let value = min; value <= max + step / 1000; value += step) {
+    values.push(Math.round(value * 100) / 100);
+  }
+  return { min, max, values };
 }
 
 /**
- * How exact the two scale figures are.
+ * How exact a printed figure is.
  *
- * Rounded is right for a run rate and for a bill in the hundreds, and wrong for
- * a $2.99 subscription, where `formatCurrencyRounded` prints `$3` — a third of a
- * dollar out, on the only figure the chart carries. The switch is made once per
- * chart off the high mark, so the two rules are never one rounded and one not.
- */
-function axisFormat(high: number) {
-  return high >= 100 ? formatCurrencyRounded : formatCurrency;
-}
-
-function ScaleRule({ y, value, format }: { y: number; value: number; format: (value: number) => string }) {
-  return (
-    <>
-      <span
-        aria-hidden
-        className="absolute right-0 h-px bg-border"
-        style={{ left: GUTTER, top: `${y}%` }}
-      />
-      <span
-        className="absolute left-0 -translate-y-1/2 pr-2 text-right text-caption tabular-nums text-text-tertiary"
-        style={{ top: `${y}%`, width: GUTTER }}
-      >
-        {format(value)}
-      </span>
-    </>
-  );
-}
-
-/** A marker: 8px, filled, with a 2px surface ring so it reads over the line it sits on. */
-function Dot({ point, emphasis }: { point: Placed; emphasis?: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "absolute -translate-x-1/2 -translate-y-1/2 rounded-full",
-        emphasis ? "h-2 w-2 ring-2 ring-surface" : "h-1.5 w-1.5"
-      )}
-      style={{ left: `${point.x}%`, top: `${point.y}%`, background: OUT_INK }}
-    />
-  );
-}
-
-/**
- * The month an extreme happened in, hung off its own marker.
+ * **Whole dollars, unless the money is small enough that the cents are most of
+ * it.** `$74.35` on every one of twenty-four points is 42px of label in a column
+ * that then cannot be narrower than 54 — and 35 cents is not what anybody opens
+ * this panel to find out; the `Month by month` list underneath carries every
+ * figure to the cent. Below $10 the rule flips, because `$3` for a $2.99
+ * subscription is a third of a dollar out on a chart made of that one number.
  *
- * The *value* is already on the rule the marker sits on, so this says only the
- * thing the rule cannot. The high's caption sits **above** its marker and the
- * low's **below** its own — out in the empty bands, clear of the line, and a
- * whole plot apart from each other. Near either end the caption stops centring
- * itself and tucks against the edge instead, so a January peak does not hang off
- * the left of the card.
+ * One switch, made once per chart off the top of the scale, so a gridline and a
+ * point are never rounded differently.
  */
-function ExtremeLabel({ point, below }: { point: Placed; below: boolean }) {
-  const { transform, align } = anchor(point.x);
-  return (
-    <span
-      className={cn("absolute whitespace-nowrap text-caption text-text-tertiary", align)}
-      style={{
-        left: `${point.x}%`,
-        top: below ? `calc(${point.y}% + 8px)` : undefined,
-        bottom: below ? undefined : `calc(${100 - point.y}% + 8px)`,
-        transform
-      }}
-    >
-      {periodMonthShortLabel(point.periodMonth)}
-    </span>
-  );
+function figureFormat(max: number) {
+  return max < 10 ? formatCurrency : formatCurrencyRounded;
 }
 
 export function HistoryChart({ points }: { points: FinanceHistoryPoint[] }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  // Which edge has months hidden behind it. A clipped line at the edge of a card
+  // is not a cue anybody reads as "there is more" — a fade is, and it has to be
+  // measured rather than assumed, or the chart would advertise history it does
+  // not have.
+  const [hidden, setHidden] = useState({ left: false, right: false });
+
+  const measure = useCallback(() => {
+    const element = scroller.current;
+    if (!element) return;
+    setHidden({
+      left: element.scrollLeft > 2,
+      right: element.scrollLeft + element.clientWidth < element.scrollWidth - 2,
+    });
+  }, []);
+
+  // Opens on the months just gone. The reader came from a row showing this
+  // month's figure, so that is where the chart has to start; the past is behind
+  // it, in the direction a thumb already swipes.
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    element.scrollLeft = element.scrollWidth;
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure, points]);
+
   if (points.length < 2) return null;
 
-  const first = points[0];
-  const last = points[points.length - 1];
   const amounts = points.map((point) => point.amount);
-  const high = Math.max(...amounts);
-  const low = Math.min(...amounts);
-  const flat = high === low;
+  const scale = niceScale(Math.min(...amounts), Math.max(...amounts));
+  const span = scale.max - scale.min || 1;
+  const band = PLOT - TOP - BOTTOM;
+  const y = (amount: number) => TOP + (1 - (amount - scale.min) / span) * band;
 
-  // Positioned by **time, not by index**: a utility with no bill in March has to
-  // show a longer stretch of line across it, not two adjacent months.
-  const span = monthsBetween(first.periodMonth, last.periodMonth) || 1;
-  const placed: Placed[] = points.map((point) => ({
-    ...point,
-    x: (monthsBetween(first.periodMonth, point.periodMonth) / span) * 100,
-    y: flat ? 50 : PAD + (1 - (point.amount - low) / (high - low)) * (100 - PAD * 2)
-  }));
-
-  const format = axisFormat(high);
-  const highPoint = placed.find((point) => point.amount === high)!;
-  const lowPoint = placed.find((point) => point.amount === low)!;
-  const line = placed.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-  /** The two months the axis row already spells out. */
-  const named = new Set([first.periodMonth, last.periodMonth]);
+  const format = figureFormat(scale.max);
+  const columns = `repeat(${points.length}, minmax(0, 1fr))`;
+  const minWidth =
+    points.length * columnWidth(points.map((point) => format(point.amount)));
 
   return (
     <div className="px-3.5 pb-3 pt-3.5 sm:px-4">
-      <div
-        // A line that never moved does not need the room a moving one does, and
-        // 188px of white under a straight rule reads as a chart that failed to
-        // load rather than as "nothing happened".
-        className={flat ? "relative h-[96px]" : "relative h-[188px]"}
-        role="img"
-        aria-label={
-          flat
-            ? `Unchanged at ${formatCurrency(high)} from ${periodMonthShortLabel(first.periodMonth)} to ${periodMonthShortLabel(last.periodMonth)}.`
-            : `From ${periodMonthShortLabel(first.periodMonth)} to ${periodMonthShortLabel(last.periodMonth)}: highest ${formatCurrency(high)} in ${periodMonthShortLabel(highPoint.periodMonth)}, lowest ${formatCurrency(low)} in ${periodMonthShortLabel(lowPoint.periodMonth)}, latest ${formatCurrency(last.amount)}. Every month is listed below.`
-        }
-      >
-        {flat ? (
-          <ScaleRule y={50} value={high} format={format} />
-        ) : (
-          <>
-            <ScaleRule y={PAD} value={high} format={format} />
-            <ScaleRule y={100 - PAD} value={low} format={format} />
-          </>
-        )}
-
-        <div className="absolute inset-y-0 right-0" style={{ left: GUTTER }}>
-          <svg
-            className="absolute inset-0 h-full w-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden
-          >
-            <polyline
-              points={line}
-              fill="none"
-              stroke={OUT_INK}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-
-          {placed.length <= DOTS_UP_TO
-            ? placed.map((point) => <Dot key={point.periodMonth} point={point} />)
-            : null}
-          {flat ? null : (
-            <>
-              <Dot point={highPoint} emphasis />
-              <Dot point={lowPoint} emphasis />
-              {/* An extreme that falls on the first or last month is already
-                  named by the axis row directly underneath it, and the caption
-                  landed a few pixels above its own duplicate. */}
-              {named.has(highPoint.periodMonth) ? null : <ExtremeLabel point={highPoint} below={false} />}
-              {named.has(lowPoint.periodMonth) ? null : <ExtremeLabel point={lowPoint} below />}
-            </>
-          )}
-          <Dot point={placed[placed.length - 1]} emphasis />
+      <div className="flex">
+        {/* The scale, outside the scroller, so it holds still while the months
+            move under it. */}
+        <div
+          className="relative shrink-0"
+          style={{ width: GUTTER, height: PLOT }}
+          aria-hidden
+        >
+          {scale.values.map((value) => (
+            <span
+              key={value}
+              className="absolute right-2 -translate-y-1/2 text-caption tabular-nums text-text-tertiary"
+              style={{ top: y(value) }}
+            >
+              {format(value)}
+            </span>
+          ))}
         </div>
-      </div>
 
-      {/* The span, named at both ends. Two labels rather than a tick per month:
-          twelve month names across 274px is a smear, and every month is printed
-          in full directly underneath. */}
-      <div
-        className="mt-2 flex items-baseline justify-between text-caption text-text-tertiary"
-        style={{ marginLeft: GUTTER }}
-      >
-        <span>{periodMonthShortLabel(first.periodMonth)}</span>
-        <span>{periodMonthShortLabel(last.periodMonth)}</span>
+        <div className="relative min-w-0 flex-1">
+          <div ref={scroller} onScroll={measure} className="overflow-x-auto">
+            <div
+              className="relative"
+              style={{ minWidth, height: PLOT }}
+              role="img"
+              aria-label={points
+                .map(
+                  (point) =>
+                    `${periodMonthShortLabel(point.periodMonth)} ${formatCurrency(point.amount)}`,
+                )
+                .join(", ")}
+            >
+              {/* Hairlines, solid and one step off the surface — never dashed. */}
+              {scale.values.map((value) => (
+                <span
+                  key={value}
+                  aria-hidden
+                  className="absolute inset-x-0 h-px bg-border"
+                  style={{ top: y(value) }}
+                />
+              ))}
+
+              {/* The line, and only the line. Its x units are columns, so the
+                stretch is horizontal and `non-scaling-stroke` keeps the 2px
+                honest; y is already in the plot's own pixels, so nothing
+                vertical is distorted. */}
+              <svg
+                className="absolute inset-0 h-full w-full"
+                viewBox={`0 0 ${points.length} ${PLOT}`}
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <polyline
+                  points={points
+                    .map(
+                      (point, index) =>
+                        `${index + 0.5},${y(point.amount).toFixed(2)}`,
+                    )
+                    .join(" ")}
+                  fill="none"
+                  stroke={OUT_INK}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+
+              {/* One cell per month, so a dot and its figure centre on the same
+                column the X axis names underneath. */}
+              <div
+                className="absolute inset-0 grid"
+                style={{ gridTemplateColumns: columns }}
+              >
+                {points.map((point) => (
+                  <div key={point.periodMonth} className="relative">
+                    <span
+                      aria-hidden
+                      className="absolute left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface"
+                      style={{ top: y(point.amount), background: OUT_INK }}
+                    />
+                    <span
+                      className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-caption font-medium tabular-nums text-text-primary"
+                      style={{ bottom: PLOT - y(point.amount) + 9 }}
+                    >
+                      {format(point.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* The X axis. The year is named once per year rather than on every
+              column, where twelve repetitions of "2026" would be the only thing
+              the eye could see. */}
+            <div
+              className="mt-2 grid border-t border-border pt-1.5"
+              style={{ gridTemplateColumns: columns, minWidth }}
+            >
+              {points.map((point, index) => {
+                const date = parseLocalDate(point.periodMonth);
+                const opensYear = index === 0 || date.getMonth() === 0;
+                return (
+                  <div key={point.periodMonth} className="text-center">
+                    <div className="text-caption text-text-secondary">
+                      {periodMonthShortLabel(point.periodMonth).split(" ")[0]}
+                    </div>
+                    <div className="text-micro text-text-tertiary">
+                      {opensYear ? date.getFullYear() : " "}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {hidden.left ? (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-surface via-surface/80 to-transparent"
+            />
+          ) : null}
+          {hidden.right ? (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-surface via-surface/80 to-transparent"
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   );
 }
 
 /**
- * Every figure on the chart, as text.
+ * Every figure again, as text, to the cent.
  *
- * The chart's twin, and not an afterthought: a plot answers "which way is this
- * going" and cannot answer "what exactly was March", which is the question a
- * paper bill in your hand raises. It is also what makes the whole panel readable
- * without seeing colour or hitting a 8px target.
+ * The chart carries them all now, so this is no longer the only place a value
+ * can be read — but it is still the place the **cents** can be, since the plot
+ * rounds anything over $100 to keep its labels inside a 62px column. It is also
+ * the twin that reads without scrolling sideways.
  *
  * Two columns filled **downwards**, the way `YearList` learned to: a CSS grid
- * fills row by row by default, which would put the oldest month beside the
- * second-oldest and make the reader zig-zag to follow a sequence.
+ * fills row by row by default, which would put the newest month beside the
+ * second-newest and make the reader zig-zag to follow a sequence.
  */
 export function HistoryTable({ points }: { points: FinanceHistoryPoint[] }) {
   if (points.length === 0) return null;
@@ -258,10 +338,16 @@ export function HistoryTable({ points }: { points: FinanceHistoryPoint[] }) {
   return (
     <div
       className="grid grid-flow-col gap-x-5 px-3.5 pb-3 pt-2.5 sm:px-4"
-      style={{ gridTemplateRows: `repeat(${half}, minmax(0, auto))`, gridTemplateColumns: "1fr 1fr" }}
+      style={{
+        gridTemplateRows: `repeat(${half}, minmax(0, auto))`,
+        gridTemplateColumns: "1fr 1fr",
+      }}
     >
       {rows.map((point) => (
-        <div key={point.periodMonth} className="flex items-baseline justify-between gap-2 py-[3px]">
+        <div
+          key={point.periodMonth}
+          className="flex items-baseline justify-between gap-2 py-[3px]"
+        >
           <span className="truncate text-meta text-text-secondary">
             {periodMonthShortLabel(point.periodMonth)}
           </span>

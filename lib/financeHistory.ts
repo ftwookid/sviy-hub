@@ -1,7 +1,9 @@
-import { periodMonthShortLabel, shiftPeriodMonth } from "@/lib/expenses";
+import { periodMonthBounds, periodMonthShortLabel, shiftPeriodMonth } from "@/lib/expenses";
+import { clientPriceOn, clientStartDate, estimateClientFromRecord } from "@/lib/clients";
 import { amountForMonth, endedOn, onPaydays, paydayWeekdayFor } from "@/lib/finances";
 import { toPeriodMonth } from "@/lib/utilities";
 import { parseLocalDate } from "@/lib/formatters";
+import type { ClientWithPets } from "@/types/client";
 import type { FinanceHistory, FinanceHistoryPoint, FinanceLine, FinanceRow } from "@/types/finance";
 import type { UtilityBook } from "@/types/utility";
 
@@ -175,6 +177,52 @@ export function houseSittingHistory(net: number[], periodMonth: string): Finance
 }
 
 /**
+ * The regular clients, month by month.
+ *
+ * This block used to draw nothing, on the reasoning that a client record says
+ * what the arrangement is *now* and keeps no record of which months were worked
+ * — so a chart of it would be a chart of an assumption. That was half right and
+ * threw away the half the app does have: **`price_history` is dated**, and every
+ * client carries the day it started. So a month is priced at what was actually
+ * being charged in it, and a client contributes only to the months it was on the
+ * books for. A rate rise in May steps the line in May, exactly like a
+ * subscription.
+ *
+ * What is still an estimate, and always will be, is the *visits*: a client says
+ * how many days a week it is, not which weeks were actually worked. So this is
+ * the standing arrangement re-priced month by month — the same thing the row on
+ * the month is, which is the whole rule for what a timeline plots.
+ *
+ * Paused clients are excluded throughout, matching `clientMonthlyIncome`. The
+ * status is a single current flag with no history, so a client paused today is
+ * absent from the whole line rather than from the months since it paused; that
+ * is the one thing here the data cannot say, and inventing a date for it would
+ * be worse than leaving the figure where the dashboard already puts it.
+ */
+export function clientsHistory(clients: ClientWithPets[], periodMonth: string): FinanceHistory {
+  const active = clients.filter((client) => client.status === "Active");
+  if (active.length === 0) return { points: [], note: "No active clients" };
+
+  const points = historyMonths(periodMonth)
+    .map((month) => {
+      const { end } = periodMonthBounds(month);
+      const earning = active.filter((client) => clientStartDate(client) <= end);
+      if (earning.length === 0) return null;
+
+      const amount = earning.reduce(
+        (total, client) =>
+          total +
+          estimateClientFromRecord({ ...client, price_per_visit: clientPriceOn(client, end) }).monthlyNet,
+        0
+      );
+      return { periodMonth: month, amount: Math.round(amount * 100) / 100 };
+    })
+    .filter((point): point is FinanceHistoryPoint => point !== null);
+
+  return { points };
+}
+
+/**
  * What the sources a row can come from look like, gathered once by the page.
  *
  * The page already holds all four to build the month at all, so opening a line
@@ -185,6 +233,7 @@ export type HistorySources = {
   lines: FinanceLine[];
   book: UtilityBook;
   houseSitting: { net: number[]; nights: number[] };
+  clients: ClientWithPets[];
 };
 
 /**
@@ -202,16 +251,7 @@ export function rowHistory(row: FinanceRow, sources: HistorySources, periodMonth
 
   if (row.key === "house-sitting") return houseSittingHistory(sources.houseSitting.net, periodMonth);
 
-  // The regular clients are one current estimate applied to every month — a
-  // client record says what the arrangement is now and keeps no record of which
-  // months were worked. Drawing that as a flat line across two years would be a
-  // chart of an assumption.
-  if (row.key === "clients") {
-    return {
-      points: [],
-      note: "A current estimate, not a record — a client says what the arrangement is now, not what each month came to."
-    };
-  }
+  if (row.key === "clients") return clientsHistory(sources.clients, periodMonth);
 
   const line = sources.lines.find((candidate) => candidate.id === row.key);
   return line ? lineHistory(line, periodMonth) : { points: [] };

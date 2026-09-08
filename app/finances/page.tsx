@@ -190,8 +190,8 @@ export default function FinancesPage() {
   // holds all of it to build the month at all, which is why opening a line costs
   // no query and can be a panel over the month rather than a route away from it.
   const historySources = useMemo(
-    () => ({ lines, book, houseSitting }),
-    [book, houseSitting, lines]
+    () => ({ lines, book, houseSitting, clients }),
+    [book, clients, houseSitting, lines]
   );
   // One box, not two stacked above the month: they are both "run this migration",
   // and a second warning costs more height than the sentence is worth.

@@ -1675,9 +1675,8 @@ come to, what is it made of, how does it compare with the year:
     month prints for that line — so the last point and the headline are the same
     number rather than two nearly-equal ones. `lib/financeHistory.ts` resolves it
     per row: `amountForMonth` over a typed line's life, the actual bills for a
-    utility, the year's nights for house sitting, and nothing for the regular
-    clients, which are one current estimate and have no month-by-month record to
-    draw. It is computed **on the tap**, not on the row: the month is assembled
+    utility, the year's nights for house sitting, and — see below — the dated
+    prices for the regular clients. It is computed **on the tap**, not on the row: the month is assembled
     twelve times over for `YearList`, and hanging two years of history on every
     row of every one of those is twelve identical answers to a question nobody
     has asked yet.
@@ -1698,49 +1697,97 @@ come to, what is it made of, how does it compare with the year:
     - **A month the line did not exist in is absent, not zero**; a month that
       genuinely earned nothing is zero and stays.
 
-  - **The chart is read without touching anything** (`HistoryChart`). No hover,
-    no tooltip, no crosshair — this is a phone, where a hover does not exist.
+    **The regular clients draw a real line, and this is the correction worth
+    recording.** That block was shipped drawing nothing, on the reasoning that a
+    client record says what the arrangement is *now* and keeps no record of which
+    months were worked — so a chart of it would be a chart of an assumption.
+    Ivan's answer was that the app has the data, and he was right: **`price_history`
+    is dated**, and every client carries the day it started. So a month is priced
+    at what was actually being charged in it and a client contributes only to the
+    months it was on the books for — a rate rise in May steps the line in May,
+    and a client joining in April steps it in April, exactly like a subscription.
+    `clientPriceOn()` and `clientStartDate()` in `lib/clients.ts` are the two
+    lookups; `currentClientPrice()` is now just the first of them asked about
+    today.
+
+    What is still an estimate, and always will be, is the *visits*: a client says
+    how many days a week it is, not which weeks were actually worked. So the line
+    is the standing arrangement re-priced month by month — the same thing the row
+    on the month is, which is the rule for what a timeline plots. The one thing
+    the data cannot say is **when** a client was paused: status is a single
+    current flag with no history, so a paused client is absent from the whole
+    line rather than from the months since it paused, and inventing a date for
+    that would be worse than leaving it out.
+
+  - **The chart is an ordinary plotted chart, and obeys the rules of one**
+    (`HistoryChart`).
+
+    The first version was a *shape* with two annotations — the high and the low
+    labelled, every other month left to the eye and to a table further down, on
+    the house data-viz reasoning that a number on every point is a wall. Ivan
+    opened the water bill and could not read anything off it, which is the only
+    verdict that counts. The rule it was obeying is about a dense series; this is
+    at most 24 points that a person reads **one month at a time**, and reading a
+    month off it is what the panel is opened for. So:
+
+    - **A labelled Y axis on round steps** — 80/100/120/140/160, never
+      96.12/108.9/121.7 — in a gutter outside the scroller, so the scale holds
+      still while the months move under it. About five gridlines; the round step
+      decides the exact count.
+    - **An X axis naming every month**, with the year under the first column of
+      each one rather than under all twelve, where "2026" repeated would be the
+      only thing the eye could see.
+    - **A dot on every month with its amount printed above it.**
 
     ```text
-                          Nov 2025
-       $147  ─────────────────●──────────────
-                    ╭──╮    ╭╯ ╰╮        ╭──●
-                   ╭╯  ╰─╮ ╭╯   ╰╮    ╭──╯
-       $96   ──────●──────╯──────╰────╯──────
-                 Mar 2025
-       Oct 2024                       Sep 2026
+       $160  ─────────────────────────────────────────
+                        $139                     $137
+       $140  ────●──────────────────────$128 $133 ●───
+                  ╲                $120  ●    ●
+       $120  ──────╲──$112───$111───●───────────────── 
+                    ●    $104 ●
+       $100  ────────●──$100─●───────────────────────
+                        ●
+       $80   ─────────────────────────────────────────
+              Dec  Jan  Feb  Mar  Apr  May  Jun … Sep
+                   2026
     ```
 
-    - **The scale is the data's own band, and it says so.** The utility grid's
-      bars run from zero and must — a bar encodes a quantity by its *length*, so
-      cropping one exaggerates a difference. A line encodes by position and reads
-      by slope, and a zero-based axis on a bill moving between $101 and $131
-      draws a flat line across the top of the plot: it hides the very drift the
-      panel exists to show. The honest version of a cropped axis is a **stated**
-      one, so the high and the low are hairlines in a 56px gutter with their
-      values beside them, rounded together or to the cent together (`$3` for a
-      $2.99 subscription was the miss that added that switch).
-    - **The two month captions live in the padding bands, where no data can
-      reach.** First version put each caption just inside its marker, where the
-      line runs — grey 11px over a 2px gold stroke, unreadable. Second put it on
-      a surface chip: legible, and it cut a white gap through the line at its own
-      peak. Nothing is ever drawn above the high rule or below the low one, so
-      out there a caption needs neither a backing nor a compromise. A caption is
-      dropped when its month is the first or last, which the axis row already
-      names.
-    - **Positioned by time, not by index**, so a utility with no bill in March
-      shows a longer stretch of line rather than two adjacent months.
-    - **Dots on every point up to 14**, past which the line reads as a comb;
-      the high, the low and the latest keep an 8px marker with a surface ring
-      whatever the count. A flat line gets a 96px plot rather than 188px — a
-      straight rule with 188px of white under it reads as a chart that failed to
-      load.
-    - **HTML dots over an SVG line.** The plot is full-width at a fixed height,
-      so the SVG stretches (`preserveAspectRatio="none"`, with
-      `non-scaling-stroke` keeping the 2px honest) — which would squash a
-      `<circle>` into an ellipse and a `<text>` into a smear. The line is the
-      only thing in the SVG; every dot and label is an ordinary element at a
-      percentage.
+    - **Which is why it scrolls sideways.** A phone gives the plot about 260px.
+      A column has to hold whichever is wider, the amount above the dot or the
+      month name under it, so it cannot go under ~44px — 24 months is over
+      1,000px and there is no arrangement of a 390px screen that shows them all
+      with their figures on. Something had to give and it is not the figures: the
+      chart opens **scrolled to the right**, on the months just gone, which is
+      where the reader came from. Same conclusion the Mileage bar chart reached,
+      for the same reason. A **fade at whichever edge has months behind it** is
+      the cue — measured on scroll, never assumed, so the chart cannot advertise
+      history it does not have; a line clipped at a card edge is not something
+      anybody reads as "there is more".
+    - **The column is measured off the widest label the chart actually
+      carries**, not set to the worst case: a flat 62px made a seven-month water
+      bill scroll when it would have fitted whole.
+    - **Whole dollars, unless the money is small enough that the cents are most
+      of it.** `$74.35` on twenty-four points is 42px of label in a column that
+      then cannot be under 54, and 35 cents is not what anybody opens this for —
+      `Month by month` underneath carries every figure to the cent. Under $10 the
+      rule flips, because `$3` for a $2.99 subscription is a third of a dollar
+      out on a chart made of that one number. One switch per chart, so a gridline
+      and a point are never rounded differently.
+    - **The scale is not forced to zero**, and it says what it is. A bar encodes
+      by length so cropping one lies; a line reads by slope, and a zero-based
+      axis on a bill moving between $101 and $131 draws it flat across the top of
+      the plot and hides the drift the panel exists to show. Every gridline
+      carries its value and every point carries its own, so the crop is stated
+      rather than assumed.
+    - **HTML dots and labels over an SVG line.** The plot is full-width at a
+      fixed height, so the SVG stretches horizontally
+      (`preserveAspectRatio="none"`, `non-scaling-stroke` keeping the 2px
+      honest); a `<circle>` in there would squash to an ellipse and a `<text>` to
+      a smear. Its x units are columns and its y is already the plot's own
+      pixels, so nothing vertical is distorted. Everything else is an ordinary
+      element in a grid of one cell per month, which is also what lines a dot up
+      with the month named under it.
 
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
