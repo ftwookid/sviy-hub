@@ -1719,104 +1719,97 @@ come to, what is it made of, how does it compare with the year:
     line rather than from the months since it paused, and inventing a date for
     that would be worse than leaving it out.
 
-  - **Three ranges, and the chart always fits** (`HistoryChart`).
+  - **Three ranges, and the timeline is turned on its side** (`HistoryChart`).
 
-    The chart got here in three goes, and each failure is worth keeping.
+    Four attempts. The first three were horizontal charts and every one of them
+    broke on the same wall: a phone gives a plot about 260px wide, and a year
+    needs twelve figures in it. They are worth listing because the mistake
+    underneath all three was the same, and it was not a tuning mistake.
 
-    1. A **shape** — the high and the low annotated, every other month left to
-       the eye and to a table further down, on the house rule that a number on
-       every point is a wall. Ivan opened the water bill and could not read
-       anything off it. That rule is about a dense series; this is a handful of
-       points read one month at a time, and reading a month off it is what the
-       panel is opened for.
-    2. A figure on **every** dot, with the chart **scrolling sideways** to make
-       room. Worse in the way that matters: a chart you have to drag is a chart
-       you cannot take in, and the two months you want to compare are never both
-       on screen.
-    3. What it is now: **the range control decides how many months are in view,
-       and the chart decides how many of them can carry a figure.** Nothing
-       scrolls, ever.
+    1. **A shape**, with only the high and the low labelled. Ivan opened the
+       water bill and could not read anything off it.
+    2. **A figure on every dot, with the chart scrolling sideways** to make room.
+       A chart you have to drag is a chart you cannot take in, and the two months
+       you want to compare are never both on screen.
+    3. **Thinned and staggered figures.** Thinning left months with no number at
+       all. Staggering was worse: to keep a label clear of the line it was placed
+       above or below its own *neighbourhood*, which **decoupled a label's height
+       from its value** — so **$114 sat higher on the plot than $121**. That is
+       not a chart that is hard to read, it is one that is wrong, and it is the
+       reason this approach was abandoned rather than tuned again.
 
-    The three ranges are two spans and a **reading**:
+    The app's own space rules already said what to do, about the Reports
+    breakdown and again about `YearList`: **rows rather than columns — twelve
+    labelled columns on a phone are unreadable.** The horizontal chart was built
+    against that rule and lost to it three times. So the crowded axis now runs
+    **down** the page, where a phone has as much room as it needs and scrolling
+    is the natural motion rather than a fight.
+
+    ```text
+                $63.70                        $121.00
+      Oct 2025   ●                             $63.70
+      Nov 2025    ●                            $70.90
+      Dec 2025     ●                           $75.30
+      …
+      May 2026              ●                 $114.00
+      Jun 2026                ●               $121.00
+      Jul 2026     ●                           $77.50
+      Sep 2026    ●                            $79.30   ← this month, tinted
+    ```
+
+    One row per month: the month, a dot placed across a track by value, and the
+    exact figure. A polyline through the dots keeps the shape a line chart gave.
+    What that buys is **structural rather than tuned**, which is the whole point:
+
+    - **Every month is present.** One row each. No thinning, ever, at any range
+      or any width.
+    - **Every figure is exact, to the cent**, in a column with one right edge.
+      Nothing is rounded to make a label fit, because a label cannot collide with
+      anything.
+    - **Nothing can lie.** A row's position is its *date*; its printed figure is
+      its *value*. The dot is a relative cue laid across the row, so there is no
+      arrangement in which a label ends up higher than a bigger number.
+    - **The shape survives.** A rise is dots marching right as you read down.
+
+    Oldest at the top, newest at the bottom — time flows down, which is the
+    direction anybody would guess, and it makes "creeping up" read as rightward.
+    The current month's row is tinted so "now" is findable in a long list. The
+    default range is twelve rows, which fits a phone screen whole; `All time` is
+    a vertical scroll, which is what a phone is for.
+
+    **`Month by month` is gone as a separate block** — the timeline *is* the
+    table now. Two lists of the same twelve figures, one rounded and one not, was
+    the duplication the horizontal chart forced.
+
+    The three ranges are unchanged and are still two spans and a **reading**:
 
     | Range | What it shows |
     | --- | --- |
-    | `12 months` | The last twelve. The default, and it labels all twelve. |
+    | `12 months` | The last twelve. The default. |
     | `By home` | The whole history, cut at each move — see below. |
     | `All time` | Every month the line has ever had. |
 
     The control is a compact pill group at the top right of the block it
     governs, not a full-width segmented row — that is 48px of tax on every
-    visit. Each pill is **44px tall**, which is the floor for anything tappable
-    and is not negotiable down for being small: the first version measured 73×30,
-    a comfortable reading and a miss with a thumb. The house trick of growing a
-    target with padding and pulling it back with a negative margin does not apply
-    — that is for a control painted no larger than its words, and a selected pill
-    is painted, so target and paint are the same box.
+    visit. Each pill is **44px tall**, the floor for anything tappable and not
+    negotiable down for being small: the first version measured 73×30, a
+    comfortable reading and a miss with a thumb.
 
     **The three stats above it do not move when the range does.** They describe
     the line — twelve-month average, direction, run rate — and a figure that
     changed when you changed the view would be a different fact wearing the same
     label. The history is built whole, once, and cut per range.
 
-    How it fits, in order:
+    **A move is a break in the series, not a line drawn across one.** In
+    `By home` each address gets its own heading and its own connected run, and
+    the gap between them is the move — joining them with a stroke would say the
+    months either side are one run of the same thing.
 
-    - **Measure, rather than assume.** The plot is 456px inside a desktop dialog
-      and 258px on a phone; a fixed column width is wrong on one of them by
-      construction. A `ResizeObserver` in a layout effect, so it is placed rather
-      than moved.
-    - **Stagger** the figures above and below the line once a column is narrower
-      than a label. That doubles the room each gets, for the price of a narrower
-      band to draw in. Twelve months at 258px is a 21px column against a 31px
-      label, so the default range staggers — and still names every month.
-    - **Thin** them — every second, every third — when even staggering is not
-      enough, counting back from the **newest** month, so the one the reader
-      arrived from always carries a figure. Forty-five months on a phone labels
-      every fourth. `Month by month` underneath still has all of them, to the
-      cent.
-    - **A figure is placed clear of the neighbourhood, not of its own dot.** A
-      staggered label 9px under its point lands exactly where the line passes
-      when the line is falling steeply, and grey 11px over a 2px gold stroke is
-      unreadable — the same collision that cost this chart two earlier rewrites.
-      It goes above the highest of its own point and its two neighbours, or below
-      the lowest of them, and stays in its own column so which dot it belongs to
-      is never in doubt.
-    - **The year rides on a named column.** It used to print under every January
-      whether or not that column named its month, which put a lone `2024` a third
-      of a column from a named `Dec` — they overlapped. It is now the first named
-      column of each calendar year in view (`Mar 2024`), and when months are
-      given up entirely the year takes their place, at each January, which is
-      twelve columns of room.
-    - **Edge labels tuck in** rather than centring, so the first figure does not
-      hang over the Y gutter.
-    - **A dot on every month, always.** It used to drop to none once a column
-      got narrow, which left the two long ranges as a bare line — and a line
-      with no marks does not read as a monthly series, it reads as a sketch. It
-      shrinks instead, to 3px, and gives up its surface ring once the ring would
-      be wider than the dot inside it.
-    - **The type is 10px on a phone and 11px from `sm`.** `micro` is documented
-      as uppercase-only and this is the one deliberate exception: these are
-      three- and four-character figures in `tabular-nums`, not running text, and
-      on a 3x screen they are crisp. It was Ivan's own proposal and it is the
-      right one — the alternative is fewer of them, and the figures are the
-      point.
-    - **Nothing is estimated from the font.** The widest figure and the widest
-      axis mark are measured off hidden probes wearing the real classes, so the
-      column arithmetic and the Y gutter re-derive themselves when the size
-      changes. The version before this multiplied characters by 6.3px, which is
-      a guess about a font that stops being true the moment the size changes or
-      the face loads late — the class of bug that only shows up on somebody
-      else's phone.
-
-    Unchanged from the version before: a **labelled Y axis on round steps**
-    (80/100/120/140/160, never 96.12/108.9/121.7), **not forced to zero** — a bar
-    encodes by length so cropping one lies, a line reads by slope, and a
-    zero-based axis on a bill moving between $101 and $131 draws it flat across
-    the top of the plot and hides the drift the panel exists to show. Every
-    gridline carries its value, so the crop is stated rather than assumed.
-    Whole dollars unless the money is small enough that the cents are most of it.
-    HTML dots and labels over an SVG line, because the SVG stretches horizontally
-    and would squash a `<circle>` to an ellipse and a `<text>` to a smear.
+    One mechanical trap, recorded because it cost a round: the connecting line is
+    stretched by a **block wrapper**, not by setting `left`/`right` on the `<svg>`
+    itself. An `<svg>` is a replaced element, so `width: auto` resolves to its
+    intrinsic 300px and the box quietly stops matching the track — the line was
+    130px wide beside dots spread across 170.
 
   - **`By home` — is it more expensive to live here than it was at the last
     place?**
@@ -2121,7 +2114,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
 - `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
 - `components/finances/LineDetailSheet.tsx`: One line, opened — its timeline over the month.
-- `components/finances/HistoryChart.tsx`: The line chart, and its table twin.
+- `components/finances/HistoryChart.tsx`: The timeline — a row per month, turned on its side.
 - `components/finances/HomesSection.tsx`: The addresses, typed in Setup.
 - `lib/financeHistory.ts`: A line's past, month by month. Pure.
 - `lib/financeHomes.ts`: The same past, cut at each move. Pure.
@@ -2252,10 +2245,17 @@ back and asserts **the line passes through its own dots** — and that class of
 assertion (does the mark agree with the data it stands for) is what a chart needs
 on top of the usual measurements.
 
-The sweep that now runs before any chart change lands, over every width × every
-row shape × every range: labels do not overlap each other, no label is clipped by
-the card, axis cells do not overlap, the page does not scroll sideways, the
-polyline has one vertex per dot, and no vertex is more than 2px from its dot.
+The sweep that runs before any chart change lands, over every width × every row
+shape × every range: **one row, one dot and one figure per month** (no thinning,
+no missing month), the polyline has one vertex per dot and no vertex is more than
+2px from its dot, no row is clipped by the card, and the page does not scroll
+sideways. 60 combinations.
+
+The "one vertex per dot within 2px" assertion is the one that earns its place
+twice over: it caught a line drawn in a different coordinate space from its dots
+(every bounding box correct, the line a squiggle in the left fifth), and then a
+`width: auto` on a stretched `<svg>` that silently fell back to its intrinsic
+300px.
 
 **A resting screenshot is not the check for anything interactive.** Add
 `--states` and the script walks each selector through rest, hover, press and

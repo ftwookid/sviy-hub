@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { CloseButton } from "@/components/ui/CloseButton";
-import { HistoryChart, HistoryTable } from "@/components/finances/HistoryChart";
+import { HistoryChart } from "@/components/finances/HistoryChart";
 import { periodMonthLabel } from "@/lib/expenses";
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
 import {
@@ -33,11 +33,11 @@ import type { FinanceRow } from "@/types/finance";
  * data the month already holds, and a load back — for a peek. As a panel it
  * opens instantly and closing puts the reader back on exactly the row they left.
  *
- * **Everything readable on the first screen.** No hover, no tooltip, no second
- * tap: the figure, the three stats and the whole chart are above the fold on a
- * 390×844 phone, and the month-by-month list underneath is the same numbers as
- * text. See `HistoryChart` for why the chart carries its scale in the gutter
- * rather than in a tooltip.
+ * **Everything readable, and nothing behind an interaction.** No hover, no
+ * tooltip, no second tap. The timeline is a row per month rather than a
+ * horizontal plot, so every month carries its own exact figure and there is no
+ * separate table underneath repeating them — see `HistoryChart` for why the
+ * chart is turned on its side.
  */
 
 /**
@@ -346,7 +346,7 @@ export function LineDetailSheet({
               {range === "homes" ? <HomeComparison spells={spells} direction={direction} /> : null}
 
               {visible.length >= 2 ? (
-                <HistoryChart points={visible} marks={marks} />
+                <HistoryChart points={visible} marks={marks} periodMonth={periodMonth} />
               ) : (
                 <p className="px-3.5 py-6 text-center text-list text-text-secondary sm:px-4">
                   {history.note ?? "Not enough months yet to draw a line."}
@@ -367,12 +367,6 @@ export function LineDetailSheet({
                     </div>
                   ))}
                 </div>
-              </Block>
-            ) : null}
-
-            {visible.length > 0 ? (
-              <Block title="Month by month">
-                <HistoryTable points={visible} />
               </Block>
             ) : null}
           </section>
