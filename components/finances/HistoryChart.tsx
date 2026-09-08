@@ -61,15 +61,32 @@ const TOP = 26;
 const BOTTOM_PLAIN = 8;
 const BOTTOM_STAGGERED = 28;
 
-/** The gutter the Y axis labels sit in, left of the plot. */
-const GUTTER = 50;
+/** What the Y gutter may shrink to and grow to, around whatever its widest figure measures. */
+const GUTTER_MIN = 34;
+const GUTTER_MAX = 66;
 
 /** About this many gridlines; the round step decides the exact count. */
 const TICKS = 5;
 
-/** Roughly one character at `text-caption`, and the air a label wants around it. */
-const CHAR = 6.3;
-const LABEL_AIR = 8;
+/** The air a figure wants around it before it counts as touching its neighbour. */
+const LABEL_AIR = 7;
+
+/**
+ * The type the chart is set in.
+ *
+ * **10px on a phone, 11px from `sm`.** The scale's floor is `micro`, which is
+ * documented as uppercase-only, and this is the one deliberate exception: these
+ * are three- and four-character figures set in `tabular-nums`, not running text,
+ * and on a 3x phone screen they are crisp at 10px. It is Ivan's own proposal and
+ * it is the right one — the alternative is fewer of them, and the figures are
+ * the point.
+ *
+ * Nothing is *measured* from this. The widest label and the widest axis figure
+ * are measured off hidden probes wearing these exact classes, so changing the
+ * size here re-derives the column arithmetic on its own rather than leaving a
+ * hard-coded characters-times-6.3 estimate to drift out of step with it.
+ */
+const CHART_TEXT = "text-micro sm:text-caption";
 
 /** A month name is not worth printing in less room than this. */
 const MONTH_LABEL = 22;
@@ -131,28 +148,71 @@ export type ChartMark = { periodMonth: string; label: string };
 
 export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[]; marks?: ChartMark[] }) {
   const plot = useRef<HTMLDivElement>(null);
+  const labelProbe = useRef<HTMLSpanElement>(null);
+  const tickProbe = useRef<HTMLSpanElement>(null);
   const [width, setWidth] = useState(0);
-
-  useMeasureEffect(() => {
-    const element = plot.current;
-    if (!element) return;
-    setWidth(element.getBoundingClientRect().width);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => setWidth(entries[0].contentRect.width));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [points.length]);
-
-  if (points.length < 2) return null;
+  const [ink, setInk] = useState({ label: 0, tick: 0 });
 
   const count = points.length;
   const amounts = points.map((point) => point.amount);
   const scale = niceScale(Math.min(...amounts), Math.max(...amounts));
   const format = figureFormat(scale.max);
   const labels = points.map((point) => format(point.amount));
+  const longest = (values: string[]) =>
+    values.reduce((widest, value) => (value.length > widest.length ? value : widest), "");
+  const widestLabel = longest(labels);
+  const widestTick = longest(scale.values.map(format));
 
-  const column = width > 0 ? width / count : 0;
-  const labelWidth = labels.reduce((widest, label) => Math.max(widest, label.length), 0) * CHAR + LABEL_AIR;
+  /**
+   * Measured, never estimated.
+   *
+   * Every decision below is about how much room one month gets, and the first
+   * version answered that with `characters × 6.3px`. That is a guess about a
+   * font, and it stops being true the moment the type size changes, the face
+   * loads late, or the device renders wider than the desktop it was tuned on —
+   * which is exactly the class of bug that only shows up on somebody's phone.
+   * Two hidden probes wearing the real classes give the real widths.
+   */
+  useMeasureEffect(() => {
+    const element = plot.current;
+    if (!element) return;
+
+    const read = () => {
+      setWidth(element.getBoundingClientRect().width);
+      setInk((current) => {
+        const label = labelProbe.current?.getBoundingClientRect().width ?? 0;
+        const tick = tickProbe.current?.getBoundingClientRect().width ?? 0;
+        return current.label === label && current.tick === tick ? current : { label, tick };
+      });
+    };
+
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [count, widestLabel, widestTick]);
+
+  if (points.length < 2) return null;
+
+  const gutter = Math.min(GUTTER_MAX, Math.max(GUTTER_MIN, Math.round(ink.tick) + 10));
+  const labelWidth = (ink.label || 30) + LABEL_AIR;
+
+  /**
+   * The plot keeps half a label of air at each end, and the months are laid out
+   * inside that.
+   *
+   * The first version put the first and last months hard against the edges and
+   * then **clamped** their figures back inside, which fixed the clipping and
+   * caused something worse: pulling the newest figure in by 21px dragged it into
+   * the neighbour it was 49px clear of, and two `$2,395`s overlapped. Inset the
+   * plot instead and nothing ever needs clamping — every figure sits centred on
+   * its own dot, at the spacing the thinning arithmetic already worked out.
+   */
+  const plotWidth = width || 300;
+  const edge = Math.min(labelWidth / 2, plotWidth * 0.12);
+  const inner = Math.max(plotWidth - edge * 2, 1);
+  const column = width > 0 ? inner / count : 0;
 
   const stagger = column > 0 && column < labelWidth;
   const slot = Math.max(stagger ? column * 2 : column, 1);
@@ -166,7 +226,12 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
   const span = scale.max - scale.min || 1;
   const y = (amount: number) => TOP + (1 - (amount - scale.min) / span) * band;
 
-  const dot = column === 0 || column >= 16 ? 8 : column >= 9 ? 6 : 0;
+  // A dot on **every** month, always. It used to drop to none once a column got
+  // narrow, which left a bare line on the two long ranges — and a line with no
+  // marks does not read as a monthly series at all, it reads as a sketch. It
+  // shrinks instead, down to a 3px mark, and gives up its surface ring once the
+  // ring would be wider than the dot inside it.
+  const dot = column === 0 || column >= 16 ? 8 : column >= 10 ? 6 : column >= 5 ? 4 : 3;
   const monthEvery = column > 0 ? Math.max(1, Math.ceil(MONTH_LABEL / column)) : 1;
   const showMonths = monthEvery <= MONTH_GIVE_UP;
 
@@ -200,7 +265,8 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
   }
   const namesMonth = new Set(namedMonths);
 
-  const at = (index: number) => ((index + 0.5) / count) * 100;
+  /** A month's centre, in the plot's own pixels. */
+  const at = (index: number) => edge + ((index + 0.5) / count) * inner;
 
   /**
    * How far a figure sits from the line, and which way.
@@ -220,35 +286,41 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
     return above ? Math.min(...around) : Math.max(...around);
   };
 
-  /** Near an edge a centred label would hang over the gutter, so it tucks in instead. */
-  const sideways = (index: number) => {
-    if (index === 0) return { transform: "translateX(-25%)" };
-    if (index === count - 1) return { transform: "translateX(-75%)" };
-    return { transform: "translateX(-50%)" };
-  };
   /** Where a move falls: on the boundary *between* two months, not on a dot. */
   const markAt = (periodMonth: string) => {
     const index = points.findIndex((point) => point.periodMonth >= periodMonth);
-    return index <= 0 ? null : (index / count) * 100;
+    return index <= 0 ? null : edge + (index / count) * inner;
   };
 
   return (
     <div className="px-3.5 pb-3 pt-2 sm:px-4">
+      {/* Off-screen twins of the widest figure and the widest axis mark, wearing
+          the same classes, so the arithmetic above is measuring the real type
+          rather than a constant that has to be kept in step with it. */}
+      <span aria-hidden className="pointer-events-none absolute -left-[999px] top-0 whitespace-nowrap">
+        <span ref={labelProbe} className={cn("font-medium tabular-nums", CHART_TEXT)}>
+          {widestLabel}
+        </span>
+        <span ref={tickProbe} className={cn("tabular-nums", CHART_TEXT)}>
+          {widestTick}
+        </span>
+      </span>
       {/* Whose stretch of the line is whose, when the chart is read by home. Its
           own row above the plot rather than a label floating inside it, where it
           would fight the figures for the same few pixels. */}
       {marks && marks.length > 0 ? (
-        <div className="relative mb-1 h-4" style={{ marginLeft: GUTTER }}>
+        <div className="relative mb-1 h-4" style={{ marginLeft: gutter }}>
           {marks.map((mark) => {
             const left = markAt(mark.periodMonth) ?? 0;
             return (
               <span
                 key={`${mark.periodMonth}-${mark.label}`}
                 className={cn(
-                  "absolute top-0 max-w-[54%] truncate text-caption font-medium text-text-secondary",
-                  left > 55 ? "-translate-x-full pr-1" : "pl-1"
+                  "absolute top-0 max-w-[54%] truncate font-medium text-text-secondary",
+                  CHART_TEXT,
+                  left > plotWidth * 0.55 ? "-translate-x-full pr-1" : "pl-1"
                 )}
-                style={{ left: `${left}%` }}
+                style={{ left }}
               >
                 {mark.label}
               </span>
@@ -260,11 +332,11 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
       <div className="flex">
         {/* The scale sits outside the plot, so a gridline's value can never be
             drawn over by a point that lands on it. */}
-        <div className="relative shrink-0" style={{ width: GUTTER, height: PLOT }} aria-hidden>
+        <div className="relative shrink-0" style={{ width: gutter, height: PLOT }} aria-hidden>
           {scale.values.map((value) => (
             <span
               key={value}
-              className="absolute right-2 -translate-y-1/2 text-caption tabular-nums text-text-tertiary"
+              className={cn("absolute right-2 -translate-y-1/2 tabular-nums text-text-tertiary", CHART_TEXT)}
               style={{ top: y(value) }}
             >
               {format(value)}
@@ -302,31 +374,26 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
                   key={`${mark.periodMonth}-rule`}
                   aria-hidden
                   className="absolute top-0 w-px bg-border-emphasis"
-                  style={{ left: `${left}%`, height: PLOT }}
+                  style={{ left, height: PLOT }}
                 />
               );
             })}
 
-            {/* The line, and only the line. Its x units are columns, so the
-                stretch is horizontal and `non-scaling-stroke` keeps the 2px
-                honest; y is already in the plot's own pixels, so nothing
-                vertical is distorted. */}
-            <svg
-              className="absolute inset-0 h-full w-full"
-              viewBox={`0 0 ${count} ${PLOT}`}
-              preserveAspectRatio="none"
-              aria-hidden
-            >
+            {/* The line, and only the line — drawn in the plot's own pixels on
+                both axes, so the SVG is 1:1 and nothing is distorted at all.
+                It used to be laid out in column units, which stretched
+                horizontally and needed `non-scaling-stroke` to keep the 2px
+                honest; measuring the plot removed the need for either. */}
+            <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${plotWidth} ${PLOT}`} aria-hidden>
               <polyline
                 points={points
-                  .map((point, index) => `${index + 0.5},${y(point.amount).toFixed(2)}`)
+                  .map((point, index) => `${at(index).toFixed(2)},${y(point.amount).toFixed(2)}`)
                   .join(" ")}
                 fill="none"
                 stroke={OUT_INK}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
               />
             </svg>
 
@@ -334,31 +401,28 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
               const above = labelSide.get(index);
               const top = y(point.amount);
               const carries = above !== undefined;
-              const size = dot || (carries ? 6 : 0);
               return (
                 <span key={point.periodMonth}>
-                  {size > 0 ? (
-                    <span
-                      aria-hidden
-                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface"
-                      style={{
-                        left: `${at(index)}%`,
-                        top,
-                        width: size,
-                        height: size,
-                        background: OUT_INK
-                      }}
-                    />
-                  ) : null}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute -translate-x-1/2 -translate-y-1/2 rounded-full",
+                      dot >= 6 ? "ring-2 ring-surface" : null
+                    )}
+                    style={{ left: at(index), top, width: dot, height: dot, background: OUT_INK }}
+                  />
                   {carries ? (
                     <span
-                      className="absolute whitespace-nowrap text-caption font-medium tabular-nums text-text-primary"
+                      className={cn(
+                        "absolute whitespace-nowrap font-medium tabular-nums text-text-primary",
+                        CHART_TEXT
+                      )}
                       style={{
-                        left: `${at(index)}%`,
-                        ...sideways(index),
+                        left: at(index),
+                        transform: "translateX(-50%)",
                         ...(above
-                          ? { bottom: PLOT - clearance(index, true) + 9 }
-                          : { top: clearance(index, false) + 9 })
+                          ? { bottom: PLOT - clearance(index, true) + 8 }
+                          : { top: clearance(index, false) + 8 })
                       }}
                     >
                       {labels[index]}
@@ -380,11 +444,11 @@ export function HistoryChart({ points, marks }: { points: FinanceHistoryPoint[];
               return (
                 <span
                   key={point.periodMonth}
-                  className="absolute top-1.5 text-center"
-                  style={{ left: `${at(index)}%`, ...sideways(index) }}
+                  className="absolute top-1.5 -translate-x-1/2 text-center"
+                  style={{ left: at(index) }}
                 >
                   {month ? (
-                    <span className="block text-caption text-text-secondary">
+                    <span className={cn("block text-text-secondary", CHART_TEXT)}>
                       {periodMonthShortLabel(point.periodMonth).split(" ")[0]}
                     </span>
                   ) : null}

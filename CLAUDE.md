@@ -1789,8 +1789,24 @@ come to, what is it made of, how does it compare with the year:
       twelve columns of room.
     - **Edge labels tuck in** rather than centring, so the first figure does not
       hang over the Y gutter.
-    - **Shrink the dots**, and past the point where they would merge into the
-      line, draw one only where there is a figure to attach it to.
+    - **A dot on every month, always.** It used to drop to none once a column
+      got narrow, which left the two long ranges as a bare line — and a line
+      with no marks does not read as a monthly series, it reads as a sketch. It
+      shrinks instead, to 3px, and gives up its surface ring once the ring would
+      be wider than the dot inside it.
+    - **The type is 10px on a phone and 11px from `sm`.** `micro` is documented
+      as uppercase-only and this is the one deliberate exception: these are
+      three- and four-character figures in `tabular-nums`, not running text, and
+      on a 3x screen they are crisp. It was Ivan's own proposal and it is the
+      right one — the alternative is fewer of them, and the figures are the
+      point.
+    - **Nothing is estimated from the font.** The widest figure and the widest
+      axis mark are measured off hidden probes wearing the real classes, so the
+      column arithmetic and the Y gutter re-derive themselves when the size
+      changes. The version before this multiplied characters by 6.3px, which is
+      a guess about a font that stops being true the moment the size changes or
+      the face loads late — the class of bug that only shows up on somebody
+      else's phone.
 
     Unchanged from the version before: a **labelled Y axis on round steps**
     (80/100/120/140/160, never 96.12/108.9/121.7), **not forced to zero** — a bar
@@ -2220,6 +2236,26 @@ It prints the bounding box of each selector at each viewport and writes
 screenshots — so "the titles line up" is a measurement (`top 31 left 16` on every
 section) rather than an opinion, and the screenshots get read back, not just
 saved. Measure at **390px first**: this app is used on a phone.
+
+**And at 430, which is the phone Ivan actually holds.** An iPhone 14 Pro Max is
+430×932 CSS px, and a chart checked at 390 and 1280 shipped broken on it. Widths
+worth having in the sweep: **390** (the small phone), **430** (his), 768, 1280.
+Emulate touch as well — `isMobile`/`hasTouch` is what makes `pointer: coarse`
+match, and the app has real rules keyed on it.
+
+**Check the geometry that carries the meaning, not just the boxes.** The same
+chart shipped with its line drawn in one coordinate space and its dots in
+another: the dots were right, the labels were right, and the line was a squiggle
+in the left fifth of the plot. Nothing in a bounding-box check saw it, because
+every box was where it should be. The check that catches it reads the drawn path
+back and asserts **the line passes through its own dots** — and that class of
+assertion (does the mark agree with the data it stands for) is what a chart needs
+on top of the usual measurements.
+
+The sweep that now runs before any chart change lands, over every width × every
+row shape × every range: labels do not overlap each other, no label is clipped by
+the card, axis cells do not overlap, the page does not scroll sideways, the
+polyline has one vertex per dot, and no vertex is more than 2px from its dot.
 
 **A resting screenshot is not the check for anything interactive.** Add
 `--states` and the script walks each selector through rest, hover, press and
