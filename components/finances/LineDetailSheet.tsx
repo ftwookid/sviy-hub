@@ -1,12 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { HistoryChart, HistoryTable } from "@/components/finances/HistoryChart";
 import { periodMonthLabel } from "@/lib/expenses";
 import { formatCurrency, formatCurrencyRounded } from "@/lib/formatters";
-import { historySummary, rowHistory, type HistorySources } from "@/lib/financeHistory";
+import {
+  DEFAULT_HISTORY_MONTHS,
+  historySummary,
+  lastMonths,
+  rowHistory,
+  type HistorySources
+} from "@/lib/financeHistory";
+import { homeSpells, spellRangeLabel, type HomeSpell } from "@/lib/financeHomes";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { FinanceRow } from "@/types/finance";
 
@@ -33,6 +40,63 @@ import type { FinanceRow } from "@/types/finance";
  * rather than in a tooltip.
  */
 
+/**
+ * How the timeline is being read.
+ *
+ * Not three spans — two spans and a **reading**. `12 months` and `All time`
+ * differ only in how far back they go; `By home` is the whole history cut at
+ * each move, with an average against each address, because "is it more
+ * expensive to live here?" is not a question a line answers on its own. Two
+ * years of a bill going up and down says nothing until the months are grouped by
+ * where they were paid and each group is averaged.
+ */
+type Range = "recent" | "homes" | "all";
+
+const RANGES: { key: Range; label: string }[] = [
+  { key: "recent", label: "12 months" },
+  { key: "homes", label: "By home" },
+  { key: "all", label: "All time" }
+];
+
+/**
+ * The range control: a compact pill group, not a segmented bar.
+ *
+ * A full-width segmented row is what the space rules call 48px of tax on every
+ * visit. This is three short words at the top right of the block they govern,
+ * which is where a chart's range control belongs.
+ *
+ * Each pill is **44px tall**, which is the floor for anything tappable and is
+ * not negotiable down for being a small control: the first version measured
+ * 73×30, which is a comfortable *reading* and a miss with a thumb. The house
+ * trick of growing the target with padding and pulling it back with a negative
+ * margin does not apply here — that is for a control painted no larger than its
+ * words, and a selected pill is painted, so target and paint are the same box.
+ */
+function RangePicker({ value, onChange }: { value: Range; onChange: (next: Range) => void }) {
+  return (
+    <div className="flex items-center justify-end gap-1 px-3.5 pt-3 sm:px-4">
+      <div className="flex items-center gap-0.5 rounded-2xl bg-subtle p-1">
+        {RANGES.map((range) => (
+          <button
+            key={range.key}
+            type="button"
+            aria-pressed={value === range.key}
+            onClick={() => onChange(range.key)}
+            className={cn(
+              "focus-ring inline-flex min-h-11 items-center rounded-xl px-3 text-caption font-medium transition-colors duration-200 ease-out",
+              value === range.key
+                ? "bg-surface text-text-primary shadow-[0_1px_2px_rgba(70,55,32,0.10)]"
+                : "text-text-secondary hover:text-text-primary"
+            )}
+          >
+            {range.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function changeLabel(change: number | null) {
   if (change === null) return "—";
   const percent = Math.round(change * 100);
@@ -48,11 +112,7 @@ function changeLabel(change: number | null) {
  * so what is left is the level the line is noise around, which way it is going,
  * and what a year of it comes to.
  */
-function Stats({
-  cells
-}: {
-  cells: { label: string; value: string; tone?: "good" | "bad" }[];
-}) {
+function Stats({ cells }: { cells: { label: string; value: string; tone?: "good" | "bad" }[] }) {
   return (
     <div className="grid grid-cols-3 divide-x divide-border">
       {cells.map((cell) => (
@@ -63,7 +123,11 @@ function Stats({
           <div
             className={cn(
               "mt-1 truncate text-subhead font-semibold leading-none tracking-[-0.01em] tabular-nums",
-              cell.tone === "good" ? "text-success" : cell.tone === "bad" ? "text-danger" : "text-text-primary"
+              cell.tone === "good"
+                ? "text-success"
+                : cell.tone === "bad"
+                  ? "text-danger"
+                  : "text-text-primary"
             )}
           >
             {cell.value}
@@ -82,6 +146,74 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
         {title}
       </h3>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Each address, what it averaged, and the difference — the whole point of the
+ * middle range.
+ *
+ * **Figures, not bars.** Comparing two or three averages is exactly the case the
+ * house data-viz rules call a stat tile rather than a chart: a two-bar bar chart
+ * is a bar chart with nothing to compare across, and a length beside an exact
+ * number answers nothing the number does not. The difference is stated against
+ * the home *before* it, which is the comparison a move actually prompts —
+ * against the first home instead would answer a question nobody asks after the
+ * second move.
+ *
+ * Newest first, because the current address is the one being asked about.
+ */
+function HomeComparison({ spells, direction }: { spells: HomeSpell[]; direction: "in" | "out" }) {
+  if (spells.length === 0) {
+    return (
+      <p className="px-3.5 py-4 text-list text-text-secondary sm:px-4">
+        Add the addresses you have lived at in Setup, with the day you moved in, and this reads every month
+        against where you were living.
+      </p>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-border/40 px-3.5 pt-1 sm:px-4">
+      {[...spells].reverse().map((spell) => {
+        const percent = spell.change === null ? 0 : Math.round(spell.change * 100);
+        const tone =
+          spell.change === null || percent === 0
+            ? null
+            : percent > 0 === (direction === "in")
+              ? "good"
+              : "bad";
+        return (
+          <div key={spell.home.id} className="flex items-baseline gap-3 py-2">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-label font-medium text-text-primary">
+                {spell.home.name}
+              </span>
+              <span className="block truncate text-meta text-text-tertiary">
+                {spellRangeLabel(spell)} · {spell.points.length}{" "}
+                {spell.points.length === 1 ? "month" : "months"}
+              </span>
+            </span>
+            {spell.change === null ? null : (
+              <span
+                className={cn(
+                  "shrink-0 text-meta font-medium tabular-nums",
+                  tone === "good" ? "text-success" : tone === "bad" ? "text-danger" : "text-text-tertiary"
+                )}
+              >
+                {percent === 0 ? "No change" : `${percent > 0 ? "+" : "−"}${Math.abs(percent)}%`}
+              </span>
+            )}
+            <span className="shrink-0 text-right">
+              <span className="block text-subhead font-semibold tabular-nums text-text-primary">
+                {formatCurrency(spell.average)}
+              </span>
+              <span className="block text-micro uppercase tracking-[0.05em] text-text-tertiary">a month</span>
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -109,9 +241,24 @@ export function LineDetailSheet({
   onClose: () => void;
 }) {
   useEscapeKey(onClose);
+  const [range, setRange] = useState<Range>("recent");
 
+  // Built whole, once, and cut per range. The three stats are quoted over the
+  // same twelve months whichever range is on screen — they describe the line,
+  // and a figure that moved when you changed the view would be a different fact
+  // wearing the same label.
   const history = useMemo(() => rowHistory(row, sources, periodMonth), [row, sources, periodMonth]);
   const summary = useMemo(() => historySummary(history.points, periodMonth), [history.points, periodMonth]);
+  const spells = useMemo(() => homeSpells(history.points, sources.homes), [history.points, sources.homes]);
+
+  const visible = range === "recent" ? lastMonths(history.points, DEFAULT_HISTORY_MONTHS) : history.points;
+  const marks =
+    range === "homes"
+      ? spells.map((spell) => ({
+          periodMonth: spell.from,
+          label: spell.home.name
+        }))
+      : undefined;
 
   // A typed line carries its own run rate off its rate and cadence. A linked one
   // does not, and this month × 12 is the mistake this page keeps catching: a
@@ -120,13 +267,15 @@ export function LineDetailSheet({
   // × 12 wherever there is a timeline to average, and only a row with no history
   // at all — the client estimate, which is the same figure every month by
   // construction — falls back to the month itself.
-  const yearAmount =
-    row.yearAmount ?? (summary.average !== null ? summary.average * 12 : row.amount * 12);
+  const yearAmount = row.yearAmount ?? (summary.average !== null ? summary.average * 12 : row.amount * 12);
   const detailRows = row.detail?.rows ?? [];
   const sourceNote = SOURCE_NOTE[row.source];
 
   const cells = [
-    { label: "12-mo avg", value: summary.average === null ? "—" : formatCurrency(summary.average) },
+    {
+      label: "12-mo avg",
+      value: summary.average === null ? "—" : formatCurrency(summary.average)
+    },
     {
       label: "Change",
       value: changeLabel(summary.change),
@@ -135,12 +284,15 @@ export function LineDetailSheet({
       tone:
         summary.change === null || Math.round(summary.change * 100) === 0
           ? undefined
-          : ((summary.change > 0) === (direction === "in") ? "good" : "bad") as "good" | "bad"
+          : ((summary.change > 0 === (direction === "in") ? "good" : "bad") as "good" | "bad")
     },
     // A run rate is an extrapolation rather than an amount anybody was charged,
     // so it is rounded — and dropped altogether on a line that has ended, which
     // is worth nothing a year from the day after.
-    { label: "A year", value: yearAmount > 0 ? formatCurrencyRounded(yearAmount) : "—" }
+    {
+      label: "A year",
+      value: yearAmount > 0 ? formatCurrencyRounded(yearAmount) : "—"
+    }
   ];
 
   return (
@@ -185,8 +337,16 @@ export function LineDetailSheet({
             <Stats cells={cells} />
 
             <div className="border-t border-border">
-              {history.points.length >= 2 ? (
-                <HistoryChart points={history.points} />
+              <RangePicker value={range} onChange={setRange} />
+
+              {/* The answer the `By home` reading exists to give, above the
+                  chart rather than under it: "is it more expensive here?" is
+                  settled by two averages, and the line below is the context that
+                  stops seasonality being mistaken for a move. */}
+              {range === "homes" ? <HomeComparison spells={spells} direction={direction} /> : null}
+
+              {visible.length >= 2 ? (
+                <HistoryChart points={visible} marks={marks} />
               ) : (
                 <p className="px-3.5 py-6 text-center text-list text-text-secondary sm:px-4">
                   {history.note ?? "Not enough months yet to draw a line."}
@@ -210,9 +370,9 @@ export function LineDetailSheet({
               </Block>
             ) : null}
 
-            {history.points.length > 0 ? (
+            {visible.length > 0 ? (
               <Block title="Month by month">
-                <HistoryTable points={history.points} />
+                <HistoryTable points={visible} />
               </Block>
             ) : null}
           </section>

@@ -4,9 +4,10 @@ import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { HomesSection } from "@/components/finances/HomesSection";
 import { SetupGroups } from "@/components/finances/SetupGroups";
 import { useEscapeKey } from "@/lib/useEscapeKey";
-import type { FinanceBucket, FinanceLine, PayCadence } from "@/types/finance";
+import type { FinanceBucket, FinanceHome, FinanceLine, PayCadence } from "@/types/finance";
 
 /**
  * The standing figures, over the month rather than instead of it.
@@ -32,6 +33,7 @@ import type { FinanceBucket, FinanceLine, PayCadence } from "@/types/finance";
  */
 export function SetupSheet({
   lines,
+  homes,
   onClose,
   onAddLine,
   onRename,
@@ -39,9 +41,14 @@ export function SetupSheet({
   onUpdateRate,
   onDeleteRate,
   onDeleteLine,
+  onAddHome,
+  onUpdateHome,
+  onDeleteHome,
   notice
 }: {
   lines: FinanceLine[];
+  /** Addresses, for the block at the foot of the panel. */
+  homes: FinanceHome[];
   onClose: () => void;
   onAddLine: (input: {
     bucket: FinanceBucket;
@@ -68,11 +75,15 @@ export function SetupSheet({
   ) => void;
   onDeleteRate: (rateId: string) => void;
   onDeleteLine: (lineId: string) => void;
+  onAddHome: (input: { name: string; movedIn: string }) => void;
+  onUpdateHome: (input: { id: string; name: string; movedIn: string }) => void;
+  onDeleteHome: (homeId: string) => void;
   notice?: string;
 }) {
   const [deleting, setDeleting] = useState<FinanceLine | null>(null);
+  const [deletingHome, setDeletingHome] = useState<FinanceHome | null>(null);
 
-  useEscapeKey(onClose, !deleting);
+  useEscapeKey(onClose, !deleting && !deletingHome);
 
   return (
     <div
@@ -113,6 +124,18 @@ export function SetupSheet({
             onDeleteRate={onDeleteRate}
             onDeleteLine={setDeleting}
           />
+
+          {/* Last in the panel, because it is read least: an address is typed
+              twice in a decade. It is here rather than beside the chart that
+              uses it for the same reason the car's numbers live in Profile —
+              a form next to a reading charges every visit for a field almost
+              nobody touches. */}
+          <HomesSection
+            homes={homes}
+            onAdd={onAddHome}
+            onUpdate={onUpdateHome}
+            onDelete={setDeletingHome}
+          />
         </div>
       </aside>
 
@@ -131,6 +154,22 @@ export function SetupSheet({
           onConfirm={() => {
             onDeleteLine(deleting.id);
             setDeleting(null);
+          }}
+        />
+      ) : null}
+
+      {/* A home is two fields, but deleting one silently un-groups years of
+          bills on every chart that was reading by it — so it names what stops
+          working rather than what is stored. */}
+      {deletingHome ? (
+        <ConfirmDialog
+          title={`Delete ${deletingHome.name}?`}
+          description="The bills stay. They stop being grouped under this address, so the By home comparison loses that side of it."
+          confirmLabel="Delete it"
+          onCancel={() => setDeletingHome(null)}
+          onConfirm={() => {
+            onDeleteHome(deletingHome.id);
+            setDeletingHome(null);
           }}
         />
       ) : null}

@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { monthlyFromCadence, sortRates } from "@/lib/finances";
-import type { FinanceBucket, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
+import type { FinanceBucket, FinanceHome, FinanceLine, FinanceRate, PayCadence } from "@/types/finance";
 
 /**
  * Browser-side reads and writes for the standing household figures.
@@ -295,5 +295,85 @@ export async function deleteFinanceRate(id: string) {
   if (!supabase) return;
   const { error } = await supabase.from("finance_line_rates").delete().eq("id", id);
   const failure = reportable(error);
+  if (failure) throw failure;
+}
+
+/**
+ * Where the household has lived.
+ *
+ * Its own migration, so its own notice: the rest of Finances reads perfectly
+ * without it, and only the chart's `By home` range has nothing to show. The
+ * table is deliberately joined to nothing, so a failure to load it can never
+ * take a figure down with it — homes come back empty and every other range on
+ * every chart still draws.
+ */
+const HOMES_MIGRATION = "supabase/finance-homes-schema.sql";
+
+function isMissingHomes(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  if (error.code === "42P01" || error.code === "PGRST205") return true;
+  return /finance_homes/.test(error.message ?? "") && /(does not exist|could not find)/i.test(error.message ?? "");
+}
+
+function homesFailure(error: { code?: string; message?: string } | null) {
+  if (!error) return null;
+  if (isMissingHomes(error)) {
+    return new Error(`Homes need their table. Run ${HOMES_MIGRATION} in Supabase.`);
+  }
+  // Two homes on one day: the month would belong to whichever row happened to
+  // sort first, so the database refuses and the message says what to do.
+  if (error.code === "23505") return new Error("A home already starts on that date.");
+  return new Error(error.message ?? "Could not save that");
+}
+
+export async function loadFinanceHomes(): Promise<{
+  homes: FinanceHome[];
+  setupNeeded: boolean;
+  setupMessage: string;
+}> {
+  if (!supabase) return { homes: [], setupNeeded: false, setupMessage: "" };
+
+  const { data, error } = await supabase
+    .from("finance_homes")
+    .select("*")
+    .order("moved_in", { ascending: true });
+
+  if (error) {
+    if (isMissingHomes(error)) {
+      return {
+        homes: [],
+        setupNeeded: true,
+        setupMessage: `Homes need their table. Run ${HOMES_MIGRATION} in Supabase.`
+      };
+    }
+    throw new Error(error.message);
+  }
+
+  return { homes: (data ?? []) as FinanceHome[], setupNeeded: false, setupMessage: "" };
+}
+
+export async function addFinanceHome(input: { userId: string; name: string; movedIn: string }) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("finance_homes")
+    .insert({ user_id: input.userId, name: input.name, moved_in: input.movedIn });
+  const failure = homesFailure(error);
+  if (failure) throw failure;
+}
+
+export async function updateFinanceHome(input: { id: string; name: string; movedIn: string }) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("finance_homes")
+    .update({ name: input.name, moved_in: input.movedIn, updated_at: new Date().toISOString() })
+    .eq("id", input.id);
+  const failure = homesFailure(error);
+  if (failure) throw failure;
+}
+
+export async function deleteFinanceHome(id: string) {
+  if (!supabase) return;
+  const { error } = await supabase.from("finance_homes").delete().eq("id", id);
+  const failure = homesFailure(error);
   if (failure) throw failure;
 }

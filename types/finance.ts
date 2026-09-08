@@ -115,6 +115,24 @@ export type FinanceLine = {
 /** One payment: the day it lands and what it is worth. */
 export type FinancePayment = { date: string; amount: number };
 
+/**
+ * An address the household has lived at, and the day they moved in.
+ *
+ * One date, not two. A home runs until the next one starts, so there is no end
+ * date that can fall out of step with the next row's beginning — and the current
+ * home is simply the last one. Nothing points at it: a month is attributed to a
+ * home by comparing dates, so every figure in the app can be read by home
+ * without a column on any of them.
+ */
+export type FinanceHome = {
+  id: string;
+  created_at: string;
+  updated_at: string | null;
+  user_id: string;
+  name: string;
+  moved_in: string;
+};
+
 /** One month of a line's past: the month, and what the line was worth in it. */
 export type FinanceHistoryPoint = { periodMonth: string; amount: number };
 

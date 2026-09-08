@@ -1719,75 +1719,138 @@ come to, what is it made of, how does it compare with the year:
     line rather than from the months since it paused, and inventing a date for
     that would be worse than leaving it out.
 
-  - **The chart is an ordinary plotted chart, and obeys the rules of one**
-    (`HistoryChart`).
+  - **Three ranges, and the chart always fits** (`HistoryChart`).
 
-    The first version was a *shape* with two annotations — the high and the low
-    labelled, every other month left to the eye and to a table further down, on
-    the house data-viz reasoning that a number on every point is a wall. Ivan
-    opened the water bill and could not read anything off it, which is the only
-    verdict that counts. The rule it was obeying is about a dense series; this is
-    at most 24 points that a person reads **one month at a time**, and reading a
-    month off it is what the panel is opened for. So:
+    The chart got here in three goes, and each failure is worth keeping.
 
-    - **A labelled Y axis on round steps** — 80/100/120/140/160, never
-      96.12/108.9/121.7 — in a gutter outside the scroller, so the scale holds
-      still while the months move under it. About five gridlines; the round step
-      decides the exact count.
-    - **An X axis naming every month**, with the year under the first column of
-      each one rather than under all twelve, where "2026" repeated would be the
-      only thing the eye could see.
-    - **A dot on every month with its amount printed above it.**
+    1. A **shape** — the high and the low annotated, every other month left to
+       the eye and to a table further down, on the house rule that a number on
+       every point is a wall. Ivan opened the water bill and could not read
+       anything off it. That rule is about a dense series; this is a handful of
+       points read one month at a time, and reading a month off it is what the
+       panel is opened for.
+    2. A figure on **every** dot, with the chart **scrolling sideways** to make
+       room. Worse in the way that matters: a chart you have to drag is a chart
+       you cannot take in, and the two months you want to compare are never both
+       on screen.
+    3. What it is now: **the range control decides how many months are in view,
+       and the chart decides how many of them can carry a figure.** Nothing
+       scrolls, ever.
+
+    The three ranges are two spans and a **reading**:
+
+    | Range | What it shows |
+    | --- | --- |
+    | `12 months` | The last twelve. The default, and it labels all twelve. |
+    | `By home` | The whole history, cut at each move — see below. |
+    | `All time` | Every month the line has ever had. |
+
+    The control is a compact pill group at the top right of the block it
+    governs, not a full-width segmented row — that is 48px of tax on every
+    visit. Each pill is **44px tall**, which is the floor for anything tappable
+    and is not negotiable down for being small: the first version measured 73×30,
+    a comfortable reading and a miss with a thumb. The house trick of growing a
+    target with padding and pulling it back with a negative margin does not apply
+    — that is for a control painted no larger than its words, and a selected pill
+    is painted, so target and paint are the same box.
+
+    **The three stats above it do not move when the range does.** They describe
+    the line — twelve-month average, direction, run rate — and a figure that
+    changed when you changed the view would be a different fact wearing the same
+    label. The history is built whole, once, and cut per range.
+
+    How it fits, in order:
+
+    - **Measure, rather than assume.** The plot is 456px inside a desktop dialog
+      and 258px on a phone; a fixed column width is wrong on one of them by
+      construction. A `ResizeObserver` in a layout effect, so it is placed rather
+      than moved.
+    - **Stagger** the figures above and below the line once a column is narrower
+      than a label. That doubles the room each gets, for the price of a narrower
+      band to draw in. Twelve months at 258px is a 21px column against a 31px
+      label, so the default range staggers — and still names every month.
+    - **Thin** them — every second, every third — when even staggering is not
+      enough, counting back from the **newest** month, so the one the reader
+      arrived from always carries a figure. Forty-five months on a phone labels
+      every fourth. `Month by month` underneath still has all of them, to the
+      cent.
+    - **A figure is placed clear of the neighbourhood, not of its own dot.** A
+      staggered label 9px under its point lands exactly where the line passes
+      when the line is falling steeply, and grey 11px over a 2px gold stroke is
+      unreadable — the same collision that cost this chart two earlier rewrites.
+      It goes above the highest of its own point and its two neighbours, or below
+      the lowest of them, and stays in its own column so which dot it belongs to
+      is never in doubt.
+    - **The year rides on a named column.** It used to print under every January
+      whether or not that column named its month, which put a lone `2024` a third
+      of a column from a named `Dec` — they overlapped. It is now the first named
+      column of each calendar year in view (`Mar 2024`), and when months are
+      given up entirely the year takes their place, at each January, which is
+      twelve columns of room.
+    - **Edge labels tuck in** rather than centring, so the first figure does not
+      hang over the Y gutter.
+    - **Shrink the dots**, and past the point where they would merge into the
+      line, draw one only where there is a figure to attach it to.
+
+    Unchanged from the version before: a **labelled Y axis on round steps**
+    (80/100/120/140/160, never 96.12/108.9/121.7), **not forced to zero** — a bar
+    encodes by length so cropping one lies, a line reads by slope, and a
+    zero-based axis on a bill moving between $101 and $131 draws it flat across
+    the top of the plot and hides the drift the panel exists to show. Every
+    gridline carries its value, so the crop is stated rather than assumed.
+    Whole dollars unless the money is small enough that the cents are most of it.
+    HTML dots and labels over an SVG line, because the SVG stretches horizontally
+    and would squash a `<circle>` to an ellipse and a `<text>` to a smear.
+
+  - **`By home` — is it more expensive to live here than it was at the last
+    place?**
+
+    This is the range Ivan asked for and it needed a table the app did not have.
+    Finances could say what a bill costs and how it has moved; it could not say
+    which of those months were paid at which address, so an $88 average and a
+    $131 average sat in the same column with nothing to tell them apart.
+
+    `finance_homes` is one row per address with **one date on it**
+    (`supabase/finance-homes-schema.sql`). A home runs from `moved_in` until the
+    next home starts, so there is no end date to keep in step with the next row's
+    beginning — the commonest way a dated pair of columns goes wrong — and the
+    current home is simply the last one, stated rather than stored. The table is
+    **joined to nothing**: any month is attributed by comparing dates, so rent,
+    every utility and every typed line are read by home without a column on any
+    of them, and deleting a home cannot take a figure with it.
+
+    Addresses are typed in **Setup**, at the foot of the panel
+    (`HomesSection`), for the same reason the car's numbers live in Profile: an
+    address is entered twice in a decade and read every time a bill is opened.
+
+    What the range shows, in this order: **the comparison first, the line
+    underneath.** Each home with its months, its average per month, and the
+    difference against the home *before* it — against the first home instead
+    would answer a question nobody asks after the second move. Newest first,
+    because the current address is what is being asked about.
 
     ```text
-       $160  ─────────────────────────────────────────
-                        $139                     $137
-       $140  ────●──────────────────────$128 $133 ●───
-                  ╲                $120  ●    ●
-       $120  ──────╲──$112───$111───●───────────────── 
-                    ●    $104 ●
-       $100  ────────●──$100─●───────────────────────
-                        ●
-       $80   ─────────────────────────────────────────
-              Dec  Jan  Feb  Mar  Apr  May  Jun … Sep
-                   2026
+    Rudolph Apartments               +65%   $116.65
+    Jan 2025 – Sep 2026 · 21 months          A MONTH
+
+    Envy Apartments                         $70.52
+    Jan 2023 – Dec 2024 · 24 months          A MONTH
     ```
 
-    - **Which is why it scrolls sideways.** A phone gives the plot about 260px.
-      A column has to hold whichever is wider, the amount above the dot or the
-      month name under it, so it cannot go under ~44px — 24 months is over
-      1,000px and there is no arrangement of a 390px screen that shows them all
-      with their figures on. Something had to give and it is not the figures: the
-      chart opens **scrolled to the right**, on the months just gone, which is
-      where the reader came from. Same conclusion the Mileage bar chart reached,
-      for the same reason. A **fade at whichever edge has months behind it** is
-      the cue — measured on scroll, never assumed, so the chart cannot advertise
-      history it does not have; a line clipped at a card edge is not something
-      anybody reads as "there is more".
-    - **The column is measured off the widest label the chart actually
-      carries**, not set to the worst case: a flat 62px made a seven-month water
-      bill scroll when it would have fitted whole.
-    - **Whole dollars, unless the money is small enough that the cents are most
-      of it.** `$74.35` on twenty-four points is 42px of label in a column that
-      then cannot be under 54, and 35 cents is not what anybody opens this for —
-      `Month by month` underneath carries every figure to the cent. Under $10 the
-      rule flips, because `$3` for a $2.99 subscription is a third of a dollar
-      out on a chart made of that one number. One switch per chart, so a gridline
-      and a point are never rounded differently.
-    - **The scale is not forced to zero**, and it says what it is. A bar encodes
-      by length so cropping one lies; a line reads by slope, and a zero-based
-      axis on a bill moving between $101 and $131 draws it flat across the top of
-      the plot and hides the drift the panel exists to show. Every gridline
-      carries its value and every point carries its own, so the crop is stated
-      rather than assumed.
-    - **HTML dots and labels over an SVG line.** The plot is full-width at a
-      fixed height, so the SVG stretches horizontally
-      (`preserveAspectRatio="none"`, `non-scaling-stroke` keeping the 2px
-      honest); a `<circle>` in there would squash to an ellipse and a `<text>` to
-      a smear. Its x units are columns and its y is already the plot's own
-      pixels, so nothing vertical is distorted. Everything else is an ordinary
-      element in a grid of one cell per month, which is also what lines a dot up
-      with the month named under it.
+    **Figures, not bars.** Comparing two or three averages is exactly the case
+    the house data-viz rules call a stat tile rather than a chart, and a length
+    beside an exact number answers nothing the number does not. The line stays
+    below it, with the move drawn as a vertical rule and each home named above
+    its stretch, because seasonality is the first thing anybody would accuse the
+    comparison of.
+
+    Three things it deliberately does not do. Months **before the first home are
+    dropped, not pooled** — they were paid somewhere, and calling that somewhere
+    "unknown" would invent an address to compare against. The average is **per
+    month**, so a home lived in for three months is not cheaper for it. And there
+    is no way to say **when** a home was left other than by the next one
+    starting: status has no history here, which is a limit the data has and not
+    one worth inventing a date to hide.
 
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
@@ -2043,7 +2106,10 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
 - `components/finances/LineDetailSheet.tsx`: One line, opened — its timeline over the month.
 - `components/finances/HistoryChart.tsx`: The line chart, and its table twin.
+- `components/finances/HomesSection.tsx`: The addresses, typed in Setup.
 - `lib/financeHistory.ts`: A line's past, month by month. Pure.
+- `lib/financeHomes.ts`: The same past, cut at each move. Pure.
+- `supabase/finance-homes-schema.sql`: `finance_homes` — one address, one date.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
@@ -2404,6 +2470,12 @@ the Thursday 6 August paycheck, the same one it applied to before.
 month; that does not change any total (a monthly line pays once a month whatever
 the day), it only decides which side of a mid-month change a payment falls on. If
 the real rent day is the 1st, fix it by editing the first change's date in Setup.
+
+Then run `supabase/finance-homes-schema.sql` in Supabase. It is re-runnable and
+creates `finance_homes` — one row per address, with the day you moved in. Until
+it runs, every chart range works except `By home`, which shows the sentence
+telling you to add addresses in Setup, and adding one there reports the missing
+migration by name.
 
 Then run `supabase/utilities-schema.sql` in Supabase. It is re-runnable and
 creates `utility_accounts` and `utility_bills`. Until it runs, Finances still

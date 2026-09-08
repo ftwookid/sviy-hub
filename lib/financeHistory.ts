@@ -4,7 +4,7 @@ import { amountForMonth, endedOn, onPaydays, paydayWeekdayFor } from "@/lib/fina
 import { toPeriodMonth } from "@/lib/utilities";
 import { parseLocalDate } from "@/lib/formatters";
 import type { ClientWithPets } from "@/types/client";
-import type { FinanceHistory, FinanceHistoryPoint, FinanceLine, FinanceRow } from "@/types/finance";
+import type { FinanceHistory, FinanceHistoryPoint, FinanceHome, FinanceLine, FinanceRow } from "@/types/finance";
 import type { UtilityBook } from "@/types/utility";
 
 /**
@@ -23,18 +23,16 @@ import type { UtilityBook } from "@/types/utility";
  */
 
 /**
- * How far back a timeline reaches.
+ * The range the chart opens on, and the one the stats are quoted over.
  *
- * Two years, because that is what makes a metered bill readable: one year alone
- * cannot say whether this January was worse than last January, and a utility is
- * seasonal before it is anything else. It is also about as many points as fit at
- * 390px without the line turning into a comb — 24 points across ~330px sit 14px
- * apart.
- *
- * The Utilities panel is still where a fifth year of bills is browsed. This is
- * the trend, not the archive.
+ * A timeline is now built **whole** — every month the line has ever had — and
+ * the ranges are cuts of it taken in the component. It was capped at 24 months
+ * on the reasoning that two years is what makes a seasonal bill readable and
+ * that more points than that turn a phone-width line into a comb. The first half
+ * still holds and is why this is the default; the second stopped being a reason
+ * the moment the chart learned to thin its own labels rather than scroll.
  */
-export const HISTORY_MONTHS = 24;
+export const DEFAULT_HISTORY_MONTHS = 12;
 
 /** The window each side of the "is it creeping up" comparison. */
 const TREND_WINDOW = 12;
@@ -49,14 +47,15 @@ export function monthsBetween(from: string, to: string) {
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
 }
 
-/** The `count` months ending at `periodMonth`, oldest first. */
-export function historyMonths(periodMonth: string, count = HISTORY_MONTHS) {
-  return Array.from({ length: count }, (_, index) => shiftPeriodMonth(periodMonth, index - (count - 1)));
+/** Every month from `start` to `periodMonth` inclusive, oldest first. */
+export function historyMonths(start: string, periodMonth: string) {
+  const length = Math.max(0, monthsBetween(start, periodMonth) + 1);
+  return Array.from({ length }, (_, index) => shiftPeriodMonth(start, index));
 }
 
-/** The first month a timeline ending here reaches back to. */
-function windowStart(periodMonth: string, count = HISTORY_MONTHS) {
-  return shiftPeriodMonth(periodMonth, -(count - 1));
+/** The last `count` months of a series — what the default range shows. */
+export function lastMonths(points: FinanceHistoryPoint[], count: number) {
+  return count >= points.length ? points : points.slice(points.length - count);
 }
 
 function mean(amounts: number[]) {
@@ -87,12 +86,10 @@ export function lineHistory(line: FinanceLine, periodMonth: string): FinanceHist
   const died = stopped === null ? null : toPeriodMonth(stopped);
 
   const months = (from: string, to: string | null) =>
-    historyMonths(periodMonth)
-      .filter((month) => month >= from && (to === null || month <= to))
-      .map((month) => {
-        const date = parseLocalDate(month);
-        return { periodMonth: month, amount: amountForMonth(rates, date.getFullYear(), date.getMonth()) };
-      });
+    historyMonths(from, to !== null && to < periodMonth ? to : periodMonth).map((month) => {
+      const date = parseLocalDate(month);
+      return { periodMonth: month, amount: amountForMonth(rates, date.getFullYear(), date.getMonth()) };
+    });
 
   // A part-month at either end is dropped, and this is the one judgement in
   // here. A line whose first change is dated the 25th collected one paycheck in
@@ -138,9 +135,8 @@ function endsWhole(dateValue: string) {
  * still says "Estimated" for the month on screen.
  */
 export function utilityHistory(bills: { period_month: string; amount: number }[], periodMonth: string) {
-  const from = windowStart(periodMonth);
   const points: FinanceHistoryPoint[] = bills
-    .filter((bill) => bill.period_month >= from && bill.period_month <= periodMonth)
+    .filter((bill) => bill.period_month <= periodMonth)
     .map((bill) => ({ periodMonth: bill.period_month, amount: Number(bill.amount) }));
 
   return {
@@ -149,7 +145,7 @@ export function utilityHistory(bills: { period_month: string; amount: number }[]
       bills.length === 0
         ? "No bills entered yet — add one in Utilities and it lands here"
         : points.length === 0
-          ? "No bills in the last two years"
+          ? "Every bill on this account is dated after the month on screen"
           : undefined
   };
 }
@@ -203,7 +199,9 @@ export function clientsHistory(clients: ClientWithPets[], periodMonth: string): 
   const active = clients.filter((client) => client.status === "Active");
   if (active.length === 0) return { points: [], note: "No active clients" };
 
-  const points = historyMonths(periodMonth)
+  const opened = active.map((client) => clientStartDate(client)).sort()[0];
+
+  const points = historyMonths(toPeriodMonth(opened), periodMonth)
     .map((month) => {
       const { end } = periodMonthBounds(month);
       const earning = active.filter((client) => clientStartDate(client) <= end);
@@ -234,6 +232,8 @@ export type HistorySources = {
   book: UtilityBook;
   houseSitting: { net: number[]; nights: number[] };
   clients: ClientWithPets[];
+  /** Where the household lived, for the chart's `By home` reading. Empty until the migration runs. */
+  homes: FinanceHome[];
 };
 
 /**
