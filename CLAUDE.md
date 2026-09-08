@@ -21,12 +21,21 @@ Ivan reviews on the `staging` preview, so a feature branch means he opens the
 preview, sees the old app, and the work may as well not exist. It has happened,
 and the failure is silent — the commit looks finished from this side.
 
-`main` is production and is touched **only** when Ivan types `push live`. Nothing
-else promotes it: not "commit and push", not "ship it", not a task being
-finished. The full promote flow is in `## Git Workflow` at the bottom of this
-file.
+`main` is production and is touched **only** when Ivan asks for it by naming the
+promote. **`push live`, `push main`, `push to main`, `promote`, `deploy` — all of
+them mean the same thing: merge `staging` into `main` and push it.** They are one
+instruction wearing different words, so none of them needs a confirming question
+back; asking "did you mean push live?" when he typed `push main` is the pedantry
+this line exists to stop.
 
-So, in one line: **branch never, `staging` always, `main` only on `push live`.**
+What still does *not* promote it: "commit and push", "ship it", "done", or a task
+simply being finished. The difference is whether `main`, `live`, `production`,
+`promote` or `deploy` is named — if none of them is, the work goes to `staging`
+and stops there. The full promote flow is in `## Git Workflow` at the bottom of
+this file.
+
+So, in one line: **branch never, `staging` always, `main` when the promote is
+named.**
 
 ## Before you ship any screen — the gate
 
@@ -1544,9 +1553,9 @@ come to, what is it made of, how does it compare with the year:
     it is **not tinted** — the tint is the heading's, and is what says a new
     block has started. The share of income comes down with the total, since
     "22% of money in" is only meaningful beside the figure it is 22% of.
-  - **The figure column has one right edge, always.** A row with no `ⓘ` used to
-    skip the icon entirely, which pushed that row's figure 44px further right
-    than its neighbours — two right edges in the one card that exists to be read
+  - **The figure column has one right edge, always.** A row with nothing on its
+    end used to skip the slot entirely, which pushed that row's figure 44px
+    further right than its neighbours — two right edges in the one card that exists to be read
     straight down. `ROW_END_SLOT` in `chart.tsx` is that 34px permanently: the
     icon where there is something to open, empty space where there is not, and
     matched by the total beneath so the sum lands under the numbers it adds up.
@@ -1592,113 +1601,305 @@ come to, what is it made of, how does it compare with the year:
     the `Money out` meter and the meter was removed instead, which is why the
     row bars are named here explicitly.
 
-    Rows went **51px → 42.5px** (the `ⓘ`'s 42px tap target is the floor now,
-    not the bar) — about 100px off a twelve-line `Money out`. The comparison
+    Rows went **51px → 42.5px**, and then to 44px once the row itself became the
+    tap target (the thumb is the floor now, not the bar) — about 100px off a twelve-line `Money out`. The comparison
     the bars were for survives where it belongs: each block's share of income
     on its header row, and `YearList` for month against month. `Bar` and
     `OUT_INK` stay in `chart.tsx` for the utility grid, where twelve cells of
     one account is a shape worth seeing; `IN_INK` went with the money-in bars.
-  - **A line on the month is its name and its figure — the rest is
-    behind its chevron.** Every row used to print three more facts: "2 payments ·
-    $316.84 every 2 weeks" under the name, "$8,238 a year" beside the amount, and
-    on `Money in` a share as well. Down a dozen rows that is two lines of grey
-    between every figure, competing with the one thing the card exists to show —
-    what this costs *this month*. That took the phone view from **1249px to
-    1098px** and a detailed row from 66px to 51.
+  - **A line on the month is its name, its figure, and a chevron.** Every row
+    used to print three more facts: "2 payments · $316.84 every 2 weeks" under
+    the name, "$8,238 a year" beside the amount, and on `Money in` a share as
+    well. Down a dozen rows that is two lines of grey between every figure,
+    competing with the one thing the card exists to show — what this costs *this
+    month*. That took the phone view from **1249px to 1098px** and a detailed row
+    from 66px to 51.
 
-    **It opens over the list, not inside it — a `ⓘ`, not a disclosure.** Two
-    attempts got here. Joining the facts into one grey sentence (`2 payments ·
-    $316.84 every 2 weeks · $8,238 a year`) read as an annotation *on* the row
-    rather than an answer to it. Expanding the row in place answered properly and
-    **moved the page**: this is a list read by scanning down a column of figures,
-    and pushing everything below the row down by four lines costs the reader
-    their place — for a glance that is over in a second. Reflow is the wrong
-    price for a peek.
+    Those facts moved behind a small `ⓘ` on the row, opening an `AnchoredPanel`
+    over the list — and that `ⓘ` is now **gone**, along with the panel, because
+    the row itself opens `LineDetailSheet` (below) and carries every one of them.
+    Two affordances on one row — a 42px target for four facts, and the row for
+    the same four plus a chart — is a choice nobody should have to make. Two
+    things from that version are worth keeping written down, because both were
+    arrived at the hard way:
 
-    So the row carries a small `ⓘ` and the detail opens in an `AnchoredPanel`,
-    the same primitive the pickers use: portalled clear of the card's
-    `overflow-hidden`, pinned under the icon, flipping above it near the bottom
-    of the screen. Measured at 390: page height is **identical open and closed**,
-    nothing scrolls, and dismissing puts the reader back exactly where they were.
+    - **Reflow is the wrong price for a peek.** Expanding the row in place
+      answered properly and moved everything below it down by four lines. This is
+      a list read by scanning down a column of figures, and losing your place
+      costs more than the answer is worth. Whatever opens, opens *over*.
+    - **A row nobody can see is interactive is a row nobody taps.** The `ⓘ` was
+      deliberate rather than a secretly-tappable row; now that the row *is* the
+      control, the chevron does that job. It sits in the permanent
+      `ROW_END_SLOT`, so the figures keep their single right edge and the section
+      total still lands under the numbers it adds up. The row is `min-h-11`
+      — 42.5px → 44px, about 18px across a twelve-line `Money out`, which is
+      what a thumb costs.
+
+  - **A row opens to its timeline** — `LineDetailSheet`, over the month.
+
+    The card answers what each part of the month costs. The question straight
+    after it is **has this been creeping up**, and for a metered bill or a
+    subscription that is the only question worth asking: $15 a month is a shrug,
+    $15 that was $9 two years ago is a decision. Nothing on the page could
+    answer it — the Utilities panel could, for utilities alone, four taps away.
+
+    A **panel, not a route**, for the third time on this page and the strongest
+    case yet: every figure it needs is already in memory behind it, so it opens
+    instantly and closing puts the reader back on the row they left. Whole screen
+    on a phone, a 600px centred dialog on a desktop.
+
+    One card, four blocks. **Three stats, the chart, `This month`, `Month by
+    month`** — with the name, this month's figure and the month it is for in the
+    header above it. Measured at 390: the chart ends at y415 of 844, so the whole
+    answer is on the first screen; the table under it is the scroll.
+
+    - **The three stats say what the chart cannot**: `12-mo avg` (the level the
+      line is noise around), `Change` (trailing twelve against the twelve before,
+      red when a commitment rises and green when income does — the tone follows
+      the block, not the sign), and `A year`. The high and the low are marked on
+      the plot itself and this month's figure is the headline, so neither is
+      repeated here.
+    - **The run rate is never this month × 12.** A typed line uses its own rate
+      and cadence, as before. A *linked* row has no rate, and the fallback is the
+      twelve-month average × 12 rather than the month — a quiet September of
+      house sitting annualised at $3,600 against a real $6,040.
+    - **`This month` is the old `ⓘ` panel, unchanged**, and still governed by the
+      same test: every row in it has to say something the month row cannot.
+      `lineDetail()` in `lib/finances.ts` still decides it — what one payment is
+      worth, how many landed against how many usually do, when the amount last
+      moved and what it was, and the dates only in a month that holds a change.
+      Deliberately **not** in it: the date a line's first rate carries, which for
+      most lines is when the figure was typed into the app rather than when the
+      commitment started.
+    - **A utility now carries no `This month` block at all.** `utilityDetail()`
+      is deleted: last month, the same month a year ago and the twelve-month
+      average were the whole of it, and all three are drawn on the chart directly
+      above. It was the same figures twice.
+    - **`Month by month` is the chart's table twin**, two columns filled
+      *downwards* (a CSS grid fills row-by-row by default, which would make the
+      reader zig-zag to follow a sequence — the lesson `YearList` already
+      learned). It is what makes the panel readable without seeing colour.
+
+    **What the timeline plots is the same measure as the row** — whatever the
+    month prints for that line — so the last point and the headline are the same
+    number rather than two nearly-equal ones. `lib/financeHistory.ts` resolves it
+    per row: `amountForMonth` over a typed line's life, the actual bills for a
+    utility, the year's nights for house sitting, and — see below — the dated
+    prices for the regular clients. It is computed **on the tap**, not on the row: the month is assembled
+    twelve times over for `YearList`, and hanging two years of history on every
+    row of every one of those is twelve identical answers to a question nobody
+    has asked yet.
+
+    Three decisions in the arithmetic, all of them the kind this page keeps
+    catching:
+
+    - **Only real readings.** An unbilled month carries the average of the last
+      three *on the dashboard*, because the water bill is coming whether or not
+      it has arrived — and plotting that estimate here, on the one chart whose
+      job is to show what was really charged, would put an invented flat stretch
+      on the end of it. The line simply stops at the last bill.
+    - **A part-month at either end is dropped.** A line whose first change is
+      dated the 25th collected one paycheck in that month rather than two, so it
+      plots at half height — and read as the low of a timeline about the *level*
+      of a commitment, that is a claim the data does not make. It only ever
+      trims, and it gives way when trimming would leave fewer than two points.
+    - **A month the line did not exist in is absent, not zero**; a month that
+      genuinely earned nothing is zero and stays.
+
+    **The regular clients draw a real line, and this is the correction worth
+    recording.** That block was shipped drawing nothing, on the reasoning that a
+    client record says what the arrangement is *now* and keeps no record of which
+    months were worked — so a chart of it would be a chart of an assumption.
+    Ivan's answer was that the app has the data, and he was right: **`price_history`
+    is dated**, and every client carries the day it started. So a month is priced
+    at what was actually being charged in it and a client contributes only to the
+    months it was on the books for — a rate rise in May steps the line in May,
+    and a client joining in April steps it in April, exactly like a subscription.
+    `clientPriceOn()` and `clientStartDate()` in `lib/clients.ts` are the two
+    lookups; `currentClientPrice()` is now just the first of them asked about
+    today.
+
+    What is still an estimate, and always will be, is the *visits*: a client says
+    how many days a week it is, not which weeks were actually worked. So the line
+    is the standing arrangement re-priced month by month — the same thing the row
+    on the month is, which is the rule for what a timeline plots. The one thing
+    the data cannot say is **when** a client was paused: status is a single
+    current flag with no history, so a paused client is absent from the whole
+    line rather than from the months since it paused, and inventing a date for
+    that would be worse than leaving it out.
+
+  - **Three ranges, and the timeline is turned on its side** (`HistoryChart`).
+
+    Four attempts. The first three were horizontal charts and every one of them
+    broke on the same wall: a phone gives a plot about 260px wide, and a year
+    needs twelve figures in it. They are worth listing because the mistake
+    underneath all three was the same, and it was not a tuning mistake.
+
+    1. **A shape**, with only the high and the low labelled. Ivan opened the
+       water bill and could not read anything off it.
+    2. **A figure on every dot, with the chart scrolling sideways** to make room.
+       A chart you have to drag is a chart you cannot take in, and the two months
+       you want to compare are never both on screen.
+    3. **Thinned and staggered figures.** Thinning left months with no number at
+       all. Staggering was worse: to keep a label clear of the line it was placed
+       above or below its own *neighbourhood*, which **decoupled a label's height
+       from its value** — so **$114 sat higher on the plot than $121**. That is
+       not a chart that is hard to read, it is one that is wrong, and it is the
+       reason this approach was abandoned rather than tuned again.
+
+    The app's own space rules already said what to do, about the Reports
+    breakdown and again about `YearList`: **rows rather than columns — twelve
+    labelled columns on a phone are unreadable.** The horizontal chart was built
+    against that rule and lost to it three times. So the crowded axis now runs
+    **down** the page, where a phone has as much room as it needs and scrolling
+    is the natural motion rather than a fight.
 
     ```text
-    Federal Income Tax (Ivan)     $950.52  ⓘ
-                        ┌────────────────────────────┐
-                        │ FEDERAL INCOME TAX (IVAN)  │
-                        │ Every 2 weeks      $316.84 │
-                        │ Payments     3 · usually 2 │
-                        │ Since Aug 6, 2026  was $302.30 │
-                        │ ────────────────────────── │
-                        │ $8,238 a year              │
-                        └────────────────────────────┘
+                $63.70                        $121.00
+      Oct 2025   ●                             $63.70
+      Nov 2025    ●                            $70.90
+      Dec 2025     ●                           $75.30
+      …
+      May 2026              ●                 $114.00
+      Jun 2026                ●               $121.00
+      Jul 2026     ●                           $77.50
+      Sep 2026    ●                            $79.30   ← this month, tinted
     ```
 
-    The panel names its row, because it floats away from it.
+    One row per month: the month, a dot placed across a track by value, and the
+    exact figure. A polyline through the dots keeps the shape a line chart gave.
+    What that buys is **structural rather than tuned**, which is the whole point:
 
-    **Every row in it has to say something the month row cannot**, and the first
-    version failed that test badly enough to be worth recording: it listed every
-    payment by date. On a line whose payments are all worth the same — which is
-    almost every line, almost every month — "Sep 3 $302.30 / Sep 17 $302.30" is
-    one figure printed twice, and two lines of it made the panel look like it was
-    answering while it was padding. `lineDetail()` in `lib/finances.ts` decides
-    the contents now, and four things pass:
+    - **Every month is present.** One row each. No thinning, ever, at any range
+      or any width.
+    - **Every figure is exact, to the cent**, in a column with one right edge.
+      Nothing is rounded to make a label fit, because a label cannot collide with
+      anything.
+    - **Nothing can lie.** A row's position is its *date*; its printed figure is
+      its *value*. The dot is a relative cue laid across the row, so there is no
+      arrangement in which a label ends up higher than a bigger number.
+    - **The shape survives.** A rise is dots marching right as you read down.
 
-    - **What one payment is worth**, when the month's figure is not simply it. A
-      monthly line's payment *is* the row, so it is left out; a fortnightly one's
-      is the actual paycheck, which is the figure a person recognises.
-    - **How many landed, against how many usually do.** This was missing, and it
-      is the answer to the only question a month total really raises — why is
-      this bigger than last month. `3 · usually 2` says it outright, and it is
-      stated even when the dates are listed above it, since the comparison is the
-      point and cannot be counted off them. Only Weekly and Bi-weekly have a
-      "usually" at all; every other cadence lands the same number of times in
-      every month it is due.
-    - **When the amount last moved, and what it was.** Nowhere else on the month
-      is a line's history visible, and "Since May 1, 2026 · was $10.99" is what
-      turns a subscription figure into a subscription that crept. Only across a
-      change of amount at the same cadence — monthly → fortnightly moves the unit
-      as well, so "was $2,600" would compare two different things — and never in
-      the month the change lands in, where the dated list already showed it
-      happening.
-    - **The dates**, only in that month, where the payments are worth different
-      amounts and nothing but the list says which is which.
+    Oldest at the top, newest at the bottom — time flows down, which is the
+    direction anybody would guess, and it makes "creeping up" read as rightward.
+    The current month's row is tinted so "now" is findable in a long list. The
+    default range is twelve rows, which fits a phone screen whole; `All time` is
+    a vertical scroll, which is what a phone is for.
 
-    Deliberately **not** in it: the date a line's first rate carries. For most
-    lines that is when the figure was typed into the app, not when the commitment
-    started, so "Since Dec 25, 2025" on a rent line running since 2021 would be a
-    claim the data cannot support.
+    **A leader across every row, and the average drawn.** Two things the first
+    rotated version was missing, both of them Ivan's:
 
-    A linked figure has no schedule to describe — it is an estimate off another
-    table — so there the hint that used to sit on the row is the whole detail.
-    **When the note is the only thing in the panel it is set as content**, not as
-    the 11.5px grey footnote it is under a list of rows: a single grey line under
-    a heading reads as a panel that failed to load. And a line that has ended is
-    worth 0 a year from the day after, so the run rate is dropped rather than
-    printed as `$0 a year` — the zero-pretending-to-be-a-figure this page keeps
-    catching itself doing.
+    - The dot sits somewhere in the middle of a ~170px track with the month name
+      to its left and the figure to its right, and with nothing joining the three
+      there was a beat of work in tying a dot to the number it stands for — "I
+      don't see any line connecting the chart from the left side of December 2025
+      to a number 112". A **hairline runs the width of the track behind the dot**,
+      overlapping both columns by 5px, so the eye is carried label → dot → figure
+      without leaving the row. It is one step off the surface, well under the
+      polyline it crosses: it is there to be followed, not looked at.
+    - **A faint vertical rule stands at the average of the months on screen**, and
+      each dot and its figure take a muted tone for which side of it that month
+      fell — `danger` when a commitment ran over, `success` when it did not, and
+      flipped on a money-in line, since a big month of income is good news. That
+      is the tone rule the `Change` stat already follows, so `direction` is threaded
+      into the chart. **At the average counts as under it**, which is the kind
+      reading and the one Ivan asked for.
 
-    **The figure and the `ⓘ` centre against the whole row.** This mattered more
-    when the row's first child was a stacked column — the name above its bar —
-    where aligning to the top put the amount level with the name and left it
-    sitting high over the bar. The row is one line now and `items-center` lands
-    all three on the same centre, measured identical at 390 and 1280.
+      This is the one place in the app where colour carries a reading, so it is
+      **redundant rather than load-bearing** — the rule is drawn, so above-average
+      is a position before it is a colour, and the exact figure is printed either
+      way. It does not reopen "magnitude is length, never colour": the quantity is
+      still the dot's position and the printed number, and the tone is a two-state
+      comparison against a line that is on screen. The average is taken over the
+      months **in view**, because the reading is "which of these was over".
+      The `avg` caption is only printed where it clears both ends of the scale;
+      squeezed against the low or the high it would overprint one of them, and the
+      rule says the same thing on its own.
 
-    **The row stays a reading; only the icon is a control.** Its target is 42×42,
-    bought with padding pulled back by an equal negative margin so the row keeps
-    the 51px it had — and **only the 26px circle inside that target is painted**.
-    Hover, press and focus all landed on the 42px box first time out, which lit a
-    square three times the icon's size; `.focus-ring-child` and a `group-hover`
-    on the child are what keep the treatment the size of the thing being touched.
+    **`Month by month` is gone as a separate block** — the timeline *is* the
+    table now. Two lists of the same twelve figures, one rounded and one not, was
+    the duplication the horizontal chart forced.
 
-    Nothing is deleted, and the **yearly run rate is still the reason the detail
-    exists** — $15 a month is a shrug and $180 a year is a decision. It is still
-    rounded (`formatCurrencyRounded`), because a run rate is an extrapolation
-    rather than an amount anybody was charged, and still taken from the line's
-    own rate rather than this month × 12, which would annualise a three-paycheck
-    August at 1.5×. It is simply not mandatory on every row.
+    The three ranges are unchanged and are still two spans and a **reading**:
 
-    The icon is deliberate rather than a secretly-tappable row: a row nobody can
-    see is interactive is a row nobody taps.
+    | Range | What it shows |
+    | --- | --- |
+    | `12 months` | The last twelve. The default. |
+    | `By home` | The whole history, cut at each move — see below. |
+    | `All time` | Every month the line has ever had. |
+
+    The control is a compact pill group at the top right of the block it
+    governs, not a full-width segmented row — that is 48px of tax on every
+    visit. Each pill is **44px tall**, the floor for anything tappable and not
+    negotiable down for being small: the first version measured 73×30, a
+    comfortable reading and a miss with a thumb.
+
+    **The three stats above it do not move when the range does.** They describe
+    the line — twelve-month average, direction, run rate — and a figure that
+    changed when you changed the view would be a different fact wearing the same
+    label. The history is built whole, once, and cut per range.
+
+    **A move is a break in the series, not a line drawn across one.** In
+    `By home` each address gets its own heading and its own connected run, and
+    the gap between them is the move — joining them with a stroke would say the
+    months either side are one run of the same thing.
+
+    One mechanical trap, recorded because it cost a round: the connecting line is
+    stretched by a **block wrapper**, not by setting `left`/`right` on the `<svg>`
+    itself. An `<svg>` is a replaced element, so `width: auto` resolves to its
+    intrinsic 300px and the box quietly stops matching the track — the line was
+    130px wide beside dots spread across 170.
+
+  - **`By home` — is it more expensive to live here than it was at the last
+    place?**
+
+    This is the range Ivan asked for and it needed a table the app did not have.
+    Finances could say what a bill costs and how it has moved; it could not say
+    which of those months were paid at which address, so an $88 average and a
+    $131 average sat in the same column with nothing to tell them apart.
+
+    `finance_homes` is one row per address with **one date on it**
+    (`supabase/finance-homes-schema.sql`). A home runs from `moved_in` until the
+    next home starts, so there is no end date to keep in step with the next row's
+    beginning — the commonest way a dated pair of columns goes wrong — and the
+    current home is simply the last one, stated rather than stored. The table is
+    **joined to nothing**: any month is attributed by comparing dates, so rent,
+    every utility and every typed line are read by home without a column on any
+    of them, and deleting a home cannot take a figure with it.
+
+    Addresses are typed in **Setup**, at the foot of the panel
+    (`HomesSection`), for the same reason the car's numbers live in Profile: an
+    address is entered twice in a decade and read every time a bill is opened.
+
+    What the range shows, in this order: **the comparison first, the line
+    underneath.** Each home with its months, its average per month, and the
+    difference against the home *before* it — against the first home instead
+    would answer a question nobody asks after the second move. Newest first,
+    because the current address is what is being asked about.
+
+    ```text
+    Rudolph Apartments               +65%   $116.65
+    Jan 2025 – Sep 2026 · 21 months          A MONTH
+
+    Envy Apartments                         $70.52
+    Jan 2023 – Dec 2024 · 24 months          A MONTH
+    ```
+
+    **Figures, not bars.** Comparing two or three averages is exactly the case
+    the house data-viz rules call a stat tile rather than a chart, and a length
+    beside an exact number answers nothing the number does not. The line stays
+    below it, with the move drawn as a vertical rule and each home named above
+    its stretch, because seasonality is the first thing anybody would accuse the
+    comparison of.
+
+    Three things it deliberately does not do. Months **before the first home are
+    dropped, not pooled** — they were paid somewhere, and calling that somewhere
+    "unknown" would invent an address to compare against. The average is **per
+    month**, so a home lived in for three months is not cheaper for it. And there
+    is no way to say **when** a home was left other than by the next one
+    starting: status has no history here, which is a limit the data has and not
+    one worth inventing a date to hide.
+
   - **Headings say what they hold**: `Money in`, `Money out`, and the bucket's
     own name. Nothing is titled with a phrase that has to be interpreted.
   - **An empty block gets no total and one dash.** Nothing in it means nothing
@@ -1876,7 +2077,7 @@ Inside, the six buckets are strips in one card, each with its total and a `+`.
   measured, the cadence caption is a 94×47 target painting 78×23, and `Remove` a
   70×47 target painting 54×23. Left on the button, the hover filled the whole
   inflated box and a 12px caption lit up a 47px block. Same rule, same helper
-  (`.focus-ring-child`), as the month's `ⓘ`.
+  (`.focus-ring-child`), as the month's `ⓘ` did.
 - **The amount field says it is the amount.** Its caption was the cadence alone,
   so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
   and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
@@ -1951,6 +2152,12 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
 - `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
+- `components/finances/LineDetailSheet.tsx`: One line, opened — its timeline over the month.
+- `components/finances/HistoryChart.tsx`: The timeline — a row per month, turned on its side.
+- `components/finances/HomesSection.tsx`: The addresses, typed in Setup.
+- `lib/financeHistory.ts`: A line's past, month by month. Pure.
+- `lib/financeHomes.ts`: The same past, cut at each move. Pure.
+- `supabase/finance-homes-schema.sql`: `finance_homes` — one address, one date.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
 - `components/finances/SetupSheet.tsx`: The standing figures, over the month.
 - `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
@@ -2062,6 +2269,33 @@ screenshots — so "the titles line up" is a measurement (`top 31 left 16` on ev
 section) rather than an opinion, and the screenshots get read back, not just
 saved. Measure at **390px first**: this app is used on a phone.
 
+**And at 430, which is the phone Ivan actually holds.** An iPhone 14 Pro Max is
+430×932 CSS px, and a chart checked at 390 and 1280 shipped broken on it. Widths
+worth having in the sweep: **390** (the small phone), **430** (his), 768, 1280.
+Emulate touch as well — `isMobile`/`hasTouch` is what makes `pointer: coarse`
+match, and the app has real rules keyed on it.
+
+**Check the geometry that carries the meaning, not just the boxes.** The same
+chart shipped with its line drawn in one coordinate space and its dots in
+another: the dots were right, the labels were right, and the line was a squiggle
+in the left fifth of the plot. Nothing in a bounding-box check saw it, because
+every box was where it should be. The check that catches it reads the drawn path
+back and asserts **the line passes through its own dots** — and that class of
+assertion (does the mark agree with the data it stands for) is what a chart needs
+on top of the usual measurements.
+
+The sweep that runs before any chart change lands, over every width × every row
+shape × every range: **one row, one dot and one figure per month** (no thinning,
+no missing month), the polyline has one vertex per dot and no vertex is more than
+2px from its dot, no row is clipped by the card, and the page does not scroll
+sideways. 60 combinations.
+
+The "one vertex per dot within 2px" assertion is the one that earns its place
+twice over: it caught a line drawn in a different coordinate space from its dots
+(every bounding box correct, the line a squiggle in the left fifth), and then a
+`width: auto` on a stretched `<svg>` that silently fell back to its intrinsic
+300px.
+
 **A resting screenshot is not the check for anything interactive.** Add
 `--states` and the script walks each selector through rest, hover, press and
 focus, printing the **hit area** against the box that is actually **painted**
@@ -2172,7 +2406,7 @@ The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically p
 https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
 ```
 
-Only deploy production when explicitly told `push live`. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
+Only deploy production when Ivan names the promote — `push live`, `push main`, `push to main`, `promote`, `deploy` are all the same instruction. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
 
 ```bash
 git checkout main
@@ -2199,7 +2433,7 @@ The promote commit message is the production changelog entry. Summarize the user
 https://sviy-hub.vercel.app
 ```
 
-Do not commit normal task work directly to `main`, and do not treat requests to `commit and push` as production deployment unless the user explicitly says `push live`.
+Do not commit normal task work directly to `main`, and do not treat a request to `commit and push` as production deployment — that one names nothing and means `staging`. Any wording that names `main`, `live`, `production`, `promote` or `deploy` is a promote, and is carried out without asking which phrasing was meant.
 
 ## Versioning Rules
 
@@ -2311,6 +2545,12 @@ the Thursday 6 August paycheck, the same one it applied to before.
 month; that does not change any total (a monthly line pays once a month whatever
 the day), it only decides which side of a mid-month change a payment falls on. If
 the real rent day is the 1st, fix it by editing the first change's date in Setup.
+
+Then run `supabase/finance-homes-schema.sql` in Supabase. It is re-runnable and
+creates `finance_homes` — one row per address, with the day you moved in. Until
+it runs, every chart range works except `By home`, which shows the sentence
+telling you to add addresses in Setup, and adding one there reports the missing
+migration by name.
 
 Then run `supabase/utilities-schema.sql` in Supabase. It is re-runnable and
 creates `utility_accounts` and `utility_bills`. Until it runs, Finances still

@@ -55,13 +55,39 @@ export function estimateClientFromRecord(client: Pick<ClientWithPets, "price_per
   });
 }
 
-export function currentClientPrice(client: Pick<ClientWithPets, "price_per_visit" | "price_history">) {
-  const today = todayInputValue();
-  const currentEntry = (client.price_history ?? [])
-    .filter((entry) => entry.effective_date <= today)
+/**
+ * What a client was charged on a given day.
+ *
+ * `price_history` is dated, so a month in the past can be priced at what was
+ * actually being charged then rather than at today's figure — which is what lets
+ * the Finances timeline draw the regular clients as a real series instead of one
+ * estimate repeated.
+ */
+export function clientPriceOn(
+  client: Pick<ClientWithPets, "price_per_visit" | "price_history">,
+  dateValue: string
+) {
+  const entry = (client.price_history ?? [])
+    .filter((row) => row.effective_date <= dateValue)
     .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
 
-  return Number(currentEntry?.price ?? client.price_per_visit);
+  return Number(entry?.price ?? client.price_per_visit);
+}
+
+/**
+ * The earliest day this client can be said to have existed.
+ *
+ * The first dated price if there is one, and the day the record was created
+ * otherwise. A month before it is a month the client was not on the books, and
+ * counting them in would draw income that never arrived.
+ */
+export function clientStartDate(client: Pick<ClientWithPets, "created_at" | "price_history">) {
+  const dates = (client.price_history ?? []).map((row) => row.effective_date).sort();
+  return dates[0] ?? client.created_at.slice(0, 10);
+}
+
+export function currentClientPrice(client: Pick<ClientWithPets, "price_per_visit" | "price_history">) {
+  return clientPriceOn(client, todayInputValue());
 }
 
 export function estimateClientCurrentEarnings(client: ClientWithPets) {

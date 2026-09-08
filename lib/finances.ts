@@ -305,7 +305,7 @@ export function snapToPayday(dateValue: string, weekday: number | null) {
 }
 
 /** A line's schedule as its paydays, for lines that have a fixed one. */
-function onPaydays(rates: FinanceRate[], weekday: number | null) {
+export function onPaydays(rates: FinanceRate[], weekday: number | null) {
   if (weekday === null) return rates;
   return rates.map((rate) => ({ ...rate, effective_from: snapToPayday(rate.effective_from, weekday) }));
 }

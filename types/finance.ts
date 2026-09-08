@@ -115,17 +115,64 @@ export type FinanceLine = {
 /** One payment: the day it lands and what it is worth. */
 export type FinancePayment = { date: string; amount: number };
 
+/**
+ * An address the household has lived at, and the day they moved in.
+ *
+ * One date, not two. A home runs until the next one starts, so there is no end
+ * date that can fall out of step with the next row's beginning — and the current
+ * home is simply the last one. Nothing points at it: a month is attributed to a
+ * home by comparing dates, so every figure in the app can be read by home
+ * without a column on any of them.
+ */
+export type FinanceHome = {
+  id: string;
+  created_at: string;
+  updated_at: string | null;
+  user_id: string;
+  name: string;
+  moved_in: string;
+};
+
+/** One month of a line's past: the month, and what the line was worth in it. */
+export type FinanceHistoryPoint = { periodMonth: string; amount: number };
+
+/**
+ * A line's timeline — what this same figure came to, month by month.
+ *
+ * The month card answers "what is it now"; this answers "how did it get here",
+ * which for a metered bill is the only question worth asking and for a
+ * subscription is what turns $15 into a decision. It is deliberately the **same
+ * measure as the row** rather than a second one: whatever the month prints for
+ * this line is what each point plots, so a reader can put their finger on
+ * September's figure and find it at the right-hand end of the chart.
+ *
+ * A row with nothing to plot says why, in `note`, rather than drawing a flat
+ * line through one estimate — a chart of a figure that has no history is the
+ * zero-pretending-to-be-a-figure this page keeps catching, drawn instead of
+ * typed.
+ */
+export type FinanceHistory = {
+  /** Oldest first. Months the line did not exist in are absent, not zero. */
+  points: FinanceHistoryPoint[];
+  /** Why there is nothing, or too little, to chart. */
+  note?: string;
+};
+
 /** One fact about a line, read label-left, value-right. */
 export type FinanceDetailRow = { label: string; value: string };
 
 /**
- * What a line's `ⓘ` opens to.
+ * What a line's month is made of — the `This month` block inside `LineDetailSheet`.
  *
  * Every row in here has to say something the month row cannot. That test threw
  * out the first version, which listed every payment by date: on a line whose
  * payments are all the same — which is almost every line, almost every month —
  * "Sep 3 $302.30 / Sep 17 $302.30" is one fact printed twice, and the reader
  * already had it from the row.
+ *
+ * It answers the *month*, and the panel around it answers the years — so a
+ * utility carries none of these at all: last month, the same month a year ago
+ * and the twelve-month average are all drawn on the chart above it.
  */
 export type FinanceDetail = { rows: FinanceDetailRow[] };
 
@@ -152,6 +199,12 @@ export type FinanceRow = {
    * change lands in and no other. What is worth knowing the rest of the time is
    * what one payment is worth, how many landed against how many usually do, and
    * when the amount last moved.
+   *
+   * The **timeline is not here**, deliberately. A month is assembled twelve
+   * times over to draw `YearList`, and two years of history hung on every row of
+   * every one of those is twelve identical answers to a question nobody has
+   * asked yet. `lib/financeHistory.ts` resolves it against the same sources on
+   * the tap that opens the line.
    */
   detail?: FinanceDetail;
   /**

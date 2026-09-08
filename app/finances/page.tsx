@@ -8,6 +8,7 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { MoneyIn, MoneyOut } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
+import { LineDetailSheet } from "@/components/finances/LineDetailSheet";
 import { SetupSheet } from "@/components/finances/SetupSheet";
 import { UtilitiesSheet } from "@/components/finances/UtilitiesSheet";
 import { YearList } from "@/components/finances/YearList";
@@ -16,12 +17,16 @@ import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth } from "@/lib/expenses";
 import { buildYear, clientMonthlyIncome, houseSittingByMonth } from "@/lib/finances";
 import {
+  addFinanceHome,
   addFinanceLine,
+  deleteFinanceHome,
   deleteFinanceLine,
   deleteFinanceRate,
+  loadFinanceHomes,
   loadFinanceLines,
   renameFinanceLine,
   setFinanceRate,
+  updateFinanceHome,
   updateFinanceRate
 } from "@/lib/financeClient";
 import { utilityBook } from "@/lib/utilities";
@@ -38,7 +43,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
-import type { FinanceBucket, FinanceLine } from "@/types/finance";
+import type { FinanceBucket, FinanceHome, FinanceLine, FinanceRow } from "@/types/finance";
 import type { UtilityAccount, UtilityBill, UtilityBucket } from "@/types/utility";
 
 /**
@@ -70,6 +75,7 @@ export default function FinancesPage() {
   const { user, authLoading } = useAuthUser();
   const [periodMonth, setPeriodMonth] = useState(() => currentPeriodMonth());
   const [lines, setLines] = useState<FinanceLine[]>([]);
+  const [homes, setHomes] = useState<FinanceHome[]>([]);
   const [accounts, setAccounts] = useState<UtilityAccount[]>([]);
   const [bills, setBills] = useState<UtilityBill[]>([]);
   // Two notices, kept apart. Either half of the page can be waiting on a
@@ -82,6 +88,10 @@ export default function FinancesPage() {
   const [loading, setLoading] = useState(true);
   const [setupOpen, setSetupOpen] = useState(false);
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
+  // The line whose timeline is open over the month. The row itself is held
+  // rather than its key, because the panel's headline is this month's figure and
+  // the row already carries it, along with its hint and its working.
+  const [openRow, setOpenRow] = useState<FinanceRow | null>(null);
   const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
@@ -110,6 +120,25 @@ export default function FinancesPage() {
    * comparison figures vanish. There is one row per account per month, so the
    * whole history is a few hundred rows at worst.
    */
+  /**
+   * Where the household has lived.
+   *
+   * Its own table and its own failure: it groups figures rather than holding
+   * any, so a missing migration means the `By home` range has nothing to show
+   * and every other range on every chart still draws exactly as before. It is
+   * reported alongside the other two notices rather than thrown.
+   */
+  const refreshHomes = useCallback(async () => {
+    try {
+      const { homes: nextHomes, setupNeeded, setupMessage } = await loadFinanceHomes();
+      setHomes(nextHomes);
+      return setupNeeded ? setupMessage : "";
+    } catch (error) {
+      setHomes([]);
+      return error instanceof Error ? error.message : "Could not load your homes";
+    }
+  }, []);
+
   const refreshUtilities = useCallback(async () => {
     try {
       const { accounts: nextAccounts, bills: nextBills, setupNeeded, setupMessage } = await loadUtilities();
@@ -151,11 +180,15 @@ export default function FinancesPage() {
         status: booking.status === "Cancelled" ? "Cancelled" : "Planned"
       }))
     );
-    const [nextLineNotice, nextUtilityNotice] = await Promise.all([refreshLines(), refreshUtilities()]);
-    setLineNotice(nextLineNotice);
+    const [nextLineNotice, nextUtilityNotice, nextHomeNotice] = await Promise.all([
+      refreshLines(),
+      refreshUtilities(),
+      refreshHomes()
+    ]);
+    setLineNotice([nextLineNotice, nextHomeNotice].filter(Boolean).join(" "));
     setUtilityNotice(nextUtilityNotice);
     setLoading(false);
-  }, [refreshLines, refreshUtilities, user, year]);
+  }, [refreshHomes, refreshLines, refreshUtilities, user, year]);
 
   useEffect(() => {
     loadYear();
@@ -164,19 +197,30 @@ export default function FinancesPage() {
   // Grouped once, not once per month per bucket.
   const book = useMemo(() => utilityBook(accounts, bills), [accounts, bills]);
 
+  // The stays, spread over the nights they were slept in. Built once here rather
+  // than inside the month memo, because a line's timeline reads the same array.
+  const houseSitting = useMemo(() => houseSittingByMonth(bookings, year), [bookings, year]);
+
   const months = useMemo(
     () =>
       buildYear({
         year,
         lines,
         clientIncome: clientMonthlyIncome(clients),
-        houseSitting: houseSittingByMonth(bookings, year),
+        houseSitting,
         utilities: book
       }),
-    [book, bookings, clients, lines, year]
+    [book, clients, houseSitting, lines, year]
   );
 
   const month = months[monthIndex];
+  // Everything a line's past can be read out of, gathered once. The page already
+  // holds all of it to build the month at all, which is why opening a line costs
+  // no query and can be a panel over the month rather than a route away from it.
+  const historySources = useMemo(
+    () => ({ lines, book, houseSitting, clients, homes }),
+    [book, clients, homes, houseSitting, lines]
+  );
   // One box, not two stacked above the month: they are both "run this migration",
   // and a second warning costs more height than the sentence is worth.
   const notice = [lineNotice, utilityNotice].filter(Boolean).join(" ");
@@ -192,6 +236,16 @@ export default function FinancesPage() {
     try {
       await action();
       setLineNotice(await refreshLines());
+      showToast(message);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save that");
+    }
+  }
+
+  async function runHomeChange(action: () => Promise<void>, message: string) {
+    try {
+      await action();
+      setLineNotice(await refreshHomes());
       showToast(message);
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Could not save that");
@@ -294,11 +348,11 @@ export default function FinancesPage() {
                   left column for both rows and the two short blocks stack
                   beside it. */}
               <div className="order-3 lg:col-start-2 lg:row-start-2 lg:self-start">
-                <MoneyIn month={month} />
+                <MoneyIn month={month} onOpenRow={setOpenRow} />
               </div>
 
               <div className="order-4 lg:col-start-1 lg:row-start-2 lg:row-span-2 lg:self-start">
-                <MoneyOut month={month} />
+                <MoneyOut month={month} onOpenRow={setOpenRow} />
               </div>
 
               <div className="order-5 lg:col-start-2 lg:row-start-3 lg:self-start">
@@ -319,6 +373,7 @@ export default function FinancesPage() {
       {setupOpen ? (
         <SetupSheet
           lines={lines}
+          homes={homes}
           notice={notice}
           onClose={() => setSetupOpen(false)}
           onAddLine={(input) =>
@@ -352,6 +407,13 @@ export default function FinancesPage() {
           }
           onDeleteRate={(rateId) => runLineChange(() => deleteFinanceRate(rateId), "Change removed")}
           onDeleteLine={(lineId) => runLineChange(() => deleteFinanceLine(lineId), "Line deleted")}
+          onAddHome={({ name, movedIn }) =>
+            runHomeChange(() => addFinanceHome({ userId: user.id, name, movedIn }), `${name} added`)
+          }
+          onUpdateHome={({ id, name, movedIn }) =>
+            runHomeChange(() => updateFinanceHome({ id, name, movedIn }), "Home saved")
+          }
+          onDeleteHome={(homeId) => runHomeChange(() => deleteFinanceHome(homeId), "Home deleted")}
         />
       ) : null}
 
@@ -384,6 +446,23 @@ export default function FinancesPage() {
             )
           }
           onDeleteBill={(billId) => runUtilityChange(() => deleteUtilityBill(billId), "Bill removed")}
+        />
+      ) : null}
+
+      {/* A line, opened: its timeline first, then this month's working and every
+          figure behind the chart as text. It reads the same sources the month
+          behind it was built from, so it opens instantly and closing puts the
+          reader back on the row they left. */}
+      {openRow ? (
+        <LineDetailSheet
+          row={openRow}
+          direction={
+            month?.sections.find((section) => section.rows.some((row) => row.key === openRow.key))
+              ?.direction ?? "out"
+          }
+          periodMonth={periodMonth}
+          sources={historySources}
+          onClose={() => setOpenRow(null)}
         />
       ) : null}
 
