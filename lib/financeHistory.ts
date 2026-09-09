@@ -1,11 +1,19 @@
 import { periodMonthBounds, periodMonthShortLabel, shiftPeriodMonth } from "@/lib/expenses";
 import { clientPriceOn, clientStartDate, estimateClientFromRecord } from "@/lib/clients";
 import { amountForMonth, endedOn, onPaydays, paydayWeekdayFor } from "@/lib/finances";
-import { toPeriodMonth } from "@/lib/utilities";
+import { monthValue, toPeriodMonth } from "@/lib/utilities";
 import { parseLocalDate } from "@/lib/formatters";
+import { FINANCE_BUCKETS } from "@/types/finance";
 import type { ClientWithPets } from "@/types/client";
-import type { FinanceHistory, FinanceHistoryPoint, FinanceHome, FinanceLine, FinanceRow } from "@/types/finance";
-import type { UtilityBook } from "@/types/utility";
+import type {
+  FinanceBucket,
+  FinanceHistory,
+  FinanceHistoryPoint,
+  FinanceHome,
+  FinanceLine,
+  FinanceRow
+} from "@/types/finance";
+import type { UtilityBill, UtilityBook } from "@/types/utility";
 
 /**
  * A line's past, as the same figure the month prints for it.
@@ -76,8 +84,16 @@ function mean(amounts: number[]) {
  * Months outside the line's own life are **absent**, not zero: before its first
  * change the line did not exist, and after its end date it is over. A zero there
  * would draw a commitment falling off a cliff it never stood on.
+ *
+ * `trim` is what a block turns off. See `memberHistory`: inside a sum, a
+ * trimmed month is not a missing point but a missing *member*, and the block
+ * would dip by the whole of that line in a month it really was paid in.
  */
-export function lineHistory(line: FinanceLine, periodMonth: string): FinanceHistory {
+export function lineHistory(
+  line: FinanceLine,
+  periodMonth: string,
+  options: { trim?: boolean } = {}
+): FinanceHistory {
   const rates = onPaydays(line.rates, paydayWeekdayFor(line.label));
   if (rates.length === 0) return { points: [], note: "No amount set yet" };
 
@@ -104,6 +120,8 @@ export function lineHistory(line: FinanceLine, periodMonth: string): FinanceHist
   // is a worse one.
   const wholeFrom = startsWhole(rates[0].effective_from) ? born : shiftPeriodMonth(born, 1);
   const wholeTo = stopped === null || endsWhole(stopped) ? died : shiftPeriodMonth(died!, -1);
+
+  if (options.trim === false) return { points: months(born, died) };
 
   const trimmed = months(wholeFrom, wholeTo);
   return { points: trimmed.length >= 2 ? trimmed : months(born, died) };
@@ -242,7 +260,7 @@ export type HistorySources = {
  * Keyed off the row key the month was built with, which is the only handle the
  * card has: a line's id, `utility:<id>`, or one of the two linked constants.
  */
-export function rowHistory(row: FinanceRow, sources: HistorySources, periodMonth: string): FinanceHistory {
+export function rowHistory(row: { key: string }, sources: HistorySources, periodMonth: string): FinanceHistory {
   if (row.key.startsWith("utility:")) {
     const accountId = row.key.slice("utility:".length);
     const entry = sources.book.find(({ account }) => account.id === accountId);
@@ -306,4 +324,274 @@ export function historySummary(points: FinanceHistoryPoint[], periodMonth: strin
         ? recentAverage / priorAverage - 1
         : null
   };
+}
+
+/**
+ * A whole block, month by month — the same question one line answers, asked of
+ * the category it sits in.
+ *
+ * "Is this creeping up" is worth asking of `Subscriptions` and `Needs` at least
+ * as much as of any one line in them: a pile of small services is exactly the
+ * thing no single row can show growing. So a block opens to the same panel a row
+ * does, and what it plots is **the sum of its members, month by month** — the
+ * figure the month's `SectionTotal` prints, extended backwards.
+ *
+ * Membership is read off the **sources**, not off the month on screen. A
+ * subscription cancelled in March is not in September's rows and was certainly
+ * part of what the block cost in February; taking the current month's rows as
+ * the member list would erase it from its own history.
+ */
+function bucketDirection(bucket: FinanceBucket): "in" | "out" {
+  return bucket === "Gross Income" ? "in" : "out";
+}
+
+/** Every row key a block is made of, whether or not it has a figure this month. */
+export function sectionMemberKeys(bucket: FinanceBucket, sources: HistorySources): string[] {
+  return [
+    ...sources.lines.filter((line) => line.bucket === bucket).map((line) => line.id),
+    ...sources.book
+      .filter(({ account }) => account.bucket === bucket)
+      .map(({ account }) => `utility:${account.id}`),
+    // The two linked figures land in Gross income and nowhere else.
+    ...(bucket === "Gross Income" ? ["clients", "house-sitting"] : [])
+  ];
+}
+
+/** Every row key on one side of the month — what `Money in` and `Money out` are made of. */
+export function sideMemberKeys(direction: "in" | "out", sources: HistorySources): string[] {
+  return FINANCE_BUCKETS.filter((bucket) => bucketDirection(bucket) === direction).flatMap((bucket) =>
+    sectionMemberKeys(bucket, sources)
+  );
+}
+
+/**
+ * A utility as a block counts it: the bill, or the estimate the month carries.
+ *
+ * On its own the account plots real bills only — that chart exists to show what
+ * was actually charged, and an invented flat stretch on the end of it would be
+ * the one lie it cannot afford. Inside a block the rule flips, because the
+ * measure has to be **the one the month prints for the block**: a category that
+ * drops by the whole water bill in a month whose paperwork has not been typed
+ * yet is a chart of missing paperwork, not of a household spending less.
+ */
+export function utilitySectionHistory(bills: UtilityBill[], periodMonth: string): FinanceHistory {
+  const started = bills.filter((bill) => bill.period_month <= periodMonth)[0] ?? null;
+  if (!started) return { points: [] };
+
+  return {
+    points: historyMonths(started.period_month, periodMonth).map((month) => ({
+      periodMonth: month,
+      amount: monthValue(bills, month).amount
+    }))
+  };
+}
+
+/**
+ * One member of a block, and the two things a sum needs to know about it beyond
+ * its figures.
+ *
+ * `yearScoped` marks a member whose absence early on is a limit of what the page
+ * loaded rather than a fact about the household — house sitting is read for the
+ * selected year only, so a block containing it cannot honestly be plotted before
+ * that year starts. `partialStart` marks a member whose opening month is a part
+ * month, which is what lets the block drop its own first month for the same
+ * reason `lineHistory` drops a line's.
+ */
+type HistoryMember = { points: FinanceHistoryPoint[]; yearScoped: boolean; partialStart: boolean };
+
+function memberHistory(key: string, sources: HistorySources, periodMonth: string): HistoryMember {
+  const plain = (history: FinanceHistory, yearScoped = false, partialStart = false) => ({
+    points: history.points,
+    yearScoped,
+    partialStart
+  });
+
+  if (key.startsWith("utility:")) {
+    const accountId = key.slice("utility:".length);
+    const entry = sources.book.find(({ account }) => account.id === accountId);
+    return plain(entry ? utilitySectionHistory(entry.bills, periodMonth) : { points: [] });
+  }
+
+  if (key === "house-sitting") {
+    return plain(houseSittingHistory(sources.houseSitting.net, periodMonth), true);
+  }
+
+  if (key === "clients") return plain(clientsHistory(sources.clients, periodMonth));
+
+  const line = sources.lines.find((candidate) => candidate.id === key);
+  if (!line) return plain({ points: [] });
+
+  const rates = onPaydays(line.rates, paydayWeekdayFor(line.label));
+  // **Untrimmed inside a sum.** On its own a line drops a part month at either
+  // end, because a half-height point read as the low of a timeline about the
+  // *level* of a commitment is a claim the data does not make. Inside a block
+  // that same trim would make the line vanish from a month it really was paid
+  // in, and the block would dip by the whole of it — a missing member is a worse
+  // reading than a partial one. The block drops its own opening month instead,
+  // below, when every member that starts there starts part way through it.
+  return plain(
+    lineHistory(line, periodMonth, { trim: false }),
+    false,
+    rates.length > 0 && !startsWhole(rates[0].effective_from)
+  );
+}
+
+/**
+ * The sum of a set of rows, month by month.
+ *
+ * A member is **worth zero in a month it did not exist in**, which is the
+ * opposite of the rule one line follows and is right for the same reason: a
+ * subscription taken out in May really did add nothing to the block in April,
+ * and the block was really smaller then. What a block must never do is read
+ * small because a figure is *missing* rather than absent, which is what
+ * `yearScoped` guards.
+ */
+export function sumHistory(
+  keys: string[],
+  sources: HistorySources,
+  periodMonth: string,
+  emptyNote: string
+): FinanceHistory {
+  const members = keys.map((key) => memberHistory(key, sources, periodMonth)).filter((member) => member.points.length > 0);
+  if (members.length === 0) return { points: [], note: emptyNote };
+
+  const firstOf = (member: HistoryMember) => member.points[0].periodMonth;
+  // The earliest month anything in the block has a figure for — except that a
+  // year-scoped member pulls the start forward to its own, since before that the
+  // sum would simply be missing one of its parts.
+  //
+  // Unless it is worth nothing anywhere, which is the case that would otherwise
+  // cut the income block back to the current year for a household that has never
+  // taken a house-sitting booking. A member with nothing in it cannot be missing
+  // from an earlier month, so it has no claim on where the block starts.
+  let start = members.map(firstOf).sort()[0];
+  members
+    .filter((member) => member.yearScoped && member.points.some((point) => point.amount !== 0))
+    .forEach((member) => {
+      if (firstOf(member) > start) start = firstOf(member);
+    });
+
+  const byMonth = new Map<string, number>();
+  members.forEach((member) => {
+    member.points.forEach((point) => {
+      if (point.periodMonth < start) return;
+      byMonth.set(point.periodMonth, (byMonth.get(point.periodMonth) ?? 0) + point.amount);
+    });
+  });
+
+  const points = historyMonths(start, periodMonth).map((month) => ({
+    periodMonth: month,
+    amount: Math.round((byMonth.get(month) ?? 0) * 100) / 100
+  }));
+
+  // The block's own part month: dropped only when every member that opens in it
+  // opens part way through, and never when dropping it would leave nothing to
+  // draw.
+  const opening = members.filter((member) => firstOf(member) === start);
+  const partial = opening.length > 0 && opening.every((member) => member.partialStart);
+  return { points: partial && points.length > 2 ? points.slice(1) : points };
+}
+
+/**
+ * What the panel is open on: one line, one block, or a whole side of the month.
+ *
+ * Three levels, one panel. They differ in what they sum and in nothing else —
+ * the stats, the ranges, the chart and the `By home` reading all read a list of
+ * months, and a block's list is built the same way a line's is. Anything that
+ * needed a second panel would be a second answer to the same question.
+ *
+ * A block and a side carry **no `yearAmount`**. A typed line annualises off its
+ * own rate and cadence, which is exact; a block holding a fortnightly tax, a
+ * monthly rent and a metered water bill has no single rate to annualise, and
+ * adding per-line run rates to per-line averages gives a figure that matches
+ * neither. The panel falls back to the block's own twelve-month average × 12,
+ * which is the level the block actually runs at.
+ */
+export type HistorySubject = {
+  kind: "row" | "block" | "side";
+  /** A row key, a bucket name, or `in` / `out`. */
+  key: string;
+  label: string;
+  /** What it comes to in the month behind the panel. */
+  amount: number;
+  /** Which way it moves the month — it decides whether a rise is good news. */
+  direction: "in" | "out";
+  hint?: string;
+  source?: FinanceRow["source"];
+  detail?: FinanceRow["detail"];
+  yearAmount?: number;
+};
+
+/** A row, opened. */
+export function rowSubject(row: FinanceRow, direction: "in" | "out"): HistorySubject {
+  return {
+    kind: "row",
+    key: row.key,
+    label: row.label,
+    amount: row.amount,
+    direction,
+    hint: row.hint,
+    source: row.source,
+    detail: row.detail,
+    yearAmount: row.yearAmount
+  };
+}
+
+/** A block, opened — `Needs`, `Subscriptions`, `Tax withheld`. */
+export function blockSubject(
+  bucket: FinanceBucket,
+  title: string,
+  amount: number,
+  rowCount: number
+): HistorySubject {
+  return {
+    kind: "block",
+    key: bucket,
+    label: title,
+    amount,
+    direction: bucketDirection(bucket),
+    hint: `${rowCount} ${rowCount === 1 ? "line" : "lines"}`
+  };
+}
+
+/** A whole side of the month, opened — `Money in`, `Money out`. */
+export function sideSubject(
+  direction: "in" | "out",
+  label: string,
+  amount: number,
+  blockCount: number
+): HistorySubject {
+  return {
+    kind: "side",
+    key: direction,
+    label,
+    amount,
+    direction,
+    hint: `${blockCount} ${blockCount === 1 ? "block" : "blocks"}`
+  };
+}
+
+/** The timeline behind whatever the panel is open on. */
+export function subjectHistory(
+  subject: HistorySubject,
+  sources: HistorySources,
+  periodMonth: string
+): FinanceHistory {
+  if (subject.kind === "row") return rowHistory({ key: subject.key }, sources, periodMonth);
+
+  if (subject.kind === "block") {
+    return sumHistory(
+      sectionMemberKeys(subject.key as FinanceBucket, sources),
+      sources,
+      periodMonth,
+      "Nothing in this block yet"
+    );
+  }
+
+  return sumHistory(
+    sideMemberKeys(subject.key as "in" | "out", sources),
+    sources,
+    periodMonth,
+    "Nothing here yet"
+  );
 }

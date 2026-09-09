@@ -30,6 +30,7 @@ import { Toast } from "@/components/ui/Toast";
 import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { CLIENT_PAYMENT_METHODS, PET_TYPES, ROVER_COMMISSION_RATE } from "@/lib/clients";
 import {
   addDays,
@@ -1127,6 +1128,7 @@ function DaySheet({
   onRequestAction: (action: PendingAction) => void;
 }) {
   useEscapeKey(onClose);
+  useScrollLock();
 
   return (
     <div
@@ -1575,6 +1577,7 @@ function HouseSittingForm({
   // Cancel/delete confirmations stack on top of this panel; the shared stack
   // sends the keypress to whichever is actually in front.
   useEscapeKey(onClose);
+  useScrollLock();
 
   return (
     <div className="fixed inset-0 z-[60] bg-[#1A1916]/20 backdrop-blur-sm" onClick={onClose}>

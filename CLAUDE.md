@@ -327,6 +327,61 @@ responsive class is measured at both widths, and the check reads the computed
 colour as well as the size** — a class that silently does not exist still
 renders text, and the geometry alone will not tell you.
 
+**A panel holds the page still underneath it.** Every overlay in the app is a
+scroller inside a `fixed inset-0` box, and nothing under it was ever pinned — so
+the page behind kept its own scroll the whole time it was covered, and there were
+two ordinary ways to fall out of the panel into it:
+
+- **Scroll chaining.** A scroller that has hit its end hands the rest of the
+  gesture to its parent, which here is the document. Reaching the bottom of a
+  line's timeline and carrying on scrolling walked the month underneath instead,
+  with the panel still open and still covering the screen. Ivan hit it on the
+  first one he opened. One rule in `globals.css` fixes that half —
+  `overscroll-behavior: contain` keyed on **the Tailwind utility that makes a
+  scroller** (`[class~="overflow-y-auto"]` and its three siblings), so the next
+  scroller written is correct without anyone remembering it, the same reasoning
+  as the 16px form floor. A scroller built some other way — an inline style, an
+  `sm:` variant — still has to set the property itself.
+- **Anywhere that is not the scroller.** A drag on the backdrop, or on the
+  panel's own fixed header — on `DetailSheet` that is the name, the figure and
+  the month, about 100px of a phone screen — never reaches the scroller at all,
+  so no `overscroll-behavior` anywhere can help. The document itself has to stop,
+  which is `useScrollLock` in `lib/useScrollLock.ts`.
+
+Three things about the lock are load-bearing:
+
+- **`position: fixed` on the body, not `overflow: hidden`.** `overflow: hidden`
+  does not stop a touch drag on iOS Safari, which is the browser this app is
+  actually used in — it works on a desktop and looks fixed until it is held in a
+  hand. Taking the body out of flow is what iOS honours, and it costs the scroll
+  position, so `top: -scrollY` goes on with the lock and a `scrollTo` comes back
+  off with it.
+- **No scrollbar compensation.** The usual pairing is a `padding-right` for the
+  scrollbar that vanishes once the document stops overflowing; here it would
+  shift the page the wrong way, because `html` already carries
+  `scrollbar-gutter: stable` and there is no width to give back. Measured: the
+  page behind is pixel-identical before and after a panel opens, at 390, 430 and
+  1280.
+- **It is ref-counted, and its argument is not `useEscapeKey`'s.** These nest —
+  `ConfirmDialog` over `SetupSheet`, the mileage preview over the uploader — so
+  releasing the inner one must not unpin the page while the outer is still up.
+  And the question it asks is "is this overlay on screen", where `enabled` on
+  `useEscapeKey` asks "should Escape do something": that one goes **false
+  mid-save** on half these panels, so sharing the flag would unpin the page under
+  a dialog that is still very much there.
+
+All fourteen overlays call it — the finances panels, both slide-overs, the client
+form's confirm, the house-sitting day sheet and editor, the mileage uploader and
+its preview, the category and similar-category pickers, the add dialog, the
+health sheet and `ConfirmDialog` itself.
+
+One harness trap worth recording, because it cost a round of false failures:
+**Playwright's `page.click()` scrolls its target into view first**, so a test
+that parks the page at y600 and then clicks a button at the top has already
+scrolled back to 0 before the lock is taken. The lock looked broken and was not.
+Click through `element.click()` in `page.evaluate` when the scroll position is
+part of what is being measured.
+
 **Full-height is `dvh`, never `vh`.** `100vh` on iOS Safari is the **large**
 viewport — the height the page gets once the address bar has retracted — not the
 height you can see while the bar is expanded, which is what you are looking at
@@ -1617,7 +1672,7 @@ come to, what is it made of, how does it compare with the year:
 
     Those facts moved behind a small `ⓘ` on the row, opening an `AnchoredPanel`
     over the list — and that `ⓘ` is now **gone**, along with the panel, because
-    the row itself opens `LineDetailSheet` (below) and carries every one of them.
+    the row itself opens `DetailSheet` (below) and carries every one of them.
     Two affordances on one row — a 42px target for four facts, and the row for
     the same four plus a chart — is a choice nobody should have to make. Two
     things from that version are worth keeping written down, because both were
@@ -1635,7 +1690,7 @@ come to, what is it made of, how does it compare with the year:
       — 42.5px → 44px, about 18px across a twelve-line `Money out`, which is
       what a thumb costs.
 
-  - **A row opens to its timeline** — `LineDetailSheet`, over the month.
+  - **A row opens to its timeline** — `DetailSheet`, over the month.
 
     The card answers what each part of the month costs. The question straight
     after it is **has this been creeping up**, and for a metered bill or a
@@ -1727,6 +1782,74 @@ come to, what is it made of, how does it compare with the year:
     current flag with no history, so a paused client is absent from the whole
     line rather than from the months since it paused, and inventing a date for
     that would be worse than leaving it out.
+
+  - **A block opens the same way a line does, and so does the card.** Three
+    levels — `Money out` whole, `Needs` or `Subscriptions` or `Tax withheld`,
+    then one line — each a chevron in the one permanent end slot, each opening
+    the same panel.
+
+    The block level is the one Ivan asked for and it is the one no line could
+    ever answer. A pile of nine small subscriptions is exactly the thing that
+    grows without any single row of it moving: $15 here and $9 there, and the
+    only figure that shows it is the block's own total, month after month. Same
+    for `Needs` across a rent rise and three metered bills.
+
+    **The three levels do not get three different controls**, which is the whole
+    of what stops them being mixed up. A second kind of affordance for the level
+    above would make the reader learn two symbols for one verb, and then work out
+    which one they were about to press. What tells them apart is the ramp that
+    already tells them apart: 17px on the white card head, **15px semibold on the
+    tinted band**, 13px regular secondary on a line. The band is a button at the
+    44px floor (it was 41px, so a thumb costs three pixels a block), and the
+    panel it opens carries an eyebrow — `IN MONEY OUT` above `Needs` — so a block
+    can never be read as one of the lines inside it.
+
+    The card head joins them for two reasons beyond its own trend. It is the only
+    way `Gross income` can be opened without a tinted band restating the card's
+    title in the one-block `Money in` — a 44px row saying what the 17px title
+    directly above it already says. And putting its chevron in `ROW_END_SLOT`
+    finally pulls the card's own total onto the **single right edge** the card
+    exists to be read down: it sat 34px right of every figure it is the sum of.
+    Measured at 390/430/768/1280, the card total, every block total and every
+    line figure now share one edge.
+
+    What a block plots is the **sum of its members, month by month**
+    (`sumHistory` in `lib/financeHistory.ts`), and three decisions in it are the
+    kind this page keeps catching:
+
+    - **Membership is read off the sources, never off the month on screen.** A
+      subscription cancelled in March is not in September's rows and was
+      certainly part of what the block cost in February; taking the visible rows
+      as the member list would erase it from its own history.
+    - **A member is worth zero in a month it did not exist in** — the opposite of
+      the rule one line follows, and right for the same reason: a subscription
+      taken out in May really did add nothing in April. What a block must never
+      do is read small because a figure is *missing* rather than absent, which is
+      why house sitting — loaded for the selected year only — pulls the block's
+      start forward to its own, unless it is worth nothing anywhere, in which
+      case it cannot be missing from anything and has no claim on the start.
+    - **A utility inside a block carries the estimate the month carries.** On its
+      own the account plots real bills only, because that chart's whole job is
+      what was actually charged. Inside a block the measure has to be the one the
+      month prints for the block, or a category drops by the entire water bill in
+      a month whose paperwork has not been typed yet — a chart of missing
+      paperwork rather than of a household spending less.
+
+    A block and a side carry **no run rate of their own**: a block holding a
+    fortnightly tax, a monthly rent and a metered bill has no single rate to
+    annualise, and adding per-line run rates to per-line averages gives a figure
+    that matches neither. `A year` is the block's twelve-month average × 12,
+    which is the level it actually runs at. And the line's own trim of a part
+    month at either end is **off inside a sum**: there, a trimmed month is not a
+    missing point but a missing *member*, and the block would dip by the whole of
+    that line in a month it really was paid in. The block drops its own opening
+    month instead, when every member that starts there starts part way through
+    it — which is why a `Needs` history anchored on a rent line dated 21 Sep 2021
+    opens in October.
+
+    Measured across 4 widths × 3 subjects × 2 ranges: one row, one dot and one
+    figure per month at every combination, every polyline vertex within 0.03px of
+    its dot, nothing clipped, no page errors and no sideways scroll.
 
   - **Three ranges, and the timeline is turned on its side** (`HistoryChart`).
 
@@ -2152,10 +2275,10 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/MonthSummary.tsx`: Net, in, out, and where the income went.
 - `components/finances/MonthBreakdown.tsx`: Money in and money out, by section.
 - `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
-- `components/finances/LineDetailSheet.tsx`: One line, opened — its timeline over the month.
+- `components/finances/DetailSheet.tsx`: A line, a block or a whole side, opened — its timeline over the month.
 - `components/finances/HistoryChart.tsx`: The timeline — a row per month, turned on its side.
 - `components/finances/HomesSection.tsx`: The addresses, typed in Setup.
-- `lib/financeHistory.ts`: A line's past, month by month. Pure.
+- `lib/financeHistory.ts`: A line's past, and a block's, month by month. Pure.
 - `lib/financeHomes.ts`: The same past, cut at each move. Pure.
 - `supabase/finance-homes-schema.sql`: `finance_homes` — one address, one date.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
@@ -2231,6 +2354,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/globals.css`: Press, focus rings, panel motion, the 16px phone floor on
   form controls that stops iOS zooming the page and never zooming back, and
   `.min-h-viewport` — full height in `dvh`, so no page is scrollable when empty.
+- `lib/useScrollLock.ts`: Holds the page still under an open panel. Ref-counted.
 - `scripts/verify-ui.mjs`: Renders pages in Chromium and measures them.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.

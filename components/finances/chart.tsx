@@ -91,7 +91,7 @@ export type BarRowData = {
  * The row carried a 42px info target opening a small anchored panel of facts
  * about *this month* — what one payment is worth, how many landed, the run rate.
  * Those facts are worth having and they are all still there, inside
- * `LineDetailSheet`, along with the thing they could never fit: the line's own
+ * `DetailSheet`, along with the thing they could never fit: the line's own
  * timeline. Two affordances on one row, a small one for a few facts and the row
  * itself for the same facts plus a chart, is a choice nobody should have to
  * make — so there is one, and it is the row.
@@ -176,21 +176,67 @@ export function BarRow({ row, onOpen }: { row: BarRowData; onOpen?: () => void }
 export function ChartCard({
   title,
   note,
+  onOpen,
   children
 }: {
   title: string;
   note?: string;
+  /**
+   * Opens the whole side's timeline — `Money in` or `Money out`, month by month.
+   *
+   * The same affordance the rows and the block bands carry, at the level above
+   * them: the card's title, its total, and a chevron in the one permanent slot.
+   * Three openable levels do not get three different controls — what tells them
+   * apart is the type ramp that already tells them apart, 17px over 15px over
+   * 13px, and the tint on the band in the middle.
+   */
+  onOpen?: () => void;
   children: React.ReactNode;
 }) {
+  // The chevron takes the permanent end slot, which lines the card's own total
+  // up with the block totals and the line figures underneath it. It used to sit
+  // hard against the padding, 34px to the right of every figure it is the sum
+  // of — the second right edge this card exists not to have.
+  const head = (
+    <>
+      <h2 className="min-w-0 flex-1 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
+        {title}
+      </h2>
+      {note ? (
+        <span className="shrink-0 text-subhead font-semibold tabular-nums text-text-primary">{note}</span>
+      ) : null}
+    </>
+  );
+  const padding = "px-3.5 py-3 sm:px-4";
+
   return (
     <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-      <div className="flex items-baseline justify-between gap-3 border-b border-border px-3.5 py-3 sm:px-4">
-        <h2 className="min-w-0 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
-          {title}
-        </h2>
-        {note ? (
-          <span className="shrink-0 text-subhead font-semibold tabular-nums text-text-primary">{note}</span>
-        ) : null}
+      <div className="border-b border-border">
+        {onOpen ? (
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label={`${title}${note ? ` — ${note}` : ""}. Open its history.`}
+            className={cn(
+              "focus-ring group flex w-full items-baseline gap-2.5 text-left transition-colors duration-200 ease-out hover:bg-subtle/60",
+              padding
+            )}
+          >
+            {head}
+            <span className={cn("flex justify-end self-center", ROW_END_SLOT)}>
+              <ChevronRight
+                size={17}
+                strokeWidth={1.8}
+                className="text-text-tertiary transition-colors duration-200 ease-out group-hover:text-text-secondary"
+              />
+            </span>
+          </button>
+        ) : (
+          <div className={cn("flex items-baseline gap-2.5", padding)}>
+            {head}
+            <span aria-hidden className={ROW_END_SLOT} />
+          </div>
+        )}
       </div>
       {children}
     </section>

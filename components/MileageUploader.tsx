@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { hashMileageCsv, parseMileageCsv } from "@/lib/mileageCsv";
 import { supabase } from "@/lib/supabase";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import type { MileageUpload, ParsedMileageCsv } from "@/types/mileage";
 
 type Preview = {
@@ -194,6 +195,7 @@ export function MileageUploader({
   // The preview stacks over the uploader, so it takes the keypress first.
   useEscapeKey(onClose, open);
   useEscapeKey(() => setPreview(null), Boolean(preview) && !saving);
+  useScrollLock(open || Boolean(preview));
 
   if (!open && !preview) return null;
 

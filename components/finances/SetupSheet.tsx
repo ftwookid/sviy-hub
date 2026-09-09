@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { HomesSection } from "@/components/finances/HomesSection";
 import { SetupGroups } from "@/components/finances/SetupGroups";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import type { FinanceBucket, FinanceHome, FinanceLine, PayCadence } from "@/types/finance";
 
 /**
@@ -84,6 +85,7 @@ export function SetupSheet({
   const [deletingHome, setDeletingHome] = useState<FinanceHome | null>(null);
 
   useEscapeKey(onClose, !deleting && !deletingHome);
+  useScrollLock();
 
   return (
     <div

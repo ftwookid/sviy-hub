@@ -10,15 +10,16 @@ import {
   DEFAULT_HISTORY_MONTHS,
   historySummary,
   lastMonths,
-  rowHistory,
-  type HistorySources
+  subjectHistory,
+  type HistorySources,
+  type HistorySubject
 } from "@/lib/financeHistory";
 import { homeSpells, spellRangeLabel, type HomeSpell } from "@/lib/financeHomes";
 import { useEscapeKey } from "@/lib/useEscapeKey";
-import type { FinanceRow } from "@/types/finance";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 /**
- * One line of the month, opened.
+ * Whatever the month is opened on — a line, a block, or a whole side of it.
  *
  * The card behind this answers "what does each part of the month cost". It could
  * never answer the question that follows — **has this been creeping up** — and
@@ -38,6 +39,13 @@ import type { FinanceRow } from "@/types/finance";
  * horizontal plot, so every month carries its own exact figure and there is no
  * separate table underneath repeating them — see `HistoryChart` for why the
  * chart is turned on its side.
+ *
+ * **One panel for all three levels, deliberately.** `Needs` creeping up is the
+ * same question as the water bill creeping up, asked one level higher, and a
+ * second panel shaped differently would say the two were different questions.
+ * What tells the reader which level they opened is the panel's eyebrow and the
+ * headline, not a different layout: a block reads `IN MONEY OUT · Needs`, a line
+ * reads its own name and where its figure is kept.
  */
 
 /**
@@ -219,35 +227,37 @@ function HomeComparison({ spells, direction }: { spells: HomeSpell[]; direction:
 }
 
 /** Where a linked figure is actually kept, so the reader knows where to go to fix it. */
-const SOURCE_NOTE: Record<FinanceRow["source"], string | null> = {
+const SOURCE_NOTE: Record<NonNullable<HistorySubject["source"]>, string | null> = {
   Manual: null,
   Utilities: "Billed in Utilities",
   Clients: "From the client list",
   "House Sitting": "From the calendar"
 };
 
-export function LineDetailSheet({
-  row,
-  direction,
+export function DetailSheet({
+  subject,
   periodMonth,
   sources,
   onClose
 }: {
-  row: FinanceRow;
-  /** Which way this line moves the month — it decides whether a rise is good news. */
-  direction: "in" | "out";
+  subject: HistorySubject;
   periodMonth: string;
   sources: HistorySources;
   onClose: () => void;
 }) {
   useEscapeKey(onClose);
+  useScrollLock();
+  const direction = subject.direction;
   const [range, setRange] = useState<Range>("recent");
 
   // Built whole, once, and cut per range. The three stats are quoted over the
   // same twelve months whichever range is on screen — they describe the line,
   // and a figure that moved when you changed the view would be a different fact
   // wearing the same label.
-  const history = useMemo(() => rowHistory(row, sources, periodMonth), [row, sources, periodMonth]);
+  const history = useMemo(
+    () => subjectHistory(subject, sources, periodMonth),
+    [periodMonth, sources, subject]
+  );
   const summary = useMemo(() => historySummary(history.points, periodMonth), [history.points, periodMonth]);
   const spells = useMemo(() => homeSpells(history.points, sources.homes), [history.points, sources.homes]);
 
@@ -267,9 +277,15 @@ export function LineDetailSheet({
   // × 12 wherever there is a timeline to average, and only a row with no history
   // at all — the client estimate, which is the same figure every month by
   // construction — falls back to the month itself.
-  const yearAmount = row.yearAmount ?? (summary.average !== null ? summary.average * 12 : row.amount * 12);
-  const detailRows = row.detail?.rows ?? [];
-  const sourceNote = SOURCE_NOTE[row.source];
+  const yearAmount =
+    subject.yearAmount ?? (summary.average !== null ? summary.average * 12 : subject.amount * 12);
+  const detailRows = subject.detail?.rows ?? [];
+  const sourceNote = subject.source ? SOURCE_NOTE[subject.source] : null;
+  // Which level this is, said in a word, so a block can never be read as one of
+  // the lines inside it. A line needs none: its own name and its source line
+  // already say what it is.
+  const eyebrow =
+    subject.kind === "block" ? `In ${direction === "in" ? "Money in" : "Money out"}` : null;
 
   const cells = [
     {
@@ -305,25 +321,30 @@ export function LineDetailSheet({
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={row.label}
+        aria-label={subject.label}
       >
         {/* The name, then the figure it is on the month for. The figure is the
             answer the reader arrived with; the month beside it is what stops it
             being read as "now" while browsing an old month. */}
         <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
           <div className="min-w-0">
+            {eyebrow ? (
+              <div className="mb-1 truncate text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary">
+                {eyebrow}
+              </div>
+            ) : null}
             <h2 className="truncate text-figure-lg font-semibold leading-[1.15] tracking-[-0.01em] text-text-primary sm:text-display-sm">
-              {row.label}
+              {subject.label}
             </h2>
             <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="text-figure font-semibold tabular-nums text-text-primary">
-                {formatCurrency(row.amount)}
+                {formatCurrency(subject.amount)}
               </span>
               <span className="text-meta text-text-tertiary">in {periodMonthLabel(periodMonth)}</span>
             </div>
-            {row.hint || sourceNote ? (
+            {subject.hint || sourceNote ? (
               <p className="mt-1 text-meta text-text-secondary">
-                {[row.hint, sourceNote].filter(Boolean).join(" · ")}
+                {[subject.hint, sourceNote].filter(Boolean).join(" · ")}
               </p>
             ) : null}
           </div>

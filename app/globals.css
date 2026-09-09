@@ -224,6 +224,38 @@ button:disabled {
 }
 
 /*
+ * A scroller keeps its overscroll to itself.
+ *
+ * Every panel in the app is a scroller inside a `fixed inset-0` box, and a
+ * scroller that has hit its end hands the rest of the gesture to its parent —
+ * which here is the document. So reading to the bottom of a panel and carrying
+ * on scrolling walked the page *behind* it instead, with the panel still open
+ * and still covering the screen. The same thing happens one level in, where a
+ * dropdown list inside a panel would scroll the panel out from under itself.
+ *
+ * `contain` rather than `none`: it stops the chaining, which is the bug, and
+ * leaves the scroller's own bounce alone.
+ *
+ * It keys on the **Tailwind utility that makes a scroller**, so the next one
+ * written is correct without anybody remembering this rule — the same reason
+ * the 16px form floor above is one rule here rather than a size on eleven class
+ * lists. `[class~=…]` matches the class as a whole word, so it cannot fire on
+ * something merely containing the text. A scroller built some other way — an
+ * inline style, a responsive `sm:` variant — still has to set the property
+ * itself, which is the one limit worth knowing about.
+ *
+ * `html` and `body` are deliberately left alone: containing the document's own
+ * overscroll would take pull-to-refresh away on a phone, and the page behind a
+ * panel is held still by `useScrollLock` instead.
+ */
+[class~="overflow-y-auto"],
+[class~="overflow-auto"],
+[class~="overflow-y-scroll"],
+[class~="overflow-scroll"] {
+  overscroll-behavior: contain;
+}
+
+/*
  * Reserve the scrollbar track the way `html` already does.
  *
  * These panels scroll, and their content height changes as you use them — an
