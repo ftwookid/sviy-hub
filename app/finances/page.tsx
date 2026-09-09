@@ -8,7 +8,7 @@ import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { MoneyIn, MoneyOut } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
-import { LineDetailSheet } from "@/components/finances/LineDetailSheet";
+import { DetailSheet } from "@/components/finances/DetailSheet";
 import { SetupSheet } from "@/components/finances/SetupSheet";
 import { UtilitiesSheet } from "@/components/finances/UtilitiesSheet";
 import { YearList } from "@/components/finances/YearList";
@@ -30,6 +30,7 @@ import {
   updateFinanceRate
 } from "@/lib/financeClient";
 import { utilityBook } from "@/lib/utilities";
+import type { HistorySubject } from "@/lib/financeHistory";
 import {
   addUtilityAccount,
   deleteUtilityAccount,
@@ -43,7 +44,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import type { ClientWithPets } from "@/types/client";
 import type { HouseSittingBooking } from "@/types/houseSitting";
-import type { FinanceBucket, FinanceHome, FinanceLine, FinanceRow } from "@/types/finance";
+import type { FinanceBucket, FinanceHome, FinanceLine } from "@/types/finance";
 import type { UtilityAccount, UtilityBill, UtilityBucket } from "@/types/utility";
 
 /**
@@ -88,10 +89,11 @@ export default function FinancesPage() {
   const [loading, setLoading] = useState(true);
   const [setupOpen, setSetupOpen] = useState(false);
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
-  // The line whose timeline is open over the month. The row itself is held
-  // rather than its key, because the panel's headline is this month's figure and
-  // the row already carries it, along with its hint and its working.
-  const [openRow, setOpenRow] = useState<FinanceRow | null>(null);
+  // What the timeline panel is open on — a line, a block, or a whole side of
+  // the month. The assembled subject is held rather than a key, because the
+  // panel's headline is this month's figure and the thing that was tapped
+  // already carries it, along with its hint and its working.
+  const [openSubject, setOpenSubject] = useState<HistorySubject | null>(null);
   const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
@@ -348,11 +350,11 @@ export default function FinancesPage() {
                   left column for both rows and the two short blocks stack
                   beside it. */}
               <div className="order-3 lg:col-start-2 lg:row-start-2 lg:self-start">
-                <MoneyIn month={month} onOpenRow={setOpenRow} />
+                <MoneyIn month={month} onOpen={setOpenSubject} />
               </div>
 
               <div className="order-4 lg:col-start-1 lg:row-start-2 lg:row-span-2 lg:self-start">
-                <MoneyOut month={month} onOpenRow={setOpenRow} />
+                <MoneyOut month={month} onOpen={setOpenSubject} />
               </div>
 
               <div className="order-5 lg:col-start-2 lg:row-start-3 lg:self-start">
@@ -449,20 +451,16 @@ export default function FinancesPage() {
         />
       ) : null}
 
-      {/* A line, opened: its timeline first, then this month's working and every
-          figure behind the chart as text. It reads the same sources the month
-          behind it was built from, so it opens instantly and closing puts the
-          reader back on the row they left. */}
-      {openRow ? (
-        <LineDetailSheet
-          row={openRow}
-          direction={
-            month?.sections.find((section) => section.rows.some((row) => row.key === openRow.key))
-              ?.direction ?? "out"
-          }
+      {/* A line, a block or a whole side, opened: its timeline first, then this
+          month's working and every figure behind the chart as text. It reads the
+          same sources the month behind it was built from, so it opens instantly
+          and closing puts the reader back on exactly what they tapped. */}
+      {openSubject ? (
+        <DetailSheet
+          subject={openSubject}
           periodMonth={periodMonth}
           sources={historySources}
-          onClose={() => setOpenRow(null)}
+          onClose={() => setOpenSubject(null)}
         />
       ) : null}
 

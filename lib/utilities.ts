@@ -177,7 +177,7 @@ export function latestBill(bills: UtilityBill[]) {
  * The row carries no `detail`. It used to — the estimate basis, last month, the
  * same month a year ago, the twelve-month average — for a small panel behind an
  * `ⓘ` that no longer exists. Every one of those is answered better by the
- * timeline the row now opens to (`LineDetailSheet`), which draws the whole two
+ * timeline the row now opens to (`DetailSheet`), which draws the whole two
  * years rather than naming three months of it; repeating them in a block above
  * that chart would be the same figures twice.
  */

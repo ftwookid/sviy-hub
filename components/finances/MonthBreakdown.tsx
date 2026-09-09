@@ -4,9 +4,12 @@ import { Fragment } from "react";
 
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/formatters";
+import { ChevronRight } from "lucide-react";
+
 import { SECTION_STYLE, shareOfIncome } from "@/lib/finances";
 import { BarRow, ChartCard, ROW_END_SLOT } from "@/components/finances/chart";
-import type { FinanceRow, FinanceSection, MonthFinances } from "@/types/finance";
+import { blockSubject, rowSubject, sideSubject, type HistorySubject } from "@/lib/financeHistory";
+import type { FinanceSection, MonthFinances } from "@/types/finance";
 
 /**
  * The month, read by section.
@@ -41,7 +44,7 @@ function percent(share: number) {
 }
 
 /**
- * A bucket's name, and only its name.
+ * A bucket's name — and, now, the way into the bucket's own past.
  *
  * It used to carry the block's total and its share of income as well, and that
  * is the arrangement this replaced: the heading announced the answer and the
@@ -65,10 +68,15 @@ function percent(share: number) {
  * The tint is full `bg-subtle` rather than the half-strength it was, and the row
  * is 10px of padding rather than 6px, because this is the band that says a new
  * block has started and it was reading as a slightly bolder line.
+ *
+ * It is a **button** now, at the 44px floor — the band was 41px, so a thumb
+ * costs three pixels a block. That is what pays for the question a block could
+ * not previously be asked at all.
  */
 function SectionHeader({
   section,
-  first
+  first,
+  onOpen
 }: {
   section: FinanceSection;
   /**
@@ -78,18 +86,43 @@ function SectionHeader({
    * it; with the meter gone the block draws no top border of its own.
    */
   first: boolean;
+  /**
+   * Opens the block's own timeline — `Needs`, `Subscriptions`, all of it, month
+   * by month. See `DetailSheet`: "is this creeping up" is worth asking of a pile
+   * of small subscriptions at least as much as of any one of them, and no line
+   * inside the block can answer it.
+   *
+   * **The band carries the same chevron a line does, not a different control.**
+   * Inventing a second affordance for the level above would be the mixed-up
+   * thing to do: the reader would have to learn two symbols for one verb. What
+   * says this is the category and not one of its lines is what already says it —
+   * the tint, and 15px semibold primary against 13px regular secondary.
+   */
+  onOpen: () => void;
 }) {
+  const title = SECTION_STYLE[section.key].title;
+
   return (
-    <div
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${title} — ${formatCurrency(section.total)}. Open its history.`}
       className={cn(
-        "flex items-baseline gap-3 bg-subtle px-3.5 py-2.5 sm:px-4",
+        "focus-ring group flex min-h-11 w-full items-center gap-3 bg-subtle px-3.5 py-2.5 text-left transition-colors duration-200 ease-out hover:bg-border/60 sm:px-4",
         first ? null : "border-t border-border"
       )}
     >
       <h3 className="min-w-0 flex-1 truncate text-label font-semibold tracking-[-0.01em] text-text-primary">
-        {SECTION_STYLE[section.key].title}
+        {title}
       </h3>
-    </div>
+      <span className={cn("flex justify-end", ROW_END_SLOT)}>
+        <ChevronRight
+          size={16}
+          strokeWidth={1.8}
+          className="text-text-tertiary transition-colors duration-200 ease-out group-hover:text-text-secondary"
+        />
+      </span>
+    </button>
   );
 }
 
@@ -141,6 +174,14 @@ function SectionTotal({ section, moneyIn }: { section: FinanceSection; moneyIn: 
 /**
  * Everything the month is already promised to, by block.
  *
+ * **Three levels, one verb.** The card opens `Money out` whole, a band opens its
+ * block, a row opens its line — and every one of them is the same chevron in the
+ * same permanent end slot, opening the same panel. The alternative was a second
+ * kind of control for the level above, which is exactly how a reader ends up
+ * unsure whether they are about to open the category or one of its lines. The
+ * levels are told apart by the thing that already tells them apart: 17px on the
+ * white card head, 15px semibold on the tinted band, 13px secondary on a line.
+ *
  * **No meter at the top.** A single bar sat here splitting money in into
  * committed and left over, with both ends labelled — and labelling both ends is
  * not the same as being readable. It was one bar in a card full of bars, drawn
@@ -149,16 +190,39 @@ function SectionTotal({ section, moneyIn }: { section: FinanceSection; moneyIn: 
  * are already stated, as figures, in `MonthSummary` directly above the card.
  * A ratio nobody can name is noise however carefully it is labelled, so it is
  * gone rather than relabelled. Each block's share of income stays on the block's
- * own header row, where it is a number rather than a length.
+ * own total row, where it is a number rather than a length.
  */
-export function MoneyOut({ month, onOpenRow }: { month: MonthFinances; onOpenRow: (row: FinanceRow) => void }) {
+export function MoneyOut({
+  month,
+  onOpen
+}: {
+  month: MonthFinances;
+  onOpen: (subject: HistorySubject) => void;
+}) {
   const sections = month.sections.filter((section) => section.direction === "out");
 
   return (
-    <ChartCard title="Money out" note={formatCurrency(month.moneyOut)}>
+    <ChartCard
+      title="Money out"
+      note={formatCurrency(month.moneyOut)}
+      onOpen={() => onOpen(sideSubject("out", "Money out", month.moneyOut, sections.length))}
+    >
       {sections.map((section, index) => (
         <Fragment key={section.key}>
-          <SectionHeader section={section} first={index === 0} />
+          <SectionHeader
+            section={section}
+            first={index === 0}
+            onOpen={() =>
+              onOpen(
+                blockSubject(
+                  section.key,
+                  SECTION_STYLE[section.key].title,
+                  section.total,
+                  section.rows.length
+                )
+              )
+            }
+          />
           {/* An empty block has no total — nothing in it to add up, and
               `Total $0.00` is the zero pretending to be a figure this page keeps
               catching. It does get a row, though: a bare heading sat straight
@@ -174,11 +238,11 @@ export function MoneyOut({ month, onOpenRow }: { month: MonthFinances; onOpenRow
             {section.rows.map((row) => (
               // Behind the row's own chevron, not printed on it: the run rate,
               // what one payment is worth, how many landed — and the timeline
-              // none of that could ever fit. See `LineDetailSheet`.
+              // none of that could ever fit. See `DetailSheet`.
               <BarRow
                 key={row.key}
                 row={{ key: row.key, label: row.label, amount: row.amount }}
-                onOpen={() => onOpenRow(row)}
+                onOpen={() => onOpen(rowSubject(row, "out"))}
               />
             ))}
           </div>
@@ -189,25 +253,55 @@ export function MoneyOut({ month, onOpenRow }: { month: MonthFinances; onOpenRow
   );
 }
 
-/** The denominator: what actually arrived, and from where. */
-export function MoneyIn({ month, onOpenRow }: { month: MonthFinances; onOpenRow: (row: FinanceRow) => void }) {
+/**
+ * The denominator: what actually arrived, and from where.
+ *
+ * With one in-block, the card head is the block's own control: `Money in` and
+ * `Gross income` hold the same lines and come to the same figure, so a tinted
+ * band under the title would be 44px spent saying the title again. A second
+ * in-block would need telling apart, and the bands appear then — the same rule
+ * that already decided whether the block totals are shown.
+ */
+export function MoneyIn({
+  month,
+  onOpen
+}: {
+  month: MonthFinances;
+  onOpen: (subject: HistorySubject) => void;
+}) {
   const sections = month.sections.filter((section) => section.direction === "in");
-  // One in-block today, and its name and the card's title would say the same
-  // thing twice. A second one would need telling apart, so the header appears
-  // then and not before.
   const showHeaders = sections.length > 1;
 
   return (
-    <ChartCard title="Money in" note={formatCurrency(month.moneyIn)}>
+    <ChartCard
+      title="Money in"
+      note={formatCurrency(month.moneyIn)}
+      onOpen={() => onOpen(sideSubject("in", "Money in", month.moneyIn, sections.length))}
+    >
       {sections.map((section, index) => (
         <Fragment key={section.key}>
-          {showHeaders ? <SectionHeader section={section} first={index === 0} /> : null}
+          {showHeaders ? (
+            <SectionHeader
+              section={section}
+              first={index === 0}
+              onOpen={() =>
+                onOpen(
+                  blockSubject(
+                    section.key,
+                    SECTION_STYLE[section.key].title,
+                    section.total,
+                    section.rows.length
+                  )
+                )
+              }
+            />
+          ) : null}
           <div className="divide-y divide-border/40">
             {section.rows.map((row) => (
               <BarRow
                 key={row.key}
                 row={{ key: row.key, label: row.label, amount: row.amount }}
-                onOpen={() => onOpenRow(row)}
+                onOpen={() => onOpen(rowSubject(row, "in"))}
               />
             ))}
           </div>
