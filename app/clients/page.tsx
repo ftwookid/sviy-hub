@@ -17,6 +17,7 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { estimateClientMonthlyNet } from "@/lib/clients";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -141,6 +142,7 @@ function ClientsPageContent() {
   }
 
   useEscapeKey(closeEditor, editorOpen);
+  useScrollLock(editorOpen);
 
   function openNewClient() {
     setEditingClient(null);

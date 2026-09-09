@@ -12,6 +12,7 @@ import {
 import { CloseButton } from "@/components/ui/CloseButton";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { periodMonthLabel } from "@/lib/expenses";
 import { formatBytes } from "@/lib/receiptImage";
 import type { StatementImport } from "@/types/statementImport";
@@ -67,6 +68,7 @@ export function AddTransactionDialog({
   // Nothing to close to mid-scan: the passes keep running either way, and the
   // dialog is the only place their outcome can land.
   useEscapeKey(onClose, !scanning);
+  useScrollLock();
 
   const scanSteps = step === "sheet" ? SHEET_SCAN_STEPS : SCAN_STEPS;
 

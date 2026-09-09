@@ -13,6 +13,7 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { estimateClientEarnings, selectedDaysFromRecord, WEEKS_PER_MONTH } from "@/lib/clients";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -546,6 +547,7 @@ export default function ClientDetailPage() {
   useEscapeKey(closePriceModal, priceModalOpen);
   useEscapeKey(() => setStatusModalOpen(false), statusModalOpen);
   useEscapeKey(() => setEditorOpen(false), editorOpen);
+  useScrollLock(priceModalOpen || statusModalOpen || editorOpen);
 
   function togglePriceHistory() {
     setPriceHistoryOpen((open) => !open);

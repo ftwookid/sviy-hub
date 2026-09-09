@@ -327,6 +327,61 @@ responsive class is measured at both widths, and the check reads the computed
 colour as well as the size** — a class that silently does not exist still
 renders text, and the geometry alone will not tell you.
 
+**A panel holds the page still underneath it.** Every overlay in the app is a
+scroller inside a `fixed inset-0` box, and nothing under it was ever pinned — so
+the page behind kept its own scroll the whole time it was covered, and there were
+two ordinary ways to fall out of the panel into it:
+
+- **Scroll chaining.** A scroller that has hit its end hands the rest of the
+  gesture to its parent, which here is the document. Reaching the bottom of a
+  line's timeline and carrying on scrolling walked the month underneath instead,
+  with the panel still open and still covering the screen. Ivan hit it on the
+  first one he opened. One rule in `globals.css` fixes that half —
+  `overscroll-behavior: contain` keyed on **the Tailwind utility that makes a
+  scroller** (`[class~="overflow-y-auto"]` and its three siblings), so the next
+  scroller written is correct without anyone remembering it, the same reasoning
+  as the 16px form floor. A scroller built some other way — an inline style, an
+  `sm:` variant — still has to set the property itself.
+- **Anywhere that is not the scroller.** A drag on the backdrop, or on the
+  panel's own fixed header — on `DetailSheet` that is the name, the figure and
+  the month, about 100px of a phone screen — never reaches the scroller at all,
+  so no `overscroll-behavior` anywhere can help. The document itself has to stop,
+  which is `useScrollLock` in `lib/useScrollLock.ts`.
+
+Three things about the lock are load-bearing:
+
+- **`position: fixed` on the body, not `overflow: hidden`.** `overflow: hidden`
+  does not stop a touch drag on iOS Safari, which is the browser this app is
+  actually used in — it works on a desktop and looks fixed until it is held in a
+  hand. Taking the body out of flow is what iOS honours, and it costs the scroll
+  position, so `top: -scrollY` goes on with the lock and a `scrollTo` comes back
+  off with it.
+- **No scrollbar compensation.** The usual pairing is a `padding-right` for the
+  scrollbar that vanishes once the document stops overflowing; here it would
+  shift the page the wrong way, because `html` already carries
+  `scrollbar-gutter: stable` and there is no width to give back. Measured: the
+  page behind is pixel-identical before and after a panel opens, at 390, 430 and
+  1280.
+- **It is ref-counted, and its argument is not `useEscapeKey`'s.** These nest —
+  `ConfirmDialog` over `SetupSheet`, the mileage preview over the uploader — so
+  releasing the inner one must not unpin the page while the outer is still up.
+  And the question it asks is "is this overlay on screen", where `enabled` on
+  `useEscapeKey` asks "should Escape do something": that one goes **false
+  mid-save** on half these panels, so sharing the flag would unpin the page under
+  a dialog that is still very much there.
+
+All fourteen overlays call it — the finances panels, both slide-overs, the client
+form's confirm, the house-sitting day sheet and editor, the mileage uploader and
+its preview, the category and similar-category pickers, the add dialog, the
+health sheet and `ConfirmDialog` itself.
+
+One harness trap worth recording, because it cost a round of false failures:
+**Playwright's `page.click()` scrolls its target into view first**, so a test
+that parks the page at y600 and then clicks a button at the top has already
+scrolled back to 0 before the lock is taken. The lock looked broken and was not.
+Click through `element.click()` in `page.evaluate` when the scroll position is
+part of what is being measured.
+
 **Full-height is `dvh`, never `vh`.** `100vh` on iOS Safari is the **large**
 viewport — the height the page gets once the address bar has retracted — not the
 height you can see while the bar is expanded, which is what you are looking at
@@ -2299,6 +2354,7 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `app/globals.css`: Press, focus rings, panel motion, the 16px phone floor on
   form controls that stops iOS zooming the page and never zooming back, and
   `.min-h-viewport` — full height in `dvh`, so no page is scrollable when empty.
+- `lib/useScrollLock.ts`: Holds the page still under an open panel. Ref-counted.
 - `scripts/verify-ui.mjs`: Renders pages in Chromium and measures them.
 - `components/ClientForm.tsx`: Add/edit client form.
 - `components/AddressAutocomplete.tsx`: Google Places address autocomplete.

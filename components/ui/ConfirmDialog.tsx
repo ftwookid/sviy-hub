@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/Button";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 export function ConfirmDialog({
   title,
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   useEscapeKey(onCancel, !busy);
+  useScrollLock();
 
   return (
     <div

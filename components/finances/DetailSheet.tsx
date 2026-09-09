@@ -16,6 +16,7 @@ import {
 } from "@/lib/financeHistory";
 import { homeSpells, spellRangeLabel, type HomeSpell } from "@/lib/financeHomes";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 /**
  * Whatever the month is opened on — a line, a block, or a whole side of it.
@@ -245,6 +246,7 @@ export function DetailSheet({
   onClose: () => void;
 }) {
   useEscapeKey(onClose);
+  useScrollLock();
   const direction = subject.direction;
   const [range, setRange] = useState<Range>("recent");
 

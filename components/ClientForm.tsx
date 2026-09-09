@@ -24,6 +24,7 @@ import { formatCurrency, formatShortDate, sanitizeFilename, toInputDate } from "
 import { supabase } from "@/lib/supabase";
 import { loadUsers } from "@/lib/userLabels";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import type {
   ClientFormPet,
   ClientFormValues,
@@ -115,6 +116,7 @@ export function ClientForm({
   // Stacked over the client slide-over. The hook's stack means Escape backs out
   // of this review first and leaves the edits underneath intact.
   useEscapeKey(() => setConfirmingChanges(false), confirmingChanges && !saving);
+  useScrollLock(confirmingChanges);
 
   const selectedDaysCount = values.selected_days.length;
   const ownerSelectOptions = useMemo(() => {

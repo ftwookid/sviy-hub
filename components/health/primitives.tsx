@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ChevronLeft, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatShortDate } from "@/lib/formatters";
+import { useScrollLock } from "@/lib/useScrollLock";
 import type { Reading } from "@/lib/health";
 
 /** Numbers side by side, one set of chrome — never a grid of stat cards. */
@@ -135,6 +136,8 @@ export function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  useScrollLock();
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-[#1A1916]/25 backdrop-blur-sm sm:items-center sm:p-4"

@@ -6,6 +6,7 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { EXPENSE_CATEGORIES, categoryTagColors, normalizeCategory } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 /**
  * Pick a category, for one transaction or for a whole selection.
@@ -27,6 +28,7 @@ export function CategoryPicker({
   onClose: () => void;
 }) {
   useEscapeKey(onClose);
+  useScrollLock();
 
   // A row still carrying an old Schedule C heading matches none of the options
   // below, which would show the sheet as if nothing were set at all.

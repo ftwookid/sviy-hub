@@ -5,6 +5,7 @@ import { CategoryTag } from "@/components/CategoryTag";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { cn } from "@/lib/cn";
 import { normalizeCategory } from "@/lib/categories";
 import { formatCurrency, parseLocalDate } from "@/lib/formatters";
@@ -43,6 +44,7 @@ export function SimilarCategoryDialog({
   const [checked, setChecked] = useState<Set<string>>(() => new Set(rows.map((row) => row.id)));
 
   useEscapeKey(onDismiss);
+  useScrollLock();
 
   const allChecked = useMemo(
     () => rows.length > 0 && rows.every((row) => checked.has(row.id)),

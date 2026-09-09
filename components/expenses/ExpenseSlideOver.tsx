@@ -14,6 +14,7 @@ import { DEFAULT_CATEGORY, EXPENSE_CATEGORIES, normalizeCategory } from "@/lib/c
 import { cn } from "@/lib/cn";
 import { deleteExpenses } from "@/lib/expenseDelete";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { proofState } from "@/lib/expenses";
 import { todayInputValue } from "@/lib/formatters";
 import { DEFAULT_PAYMENT_METHOD } from "@/lib/paymentMethods";
@@ -89,6 +90,7 @@ export function ExpenseSlideOver({
   // The delete confirmation stacks on top of this panel; the hook's stack sends
   // the keypress there first, so one press backs out of one thing.
   useEscapeKey(onClose);
+  useScrollLock();
 
   function update<K extends keyof ExpenseFormValues>(key: K, value: ExpenseFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));

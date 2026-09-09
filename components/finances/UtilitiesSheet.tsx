@@ -6,6 +6,7 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { UtilityGroups } from "@/components/finances/UtilityGroups";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { formatCurrency } from "@/lib/formatters";
 import { periodMonthLabel } from "@/lib/expenses";
 import type { UtilityAccountBills, UtilityBill, UtilityBook, UtilityBucket } from "@/types/utility";
@@ -50,6 +51,7 @@ export function UtilitiesSheet({
   const [deletingBill, setDeletingBill] = useState<{ bill: UtilityBill; periodMonth: string } | null>(null);
 
   useEscapeKey(onClose, !deleting && !deletingBill);
+  useScrollLock();
 
   return (
     <div
