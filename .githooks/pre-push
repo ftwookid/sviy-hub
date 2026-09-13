@@ -1,0 +1,36 @@
+#!/bin/sh
+# Refuse to push anything but staging and main.
+#
+# The prose rule in CLAUDE.md ("never create a branch") was ignored four times,
+# by remote sessions whose harness assigns a claude/<slug> branch and tells the
+# model it must push there. Prose loses that argument; a hook does not.
+#
+# stdin is one line per ref being pushed:
+#   <local ref> <local sha> <remote ref> <remote sha>
+
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$remote_ref" ] && continue
+
+  # A deletion pushes the zero sha. Deleting a stray branch is always allowed.
+  case "$local_sha" in
+    0000000000000000000000000000000000000000) continue ;;
+  esac
+
+  branch="${remote_ref#refs/heads/}"
+
+  case "$branch" in
+    staging|main) ;;
+    *)
+      echo "pre-push: refusing to push '$branch'." >&2
+      echo "  This project has exactly two branches: staging (every commit) and" >&2
+      echo "  main (only a named promote). A side branch does not deploy, so the" >&2
+      echo "  work would be invisible on the preview Ivan reviews." >&2
+      echo "  Put the commit on staging and push that instead." >&2
+      status=1
+      ;;
+  esac
+done
+
+exit $status

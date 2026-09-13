@@ -37,6 +37,38 @@ this file.
 So, in one line: **branch never, `staging` always, `main` when the promote is
 named.**
 
+### And it is a hook now, not a sentence
+
+The rule above was prose for a long time and prose lost the argument four times:
+`claude/deductions-health-section-updates-kkhg2k`,
+`claude/transaction-categorization-fixes-lf50ql`,
+`claude/mobile-calendar-month-year-swe7eb` and
+`claude/sveedhub-finances-calc-order-algjfy` all reached GitHub. The last two are
+the instructive ones — the work itself *did* land on `staging`, exactly as this
+file says, and the assigned branch got pushed anyway as a leftover. So the
+failure is not a model ignoring the rule; it is that a remote session is **started
+on** a `claude/<slug>` branch by its harness, and that branch is one absent-minded
+`git push` from existing forever.
+
+Three things now enforce it, and the third is the one that matters:
+
+- **`.githooks/pre-push` refuses any ref but `staging` and `main`**, and says why.
+  Deletions are always allowed, so cleaning up is never blocked.
+- **`.githooks/post-commit` carries a stray commit over to `staging` itself.** On
+  a `claude/*` branch it fast-forwards `staging` to the new commit, checks it out,
+  deletes the stray branch and pushes — which is what this file already demanded,
+  done rather than described. It refuses to do that when `staging` is not an
+  ancestor of `HEAD`, since moving the branch would then rewrite `staging`; it
+  says so and leaves the work alone.
+- **`npm`'s `prepare` script sets `core.hooksPath=.githooks`.** This is the gap
+  that let it happen at all: the hooks are committed, but `core.hooksPath` is
+  per-clone config and is **not**, so a fresh remote container had neither hook
+  wired up no matter what `.githooks/` contained. Anything that installs
+  dependencies now wires them.
+
+`main` is reachable from all four deleted branches, so deleting them threw away
+no commit — they were pointers, not history.
+
 ## Done means the deploy went green
 
 **A task is not finished when the push succeeds. It is finished when Vercel has
