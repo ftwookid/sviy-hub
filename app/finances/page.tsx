@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Droplets, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
@@ -9,36 +10,14 @@ import { MonthPicker } from "@/components/expenses/MonthPicker";
 import { MoneyIn, MoneyOut } from "@/components/finances/MonthBreakdown";
 import { MonthSummary } from "@/components/finances/MonthSummary";
 import { DetailSheet } from "@/components/finances/DetailSheet";
-import { SetupSheet } from "@/components/finances/SetupSheet";
-import { UtilitiesSheet } from "@/components/finances/UtilitiesSheet";
 import { YearList } from "@/components/finances/YearList";
 import { SkeletonRows } from "@/components/ui/Skeleton";
-import { Toast } from "@/components/ui/Toast";
 import { currentPeriodMonth } from "@/lib/expenses";
 import { buildYear, clientMonthlyIncome, houseSittingByMonth } from "@/lib/finances";
-import {
-  addFinanceHome,
-  addFinanceLine,
-  deleteFinanceHome,
-  deleteFinanceLine,
-  deleteFinanceRate,
-  loadFinanceHomes,
-  loadFinanceLines,
-  renameFinanceLine,
-  setFinanceRate,
-  updateFinanceHome,
-  updateFinanceRate
-} from "@/lib/financeClient";
+import { loadFinanceHomes, loadFinanceLines } from "@/lib/financeClient";
 import { utilityBook } from "@/lib/utilities";
 import type { HistorySubject } from "@/lib/financeHistory";
-import {
-  addUtilityAccount,
-  deleteUtilityAccount,
-  deleteUtilityBill,
-  loadUtilities,
-  setUtilityBill,
-  updateUtilityAccount
-} from "@/lib/utilityClient";
+import { loadUtilities } from "@/lib/utilityClient";
 import { parseLocalDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -87,14 +66,11 @@ export default function FinancesPage() {
   const [clients, setClients] = useState<ClientWithPets[]>([]);
   const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [utilitiesOpen, setUtilitiesOpen] = useState(false);
   // What the timeline panel is open on — a line, a block, or a whole side of
   // the month. The assembled subject is held rather than a key, because the
   // panel's headline is this month's figure and the thing that was tapped
   // already carries it, along with its hint and its working.
   const [openSubject, setOpenSubject] = useState<HistorySubject | null>(null);
-  const [toast, setToast] = useState("");
 
   const year = useMemo(() => parseLocalDate(periodMonth).getFullYear(), [periodMonth]);
   const monthIndex = useMemo(() => parseLocalDate(periodMonth).getMonth(), [periodMonth]);
@@ -227,77 +203,29 @@ export default function FinancesPage() {
   // and a second warning costs more height than the sentence is worth.
   const notice = [lineNotice, utilityNotice].filter(Boolean).join(" ");
 
-  function showToast(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2600);
-  }
-
-  // Setup edits in place over the month, so a save refreshes the figures behind
-  // it rather than navigating anywhere.
-  async function runLineChange(action: () => Promise<void>, message: string) {
-    try {
-      await action();
-      setLineNotice(await refreshLines());
-      showToast(message);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Could not save that");
-    }
-  }
-
-  async function runHomeChange(action: () => Promise<void>, message: string) {
-    try {
-      await action();
-      setLineNotice(await refreshHomes());
-      showToast(message);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Could not save that");
-    }
-  }
-
-  async function runUtilityChange(action: () => Promise<void>, message: string) {
-    try {
-      await action();
-      setUtilityNotice(await refreshUtilities());
-      showToast(message);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Could not save that");
-    }
-  }
-
   if (!isSupabaseConfigured) return <SetupNotice />;
   if (authLoading || !user) return <AppLoading message="Checking your session..." />;
 
   return (
     <AppShell user={user}>
-      {/* Setup is visited a few times a year, so it is a control on a row that
-          already exists rather than a tab holding half the width on every visit. */}
-      {/* Two panels, two chips, and no permanent row spent on either. Utilities
-          is the one that is opened often — a bill a week arrives — so it keeps
-          its word at every width; Setup is visited a few times a year and gives
-          its label up on a phone, where the two together would not fit beside a
-          30px title. */}
+      {/* One way in, and it is a screen rather than a dialog.
+
+          There were two chips here — Setup for the standing figures, Utilities
+          for the metered bills — and which one held a given thing was decided by
+          how the app stores it rather than by anything the person with a bill in
+          their hand knows. Both opened a panel over the month, and inside it the
+          figure was four levels down. One button, one destination, and it is a
+          real page: `/finances/manage`. */}
       <PageHeader
         title="Finances"
         action={
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setUtilitiesOpen(true)}
-              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
-            >
-              <Droplets size={16} strokeWidth={1.8} />
-              Utilities
-            </button>
-            <button
-              type="button"
-              aria-label="Setup"
-              onClick={() => setSetupOpen(true)}
-              className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border sm:px-3.5"
-            >
-              <SlidersHorizontal size={16} strokeWidth={1.8} />
-              <span className="hidden sm:inline">Setup</span>
-            </button>
-          </div>
+          <Link
+            href="/finances/manage"
+            className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
+          >
+            <SlidersHorizontal size={16} strokeWidth={1.8} />
+            Manage
+          </Link>
         }
       />
       <div className="space-y-3">
@@ -372,85 +300,6 @@ export default function FinancesPage() {
         )}
       </div>
 
-      {setupOpen ? (
-        <SetupSheet
-          lines={lines}
-          homes={homes}
-          notice={notice}
-          onClose={() => setSetupOpen(false)}
-          onAddLine={(input) =>
-            runLineChange(
-              () =>
-                addFinanceLine({
-                  userId: user.id,
-                  bucket: input.bucket as FinanceBucket,
-                  label: input.label,
-                  amount: input.amount,
-                  cadence: input.cadence,
-                  effectiveFrom: input.effectiveFrom,
-                  effectiveTo: input.effectiveTo,
-                  existingCount: lines.filter((line) => line.bucket === input.bucket).length
-                }),
-              `${input.label} added`
-            )
-          }
-          onRename={(lineId, label) => runLineChange(() => renameFinanceLine(lineId, label), "Renamed")}
-          onSetRate={(lineId, effectiveFrom, amount, cadence, effectiveTo) =>
-            runLineChange(
-              () => setFinanceRate({ userId: user.id, lineId, effectiveFrom, amount, cadence, effectiveTo }),
-              "Change saved"
-            )
-          }
-          onUpdateRate={(rateId, effectiveFrom, amount, cadence, effectiveTo) =>
-            runLineChange(
-              () => updateFinanceRate({ id: rateId, effectiveFrom, amount, cadence, effectiveTo }),
-              effectiveTo ? "End date saved" : "Change updated"
-            )
-          }
-          onDeleteRate={(rateId) => runLineChange(() => deleteFinanceRate(rateId), "Change removed")}
-          onDeleteLine={(lineId) => runLineChange(() => deleteFinanceLine(lineId), "Line deleted")}
-          onAddHome={({ name, movedIn }) =>
-            runHomeChange(() => addFinanceHome({ userId: user.id, name, movedIn }), `${name} added`)
-          }
-          onUpdateHome={({ id, name, movedIn }) =>
-            runHomeChange(() => updateFinanceHome({ id, name, movedIn }), "Home saved")
-          }
-          onDeleteHome={(homeId) => runHomeChange(() => deleteFinanceHome(homeId), "Home deleted")}
-        />
-      ) : null}
-
-      {utilitiesOpen ? (
-        <UtilitiesSheet
-          book={book}
-          periodMonth={periodMonth}
-          notice={utilityNotice}
-          onClose={() => setUtilitiesOpen(false)}
-          onAddAccount={({ name, bucket }) =>
-            runUtilityChange(
-              () => addUtilityAccount({ userId: user.id, name, bucket, existingCount: accounts.length }),
-              `${name} added`
-            )
-          }
-          onRename={(accountId, name) =>
-            runUtilityChange(() => updateUtilityAccount(accountId, { name }), "Renamed")
-          }
-          onSetBucket={(accountId, bucket: UtilityBucket) =>
-            runUtilityChange(
-              () => updateUtilityAccount(accountId, { bucket }),
-              `Counted in ${bucket}`
-            )
-          }
-          onDeleteAccount={(accountId) => runUtilityChange(() => deleteUtilityAccount(accountId), "Deleted")}
-          onSetBill={(accountId, billPeriodMonth, amount) =>
-            runUtilityChange(
-              () => setUtilityBill({ userId: user.id, accountId, periodMonth: billPeriodMonth, amount }),
-              "Bill saved"
-            )
-          }
-          onDeleteBill={(billId) => runUtilityChange(() => deleteUtilityBill(billId), "Bill removed")}
-        />
-      ) : null}
-
       {/* A line, a block or a whole side, opened: its timeline first, then this
           month's working and every figure behind the chart as text. It reads the
           same sources the month behind it was built from, so it opens instantly
@@ -464,7 +313,6 @@ export default function FinancesPage() {
         />
       ) : null}
 
-      {toast ? <Toast message={toast} /> : null}
     </AppShell>
   );
 }
