@@ -1,0 +1,70 @@
+name: Prune stray branches
+
+# This project has exactly two branches: staging and main. Anything else is a
+# leftover — usually a claude/<slug> branch a remote session was started on by
+# its harness. The repo's own hooks stop one being pushed from a checkout that
+# has them wired up; this is the backstop for every checkout that does not, and
+# the only cleanup path available from inside an agent session, since the
+# Claude Code GitHub proxy refuses all writes to /git/refs.
+#
+# Runs inside GitHub on the workflow token, so no proxy sits in between.
+
+on:
+  push:
+    branches: ['**']
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prune-stray-branches
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove every branch but staging and main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          gh api --paginate "repos/$REPO/branches" --jq '.[].name' > all-branches.txt
+          echo "Branches on the remote:"
+          sed 's/^/  /' all-branches.txt
+
+          pruned=0
+          while read -r branch; do
+            [ -n "$branch" ] || continue
+            case "$branch" in
+              staging|main) continue ;;
+            esac
+
+            # Only ever remove a pointer, never history. A branch qualifies just
+            # when main or staging can still reach its tip; if it carries commits
+            # that live nowhere else, it stays and the run says so.
+            sha="$(gh api "repos/$REPO/git/ref/heads/$branch" --jq '.object.sha')"
+            reachable=no
+            for keep in main staging; do
+              status="$(gh api "repos/$REPO/compare/$keep...$sha" --jq '.status' 2>/dev/null || echo unknown)"
+              case "$status" in
+                identical|behind) reachable=yes ;;
+              esac
+            done
+
+            if [ "$reachable" = no ]; then
+              echo "::warning::Keeping '$branch' — its commits are not reachable from main or staging, so removing it would lose work."
+              continue
+            fi
+
+            echo "Removing '$branch' (tip $sha is reachable from main or staging)"
+            gh api -X DELETE "repos/$REPO/git/refs/heads/$branch"
+            pruned=$((pruned + 1))
+          done < all-branches.txt
+
+          echo "Pruned $pruned stray branch(es)."

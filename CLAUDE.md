@@ -37,6 +37,80 @@ this file.
 So, in one line: **branch never, `staging` always, `main` when the promote is
 named.**
 
+### And it is a hook now, not a sentence
+
+The rule above was prose for a long time and prose lost the argument four times:
+`claude/deductions-health-section-updates-kkhg2k`,
+`claude/transaction-categorization-fixes-lf50ql`,
+`claude/mobile-calendar-month-year-swe7eb` and
+`claude/sveedhub-finances-calc-order-algjfy` all reached GitHub. The last two are
+the instructive ones — the work itself *did* land on `staging`, exactly as this
+file says, and the assigned branch got pushed anyway as a leftover. So the
+failure is not a model ignoring the rule; it is that a remote session is **started
+on** a `claude/<slug>` branch by its harness, and that branch is one absent-minded
+`git push` from existing forever.
+
+Three things now enforce it, and the third is the one that matters:
+
+- **`.githooks/pre-push` refuses any ref but `staging` and `main`**, and says why.
+  Deletions are always allowed, so cleaning up is never blocked.
+- **`.githooks/post-commit` carries a stray commit over to `staging` itself.** On
+  a `claude/*` branch it fast-forwards `staging` to the new commit, checks it out,
+  deletes the stray branch and pushes — which is what this file already demanded,
+  done rather than described. It refuses to do that when `staging` is not an
+  ancestor of `HEAD`, since moving the branch would then rewrite `staging`; it
+  says so and leaves the work alone.
+- **`npm`'s `prepare` script sets `core.hooksPath=.githooks`.** This is the gap
+  that let it happen at all: the hooks are committed, but `core.hooksPath` is
+  per-clone config and is **not**, so a fresh remote container had neither hook
+  wired up no matter what `.githooks/` contained. Anything that installs
+  dependencies now wires them.
+
+`main` is reachable from all four deleted branches, so deleting them threw away
+no commit — they were pointers, not history.
+
+## Done means the deploy went green
+
+**A task is not finished when the push succeeds. It is finished when Vercel has
+built that commit.** Ivan asked for this outright: he wants to be told when
+everything is actually complete, and a green build is what "complete" means —
+not a commit hash, not "pushed to staging".
+
+Why it is a rule rather than a nicety: `typecheck`, `lint` and `build` all run
+here against a working tree that already has `node_modules`, `.next` and a warm
+cache. Vercel builds from a clean checkout with the project's own environment
+variables, and the gap between the two is exactly where a build fails — a
+missing env var, a case-sensitive import that macOS and this container both
+forgive, a dependency that is present locally and not in `package.json`. Saying
+"done" before that build lands means Ivan opens the preview and sees the old app,
+which is the same silent failure the branch rule at the top exists to prevent.
+
+So, after **every** push:
+
+1. Poll `mcp__Vercel__list_deployments` until the deployment whose
+   `meta.githubCommitSha` matches the commit just pushed leaves `BUILDING`.
+2. `READY` → say so, and name what was deployed and where.
+3. `ERROR` → **do not report the task as done.** Read
+   `mcp__Vercel__get_deployment_build_logs` with `errorsOnly: true`, fix the
+   cause, push again, and wait for that build. A red build is unfinished work,
+   not a note at the end of a summary.
+4. Tools unavailable, or the build still queued after a reasonable wait → say
+   plainly that the commit is pushed and the build has not been confirmed. Never
+   assume it passed.
+
+The identifiers, so no session has to rediscover them (there is no
+`.vercel/project.json` in the repo):
+
+```text
+team:    team_yYLqMCrISJRZ6BjLacL1awG8   (Ivan K's projects)
+project: prj_oOoAUjYyrxWpESuaQqgMWm9IohR5  (sviy-hub)
+```
+
+`target: "production"` on a deployment means it came from `main`; a `staging`
+push has no target and carries `meta.githubCommitRef: "staging"`. Both get
+checked — a normal task waits on the staging build, a promote waits on the
+production one.
+
 ## Before you ship any screen — the gate
 
 The rule below has been written down for a long time and has still been broken on

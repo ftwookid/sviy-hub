@@ -3,9 +3,31 @@ set -e
 
 branch="$(git branch --show-current)"
 
-if [ "$branch" != "staging" ]; then
-  echo "post-commit: not on staging; skipping automatic push." >&2
+if [ "$branch" = "staging" ]; then
+  git push origin staging
   exit 0
 fi
 
-git push origin staging
+if [ "$branch" = "main" ]; then
+  # A promote pushes main by hand, deliberately. Never automatic.
+  exit 0
+fi
+
+# Anything else is a branch that should not exist. A remote session is handed a
+# claude/<slug> branch by its harness and commits land there silently: the push
+# succeeds, the preview never moves, and the work looks finished from that side.
+# So carry the commit over to staging rather than leaving it stranded.
+if git merge-base --is-ancestor staging HEAD 2>/dev/null; then
+  echo "post-commit: on '$branch', which should not exist. Moving to staging." >&2
+  git branch -f staging HEAD
+  git checkout staging
+  git branch -D "$branch" >/dev/null 2>&1 || true
+  git push origin staging
+  echo "post-commit: committed and pushed to staging; '$branch' deleted." >&2
+  exit 0
+fi
+
+echo "post-commit: on '$branch', which should not exist, and staging is NOT an" >&2
+echo "  ancestor of it — moving it automatically would rewrite staging." >&2
+echo "  Rebase this work onto staging by hand, then push staging." >&2
+exit 0
