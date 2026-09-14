@@ -1,6 +1,30 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  /*
+   * A finger is not a mouse, so `hover:` never fires on one.
+   *
+   * On a touchscreen a tap leaves the element in :hover — Safari and Chrome
+   * both emulate a mouse that arrives and never leaves — so every
+   * `hover:bg-subtle` in the app lit up under the thumb and *stayed* lit until
+   * something else was touched. Scrolling is the worst of it: a drag that
+   * starts on a row paints that row as though it were about to be opened, so
+   * the whole list flashes a highlight at whatever the finger happened to pass
+   * over. Ivan hit it on the Finances breakdown, on Trash.
+   *
+   * `hoverOnlyWhenSupported` wraps every hover variant Tailwind generates —
+   * `hover:`, `group-hover:`, `peer-hover:` — in `@media (hover: hover)`, so
+   * they exist on a desktop and simply are not there on a phone or an iPad.
+   * One flag rather than a rewrite of ~200 class lists, which is the same
+   * reasoning as the 16px form floor in `globals.css`: the next hover written
+   * is correct without anybody remembering this.
+   *
+   * Press feedback is unaffected — that is `:active` as an opacity dip, which
+   * is a real touch state and the one the reader wants.
+   */
+  future: {
+    hoverOnlyWhenSupported: true
+  },
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",

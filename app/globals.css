@@ -78,6 +78,21 @@ textarea {
   }
 }
 
+/*
+ * No grey box under the finger, ever.
+ *
+ * Mobile WebKit paints its own `-webkit-tap-highlight-color` over whatever is
+ * touched — a translucent grey rectangle that ignores the element's own radius,
+ * so a rounded row flashes a square. It is the browser guessing at press
+ * feedback, and this app already has press feedback: the opacity dip below.
+ *
+ * `html` rather than `*`, because the property inherits, and a wildcard would
+ * be re-declared on every element in the app for no gain.
+ */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 button {
   cursor: pointer;
   transition-duration: 180ms;
