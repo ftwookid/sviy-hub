@@ -180,6 +180,26 @@ export async function renameFinanceLine(id: string, label: string) {
   if (failure) throw failure;
 }
 
+/**
+ * Move a line into another block of the month.
+ *
+ * Filing a line under the wrong bucket used to be permanent: the only cure was
+ * deleting it and typing its whole dated history again somewhere else. Nothing
+ * about the schedule depends on which bucket holds it, so this is one column,
+ * and the same unknown-bucket check the insert does — a bucket whose migration
+ * has not been run must say so by name rather than fail as a constraint.
+ */
+export async function moveFinanceLine(id: string, bucket: FinanceBucket) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("finance_lines")
+    .update({ bucket, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (isUnknownBucket(error)) throw new Error(bucketMigrationMessage(bucket));
+  const failure = reportable(error);
+  if (failure) throw failure;
+}
+
 /** Deleting a line takes its schedule with it — the cascade is on the foreign key. */
 export async function deleteFinanceLine(id: string) {
   if (!supabase) return;

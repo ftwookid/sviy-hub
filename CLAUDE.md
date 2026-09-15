@@ -437,7 +437,8 @@ Three things about the lock are load-bearing:
   page behind is pixel-identical before and after a panel opens, at 390, 430 and
   1280.
 - **It is ref-counted, and its argument is not `useEscapeKey`'s.** These nest —
-  `ConfirmDialog` over `SetupSheet`, the mileage preview over the uploader — so
+  `ConfirmDialog` over the Add-client slide-over, the mileage preview over the
+  uploader — so
   releasing the inner one must not unpin the page while the outer is still up.
   And the question it asks is "is this overlay on screen", where `enabled` on
   `useEscapeKey` asks "should Escape do something": that one goes **false
@@ -1558,14 +1559,11 @@ so entering a month twice corrects it rather than doubling the month.
   look similar, which is true — the trend is in the percentage above and in the
   figures beside them. Cropping the axis to make the drift look dramatic is the
   one thing that would make this chart lie.
-- **It is a panel, not a route and not a tab** (`UtilitiesSheet`), opened from a
-  chip beside Setup — same 880px centred dialog on a desktop, whole screen on a
-  phone. Same reasoning as Setup: it is opened *while* looking at a month, so a
-  route would mean a page load and a fresh set of queries for data the month
-  behind it already holds. A bill saved here lands on the month underneath while
-  the panel is still open. On a phone the Setup chip drops its word and keeps its
-  icon; Utilities keeps its label, because a bill arrives most weeks and Setup is
-  visited a few times a year.
+- **It is not a panel of its own any more** (`VariesEditor`). It was one — a
+  centred 880px dialog behind its own chip, beside Setup's — which is what put
+  water and rent behind two different buttons for no reason a reader could see.
+  It is one of the two editors on `/finances/manage` now; everything below still
+  holds, and the year grid is unchanged. See **Money in & out** below.
 - **Nothing here is destroyed without being asked about.** Deleting an account
   takes every bill ever entered against it — the history the whole section
   exists for — and deleting one month's bill throws away a figure copied off a
@@ -2186,118 +2184,123 @@ month on screen, against roughly 1600px when each block was its own card. Zero
 scroll is not the target — it was briefly reached by hiding the data, which is
 worse than scrolling for it.
 
-Setup is a **panel — not a tab, and not a route** (`SetupSheet`). A full-width
-segmented row for two tabs charges 48px to every visit for a screen opened a few
-times a year; but the route that replaced it was worse and more irritating, since
-it meant a page load and a fresh set of queries to show figures the month behind
-it had already loaded, then another load coming back. As a panel it opens
-instantly on data already in memory, and a saved change lands on the month
-underneath while the panel is still open — which is the whole reason you opened
-it.
+### Money in & out — the one place everything is logged
 
-**It is a centred dialog on a desktop, 880px wide, and the whole screen on a
-phone.** It was a 520px slide-over, which sizes itself from the edge of the
-screen rather than from what is inside it: a date, a cadence and an amount were
-fighting over 470px while 900px of page sat dimmed behind them. Nothing in here
-wants to be read beside the month — the month is not readable while this is open
-— so it takes the middle of the screen and lays the fields out across it. The
-header stays put and the figures scroll under it.
+**Everything typed into Finances is entered on one screen, `/finances/manage`,
+reached by the single `Manage` button in the page header.**
 
-Inside, the six buckets are strips in one card, each with its total and a `+`.
+It replaces two dialogs, and the reason is worth keeping because it is the kind
+of mistake that looks tidy from the inside. Setup held the standing figures and
+Utilities held the metered bills, and the split between them was **the storage
+layer showing through**: `finance_lines` and `utility_accounts` are two tables,
+so the UI grew two front doors. But a person holding a bill does not know which
+table the app keeps it in. Rent and water are the same kind of fact — a
+commitment that arrives whether or not anybody thinks about it — and they sat
+behind different buttons, in different interaction models, with no way to see
+them in one list. Ivan's words for it were that logging was "hard to navigate and
+hard to properly enter everything", and both halves of that were true:
 
-- **A heading outranks its lines**, which is the whole job of a heading. The
-  bucket name was 10.5px uppercase tertiary above 14px near-black rows — a label
-  whispering above the things it governed, so the eye read the lines first and
-  had to hunt upward to find out which bucket it was in. It is 16–17px primary
-  now, and the line rows sit a step below it.
-- **No blurb under the name** — "Before anything is taken out" under Gross income
-  tells whoever typed those figures nothing they did not know, and six of them
-  cost about 96px on a phone for nothing.
-- **A line in the list is its name and its figure. Nothing else.** It carried a
-  third column too — "Since Aug 20 · 2 changes", "Ends Sep 30" — and that is the
-  history restated above itself, on every row of a list that is read to find a
-  name. Everything it said is in the expansion already: `scheduleSummary()` names
-  the rhythm and the dated rows name every change, in full, with the amounts.
-  Dropping it took the mobile row from **57px to 38px** — about 190px off a
-  ten-line list — and handed its 220px column to the label, which had been
-  truncating "OR Statewide Transit Tax (Ivan)" and now runs to 631px on a
-  desktop without cutting anything.
+- **You had to classify before you could type.** Which panel, then which
+  bucket's `+`, then the form. Four decisions before the name field.
+- **The figure you wanted was four levels down.** Panel → bucket strip → line row
+  → expansion → form, with the amount you came to read only visible on the
+  collapsed row you had just tapped away from.
+- **Nothing said what needed doing.** A water bill arrives most weeks and was the
+  single most frequent job in the section; the app knew it was missing and had
+  nowhere to say so.
 
-  Two things it said that the dated rows do not, so both moved rather than
-  vanished: a change dated in the future is tagged **`Upcoming`** on its history
-  row, and a line with no rate yet reads **`—`** rather than `$0.00`, which is
-  the zero-pretending-to-be-a-figure the old "No amount set" was guarding
-  against.
+Three decisions replace it.
 
-  The history rows still read in three columns — date, the typed figure with its
-  cadence, the monthly figure — so each runs down a straight edge.
-- **A field never shares a line it cannot fit on.** The date trigger needs about
-  150px for "September 20, 2026"; sharing a 308px phone row with the amount and
-  Save left it 93px and it wrapped to two lines. So on a phone the date takes its
-  own line and the amount stretches to the end of the next one; on a desktop the
-  whole row — date, cadence, amount, Save, and the sentence explaining the
-  conversion — fits across in one.
-- **A field shares its row with another field, never with a button.** The
-  amount once measured **140px** of a 308px phone row (the Save square and "Add
-  an end date" had the rest) and the end date **260** (a ✕ beside it) — the part
-  that is read and typed into was always what got shortened. The fix for that is
-  not full width for everything: a date and an amount both fit a phone row, and
-  giving each its own line wasted half a row twice over. So the entry forms are a
-  **two-column grid on a phone** (`grid-cols-[1.3fr_1fr]`, ~171px and ~131px) and
-  a single flex row on a desktop: `From | Amount`, then `Until | —`. Only a name,
-  which can be long, spans both columns.
-- **Every committing action is a named button, and destructive is red at rest.**
-  Save, Cancel and Delete were three identical 44px grey squares told apart by an
-  icon and, for Delete, a red **hover** colour — and a phone has no hover, so on
-  the screen this panel is actually used on, the button that destroys a figure
-  typed months ago looked exactly like the one that closes the form.
-  `ActionButton` carries the tone at rest (accent / bordered / red) and
-  `FormActions` puts the three on **one row at every width** — about 220px of a
-  308px phone row — with the destructive one at the far left, where it is not on
-  the way to Save. Named does not mean full width: stacking them cost two lines
-  of height to say the same thing. The line's own Stop and Delete stay 44px icon
-  squares on the name's row, since what was wrong with them was never their width
-  but that they looked identical; delete is red at rest now.
+**One screen, and a real one — not a dialog over the month.** This overturns a
+rule written here earlier, deliberately. Setup stopped being a route because a
+route meant a page load and a fresh set of queries to show figures the month
+behind it already held. That was the right trade when the panel was a *glance* at
+a figure. It is the wrong one now, because this is where a month of bills is
+entered, a raise is recorded and a subscription is killed — a job, not a glance —
+and a dialog cannot do the one thing the job needs: **hold a list beside an
+editor**. A dialog also sizes itself from the edge of the screen rather than from
+what is inside it, which is what had a date, a cadence and an amount fighting
+over 470px while 900px of page sat dimmed behind them.
 
-  **Folding the actions into the field row is a tried and failed idea.** On a
-  desktop the edit row is From 260 + amount 150 + until 230, and the three
-  buttons are another 329 — 969 against 818 available, so the dates shrank to
-  141px and wrapped to two lines. The empty right side of that row when `Until`
-  is open is the lesser cost.
-- **44px is the floor for anything tappable**, including the bucket `+` (was 36)
-  and the two controls that live on a label line — the cadence caption and
-  `Remove`. Those two grow their hit area with padding and pull it back with an
-  equal negative margin, so the target is ~40px and the row keeps the height it
-  had. A control that looks like a label still has to be one to hit.
+**One list, master-detail.** Every typed figure of both kinds in one card,
+grouped by the same blocks the month reads in, with one search field over the
+lot. Picking one opens it beside the list from `lg` and over it below, with a
+back arrow. **Nothing is nested more than one level deep**, and there is no
+modal anywhere on the screen — adding is a mode of the detail column, not a
+sheet.
 
-  **A big target is not a big control.** Both paint only the words inside them —
-  measured, the cadence caption is a 94×47 target painting 78×23, and `Remove` a
-  70×47 target painting 54×23. Left on the button, the hover filled the whole
-  inflated box and a 12px caption lit up a 47px block. Same rule, same helper
-  (`.focus-ring-child`), as the month's `ⓘ` did.
-- **The amount field says it is the amount.** Its caption was the cadence alone,
-  so between `FROM` and `UNTIL` sat a field labelled `2 WEEKS` — which says when,
-  and never says what the number is. It reads `AMOUNT · 2 WEEKS ⌄` now; the word
-  is plain text and only the cadence beside it opens anything.
-- `FieldShell` takes an **`action`** slot on the label line, right-aligned, for
-  whatever acts on the field as a whole — clearing an optional one, mostly. Put
-  beside the input instead, it eats the input's width, which is how the end date
-  came to be 260px of a 308px row.
-- **No prose in this panel.** The dialog had a subtitle saying money comes in and
-  goes out; every entry row carried a sentence saying what the figure came to a
-  month on average and that each month counts the payments that land in it; the
-  edit row repeated it. None of it told whoever typed those figures anything they
-  did not know, and all of it is gone. **One sentence survives**, on the one line
-  with a fixed payday: "Saved as that week's Thursday." That is not description,
-  it is notice that the date being typed is about to be moved — which is the test
-  for whether a sentence stays: does it say something the numbers cannot.
+**The distinction that survives is one a person can answer.** Not "standing
+figure or utility account" but **"is the amount the same every month?"**, asked
+once when the thing is added and the only difference between the two editors
+afterwards. `fixed` is a dated schedule; `varies` is a bill per month. **Nothing
+about the storage changed** — `fixed` is a `finance_lines` row and `varies` a
+`utility_accounts` row, exactly as before — so there is no migration behind any
+of this.
 
-The month is read-only throughout; every typed figure is written in Setup, where a
-line opens to its whole history and takes a change as a date plus an amount. It
-was one screen at first, with a pencil on each block — that stopped working the
-moment a figure became a schedule, because a pencil there has to answer "change it
-from when?", which the month you are looking at cannot answer. Linked rows carry a
-source badge and appear only on the month.
+What is on the screen, in the order it is read:
+
+- **The bills waiting to be typed, first — above the search field.** This is the
+  one thing the section can know needs doing and it was previously invisible.
+  `pendingBills()` names, per metered account with history, the **oldest**
+  unbilled month within the last three; tapping a chip opens that account with
+  that month lit and the field focused. Entering a bill went from five taps and a
+  hunt to two. It is not rendered when there is nothing waiting — a
+  reserved-but-empty row is height spent saying nothing. The year is dropped from
+  a chip whose month is in the current year, which fits three chips on one 390px
+  row instead of two, and comes back for a December bill still open in January.
+- **A search field, not a row of filter tabs.** Everything is on this screen, so
+  the only navigation it needs is narrowing, and a segmented row for seven
+  buckets would be 48px charged to every visit.
+- **The list**: seven bucket strips in **one** card, each with its total, then its
+  rows — name, this month's figure, and one of `avg` / `est` / `Ended`. A `varies`
+  row carries a small trend icon, which is the only thing its name does not say.
+  An empty bucket keeps its strip while browsing (it is where a new line of that
+  kind goes) and is dropped under a search, where the absence is the answer.
+
+The two editors, which are the same shape:
+
+- **Both open on the answer, not on a form.** The old panel opened a line onto its
+  history with a blank entry form permanently beneath it. Nine visits in ten are
+  to read what it costs now or to correct the last change, and neither wanted the
+  form. `fixed` leads with the amount in force, its cadence, the date it started
+  and the inferred schedule sentence; `varies` leads with the three trend figures.
+- **Name and bucket sit at the top of both**, which is also the fix for a line
+  filed in the wrong block — previously permanent, since the only cure was
+  deleting it and retyping its whole dated history somewhere else
+  (`moveFinanceLine`, and `updateUtilityAccount` for the other kind).
+- **One form per editor, never two.** A `fixed` line writes a new change and
+  corrects an old one through the same `RateForm`; the old panel had two identical
+  forms on one card and had to hide one whenever the other opened, which is how a
+  raise gets typed into the wrong one. A `varies` account has no separate entry
+  field at all: the month cell you tap **is** where that month's bill is typed.
+- **Buttons above fields, everywhere** (`FormHeader`). Focusing a field raises the
+  iOS keyboard and Safari scrolls that field into view over whatever is left of
+  the page — about 380pt of an 844pt screen once the number pad, the autofill bar
+  and the URL bar are counted — so anything *below* the field is under the
+  keyboard. Putting the actions above fixes it structurally rather than by
+  measuring the keyboard, and it reads the way a native sheet reads: Cancel and
+  Done at the top, the form underneath. This is now the rule for **every** form on
+  this screen, not a carve-out for the one that was caught.
+- **The whole of a line fits one phone screen.** Measured at 390x844: name,
+  bucket, current amount, schedule, both actions and two dated changes, with no
+  scrolling.
+
+Adding is a mode of the detail column: name first, then two plain questions —
+same-every-month or not, and which part of the month — then, for a fixed figure
+only, the amount. A metered account is worth nothing until its first bill, so
+there is deliberately nothing to type for it; a zero here would be a guess added
+into the month.
+
+The addresses (`HomesSection`) keep their place at the far end: a row at the foot
+of the list on a phone, and the detail column's resting state on a desktop, where
+they fill a column that would otherwise be empty. They are read least — an
+address is typed twice in a decade.
+
+Measured at 390 / 430 / 768 / 1280, all five states of the screen: no horizontal
+overflow, no page errors, no tappable control under 44px, and no form control
+under 16px under `pointer: coarse`. The title lands at the same y in every state
+at each width, and the bills-to-enter strip sits at y87 on a phone — the primary
+job, above the fold, before anything else.
 
 Below the blocks, **Left over by month** puts all twelve months on one centre
 line, surplus right in green and deficit left in red, and tapping a month selects
@@ -2351,13 +2354,18 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `components/finances/chart.tsx`: The month's rows, the utility bar, chart ink.
 - `components/finances/DetailSheet.tsx`: A line, a block or a whole side, opened — its timeline over the month.
 - `components/finances/HistoryChart.tsx`: The timeline — a row per month, turned on its side.
-- `components/finances/HomesSection.tsx`: The addresses, typed in Setup.
+- `components/finances/HomesSection.tsx`: The addresses, typed in Money in & out.
 - `lib/financeHistory.ts`: A line's past, and a block's, month by month. Pure.
 - `lib/financeHomes.ts`: The same past, cut at each move. Pure.
 - `supabase/finance-homes-schema.sql`: `finance_homes` — one address, one date.
 - `components/finances/YearList.tsx`: Twelve months, twelve figures.
-- `components/finances/SetupSheet.tsx`: The standing figures, over the month.
-- `components/finances/SetupGroups.tsx`: Every standing figure and its dated history.
+- `app/finances/manage/page.tsx`: Money in & out — the one screen everything is logged on.
+- `components/finances/manage/EntryList.tsx`: Everything typed in, as one searchable list, with the bills still waiting.
+- `components/finances/manage/FixedEditor.tsx`: A figure that is the same every month, and its dated changes.
+- `components/finances/manage/VariesEditor.tsx`: A figure that moves every month — a year of bills as a grid.
+- `components/finances/manage/AddEntryForm.tsx`: Adding either kind, in one flow.
+- `components/finances/manage/controls.tsx`: The buttons, pickers and `FormHeader` both editors share.
+- `lib/financeEntries.ts`: Both kinds as one list, grouped and searched, and the bills that are waiting. Pure.
 - `components/finances/CadencePicker.tsx`: How often a figure arrives, as the amount's caption.
 - `components/ui/AnchoredPanel.tsx`: A panel pinned to a control, portalled clear of anything that clips.
 - `supabase/finances-schema.sql`: `finance_lines`.
@@ -2366,8 +2374,6 @@ it has never seen with `PGRST205`, before Postgres gets to say `42P01`, so
 - `supabase/finance-rate-end-schema.sql`: `effective_to` — the day a rate stops.
 - `supabase/finance-deductions-bucket-schema.sql`: `Deductions` as a typed bucket.
 - `supabase/finance-subscriptions-bucket-schema.sql`: `Subscriptions` as a bucket.
-- `components/finances/UtilitiesSheet.tsx`: The metered bills, over the month.
-- `components/finances/UtilityGroups.tsx`: One utility, its months, and where its bill is typed.
 - `lib/utilities.ts`: What a utility is worth in a month, which way it is going,
   and the twelve months of a year (`monthsOfYear`). Pure.
 - `lib/utilityClient.ts`: Reads and writes for the accounts and their bills.

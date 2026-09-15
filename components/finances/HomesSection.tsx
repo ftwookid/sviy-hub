@@ -157,7 +157,7 @@ export function HomesSection({
   }
 
   return (
-    <section className="mt-3 overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
+    <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
       <div className="flex items-center gap-3 bg-subtle px-3.5 py-2.5 sm:px-4">
         <h3 className="min-w-0 flex-1 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
           Where you have lived
