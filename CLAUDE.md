@@ -528,6 +528,51 @@ http://127.0.0.1:3000/*
 http://localhost:3000/*
 ```
 
+## Google Cloud and Vercel — Claude runs them, Ivan does not
+
+Ivan asked for this outright and permanently: he does not click through Google
+Cloud or Vercel, and a session that hands him console steps has not done the
+job. Everything below exists so no session has to.
+
+**Google Cloud** (project `project-3d21fc15-a1c6-4de3-ac4`, number
+`873692776186`, billing account `017464-43BF62-7C8967`) is driven through
+`scripts/gcp.py`, signed in as the service account
+`claude-maps@project-3d21fc15-a1c6-4de3-ac4.iam.gserviceaccount.com`. Its roles
+are deliberately narrow — API Keys Admin, Service Usage Admin, Quota Admin and
+Monitoring Viewer on the project, Costs Manager on the billing account — so it
+can manage the Maps key, which APIs are on, the daily caps and the budget, and
+nothing that holds data.
+
+- **The key's home is Vercel**: env var `GCP_SA_KEY_B64` (base64 of the JSON
+  key), target **development only**, type `encrypted` so it can be read back.
+  It is never loaded into staging or production. A session fetches it with
+  `mcp__Vercel__get_project_env` (id `quCTCleDZA6kwzsq`), base64-decodes it into
+  `.gcp-key.json` in the repo root (gitignored), and runs the script.
+- `python3 scripts/gcp.py status` — billing on/off, budget, key lock, caps.
+  Also `whoami`, `budget`, `lock-key`, `quotas`, `cap`.
+- `.claude/settings.json` pre-approves exactly that script, the key file, and
+  the Vercel env/deploy/log tools, so none of this stops for approval.
+- The organisation blocks service-account key creation
+  (`iam.disableServiceAccountKeyCreation`). It was lifted for this project just
+  long enough to mint this one key and put straight back; the rule stops new
+  keys, not existing ones.
+
+What was set up on 22 September 2026, all through the script:
+
+- **Budget** "Sviy Hub - Maps": $5/month, emails at 25%, 50% and 100%.
+- **Maps key locked**: only `maps-backend`, `geocoding-backend`, `places` and
+  `places-backend`, and only from production, the `-git-staging-`, `-git-main-`
+  and project aliases, and `localhost:3000` / `127.0.0.1:3000`. A request from
+  anywhere else gets `REQUEST_DENIED`. A per-deployment URL
+  (`sviy-<hash>-ivan-k-s-projects.vercel.app`) is **not** on the list, so the map
+  does not load there — use the staging branch URL.
+- **Daily caps**: map loads 1,000/day, geocoding 500/day, every Places method
+  500/day. Real use is tens a day; the free allowance is 10,000 a month per
+  service. A copied key cannot run up a bill past these.
+
+Verified the same day: with the locked key, from `localhost:3000`, the map
+drew, a geocode placed its pin and a Places text search resolved an address.
+
 ## Handing Over SQL Migrations
 
 Ivan runs migrations by pasting them into the Supabase SQL Editor, in a UI where
@@ -897,6 +942,33 @@ pre-ship gate, and five borders, five shadows and ten paddings would add roughly
 same header strip the Finances Setup buckets use — tinted background, 15px
 primary title — which is a boundary you cannot miss for 18px total across all
 five.
+
+**House sitting has a row on Performance: the days away.** A night at a stay is
+a night not at home, so `nightsAwayInYear()` in `lib/houseSitting.ts` counts the
+calendar year's booked nights night by night — a stay across New Year splits
+between the two years, the check-out day is at home, cancelled stays count
+nothing — and splits them into slept so far and still booked. It counts every
+planned stay, not one owner's: attribution on a stay is "who logged it", and
+matching a nickname in code would break the day it is renamed.
+
+**The client map draws first and pins second.** It used to hide behind an
+overlay until every address had been geocoded, so a Geocoder that was refused
+(the Geocoding API is a separate switch on the Google key) or that never
+answered — with a key Google rejects, `geocode()` never settles — took the whole
+map with it. Now the map shows as soon as the library loads; each address tries
+the Geocoder, then Places text search (the API autocomplete already proves works
+on this key), each with an 8s deadline; coordinates are remembered in
+`localStorage` by address; and any address that could not be placed is named
+under the map with Google's own status code, so the next failure says why.
+
+**The root cause, found on 22 September 2026, was billing, not code.** Billing
+had been switched off on the Google Cloud project that owns the Maps key
+(`project-3d21fc15-a1c6-4de3-ac4`), and Google refuses every Maps call from a
+project without billing, so the map went dark with no code change. The APIs were
+all enabled and the key allowed all of them. If the map ever goes blank again,
+check billing first: Cloud Console → Billing, or in Cloud Shell
+`gcloud billing projects describe <project-id>`. The resilience above is still
+worth having: it is why the failure now names itself instead of hiding the map.
 
 - Added `/clients`.
 - Added client list with Active / Paused / All filters and counts.
@@ -2604,11 +2676,20 @@ git push origin staging
 
 The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically pushes commits made on `staging` to `origin/staging`; commits on other branches are not auto-pushed by the hook.
 
-`staging` deploys to the protected Vercel preview URL:
+`staging` deploys to the Vercel preview URL:
 
 ```text
 https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
 ```
+
+**No Vercel login in front of it, deliberately.** The project shipped with
+Vercel Authentication (`ssoProtection`) on `all_except_custom_domains`, which
+exempted `sviy-hub.vercel.app` and put every other address, staging included,
+behind a Vercel sign-in. That is Vercel's default for a new project, not a
+choice anyone made, and it meant staging behaved differently from production and
+could not be opened by anyone without a Vercel seat. It was switched off on
+22 September 2026 (`ssoProtection: null`). The app's own Supabase sign-in is the
+one gate on every environment; do not turn Vercel Authentication back on.
 
 Only deploy production when Ivan names the promote — `push live`, `push main`, `push to main`, `promote`, `deploy` are all the same instruction. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
 

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/gcp.py:*)",
+      "Write(.gcp-key.json)",
+      "Read(.gcp-key.json)",
+      "mcp__Vercel__create_project_env",
+      "mcp__Vercel__edit_project_env",
+      "mcp__Vercel__get_project_env",
+      "mcp__Vercel__filter_project_envs",
+      "mcp__Vercel__web_fetch_vercel_url",
+      "mcp__Vercel__get_access_to_vercel_url",
+      "mcp__Vercel__update_project",
+      "mcp__Vercel__list_deployments",
+      "mcp__Vercel__get_deployment_build_logs",
+      "mcp__Vercel__get_runtime_logs"
+    ]
+  }
+}

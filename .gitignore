@@ -14,3 +14,6 @@ tsconfig.tsbuildinfo
 
 # Screenshots written by scripts/verify-ui.mjs on every run.
 ui-shots/
+
+# Google Cloud service-account key, fetched from Vercel GCP_SA_KEY_B64 by a session. Never committed.
+.gcp-key.json

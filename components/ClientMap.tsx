@@ -110,46 +110,119 @@ function markerIcon() {
   };
 }
 
-async function geocodeClient(maps: any, geocoder: any, client: ClientWithPets): Promise<MappedClient | null> {
-  const address = client.address.trim();
-  if (!address) return null;
+const LOOKUP_TIMEOUT_MS = 8000;
 
-  const cacheKey = `sviy-client-geocode:${client.id}:${address}`;
-  const cachedValue = window.sessionStorage.getItem(cacheKey);
-  if (cachedValue) {
-    try {
-      const position = JSON.parse(cachedValue) as MappedClient["position"];
-      if (typeof position.lat === "number" && typeof position.lng === "number") return { client, position };
-    } catch {
-      window.sessionStorage.removeItem(cacheKey);
-    }
+/**
+ * A lookup that neither answers nor fails is the worst outcome here: the map
+ * sat under "Building client map" for as long as the tab was open. So every
+ * lookup gets a deadline, and missing it counts as a failure like any other.
+ */
+function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("timed out")), LOOKUP_TIMEOUT_MS);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+/** Google's own status code where there is one — REQUEST_DENIED says far more than "failed". */
+function failureCode(error: unknown) {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
+  if (error instanceof Error) return error.message;
+  return "UNKNOWN";
+}
+
+/*
+ * Coordinates are kept per browser in localStorage, keyed on the address alone:
+ * an address does not move, so looking it up again on every new tab (which is
+ * what sessionStorage meant) only multiplied the chances of a lookup failing.
+ * Storage can throw in a private window, so every touch of it is guarded.
+ */
+const CACHE_PREFIX = "sviy-client-geocode:";
+
+function readCachedPosition(address: string): MappedClient["position"] | null {
+  try {
+    const cachedValue = window.localStorage.getItem(`${CACHE_PREFIX}${address}`);
+    if (!cachedValue) return null;
+    const position = JSON.parse(cachedValue) as MappedClient["position"];
+    if (typeof position.lat === "number" && typeof position.lng === "number") return position;
+  } catch {
+    // Unreadable or unavailable storage is just a cache miss.
+  }
+  return null;
+}
+
+function writeCachedPosition(address: string, position: MappedClient["position"]) {
+  try {
+    window.localStorage.setItem(`${CACHE_PREFIX}${address}`, JSON.stringify(position));
+  } catch {
+    // Nothing to do: the pin is still placed, it just is not remembered.
+  }
+}
+
+type Located = { position: MappedClient["position"] } | { failure: string };
+
+/**
+ * Two ways to turn an address into a pin, because the map depends on it.
+ *
+ * The Geocoder is the natural one, but it is a separate API on the Google key
+ * (Geocoding API) and when it is refused every lookup comes back empty — which
+ * the map used to report by covering itself with "No pins available". Places
+ * is the API the client address field already uses to autocomplete, so it is
+ * known to work on this key; it is asked second rather than first because a
+ * text search is the more expensive call.
+ */
+async function locateAddress(maps: any, geocoder: any, address: string): Promise<Located> {
+  const failures: string[] = [];
+
+  try {
+    const response = await withTimeout<any>(Promise.resolve(geocoder.geocode({ address })));
+    const location = response?.results?.[0]?.geometry?.location;
+    if (location) return { position: { lat: location.lat(), lng: location.lng() } };
+    failures.push("Geocoder: ZERO_RESULTS");
+  } catch (error) {
+    failures.push(`Geocoder: ${failureCode(error)}`);
   }
 
   try {
-    const response = await geocoder.geocode({ address });
-    const result = response.results?.[0];
-    const location = result?.geometry?.location;
-    if (!location) return null;
-
-    const position = {
-      lat: location.lat(),
-      lng: location.lng()
-    };
-    window.sessionStorage.setItem(cacheKey, JSON.stringify(position));
-    return { client, position };
+    const { Place } = await withTimeout<any>(Promise.resolve(maps.importLibrary("places")));
+    const response = await withTimeout<any>(
+      Promise.resolve(Place.searchByText({ textQuery: address, fields: ["location"], maxResultCount: 1 }))
+    );
+    const location = response?.places?.[0]?.location;
+    if (location) return { position: { lat: location.lat(), lng: location.lng() } };
+    failures.push("Places: ZERO_RESULTS");
   } catch (error) {
-    if (error === maps.GeocoderStatus?.OVER_QUERY_LIMIT) throw error;
-    return null;
+    failures.push(`Places: ${failureCode(error)}`);
   }
+
+  return { failure: failures.join(" · ") };
 }
+
+type PinState = {
+  placing: boolean;
+  placed: number;
+  total: number;
+  /** Why the last unplaced address failed, in Google's words. */
+  failure: string;
+};
 
 export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const infoWindowRef = useRef<any>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle");
-  const [statusText, setStatusText] = useState("Preparing map...");
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mapError, setMapError] = useState("");
+  const [pins, setPins] = useState<PinState>({ placing: false, placed: 0, total: 0, failure: "" });
 
   const clientsWithAddresses = useMemo(() => clients.filter((client) => client.address.trim()), [clients]);
   const locationKey = useMemo(
@@ -158,90 +231,99 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
   );
 
   useEffect(() => {
-    if (clientsWithAddresses.length === 0) {
-      setStatus("empty");
-      setStatusText("No client addresses to map yet.");
-      markersRef.current.forEach((marker) => marker.setMap(null));
-      markersRef.current = [];
-      return;
-    }
-
     let active = true;
 
+    /*
+     * The map is drawn the moment the library loads, and the pins land on it
+     * afterwards. It used to wait for every address to resolve first and hid
+     * itself behind an overlay until then — so a lookup that was refused or
+     * never answered took the whole map with it, which is how it "stopped
+     * displaying". Pins are what can fail now; the map itself cannot.
+     */
     async function buildMap() {
-      setStatus("loading");
-      setStatusText(`Mapping ${clientsWithAddresses.length} client${clientsWithAddresses.length === 1 ? "" : "s"}...`);
+      const total = clientsWithAddresses.length;
+      setPins({ placing: total > 0, placed: 0, total, failure: "" });
 
+      let maps: any;
       try {
-        const maps = await loadGoogleMaps();
-        if (!active || !containerRef.current) return;
-
-        if (!mapRef.current) {
-          mapRef.current = new maps.Map(containerRef.current, {
-            center: { lat: 45.5152, lng: -122.6784 },
-            clickableIcons: false,
-            fullscreenControl: false,
-            mapTypeControl: false,
-            streetViewControl: false,
-            zoom: 11
-          });
-          infoWindowRef.current = new maps.InfoWindow();
-        }
-
-        markersRef.current.forEach((marker) => marker.setMap(null));
-        markersRef.current = [];
-
-        const geocoder = new maps.Geocoder();
-        const mappedClients: MappedClient[] = [];
-
-        for (const client of clientsWithAddresses) {
-          if (!active) return;
-          const mappedClient = await geocodeClient(maps, geocoder, client);
-          if (mappedClient) mappedClients.push(mappedClient);
-        }
-
-        if (!active) return;
-
-        if (mappedClients.length === 0) {
-          setStatus("empty");
-          setStatusText("No client addresses could be placed on the map.");
-          return;
-        }
-
-        const bounds = new maps.LatLngBounds();
-        const icon = markerIcon();
-
-        mappedClients.forEach(({ client, position }) => {
-          const marker = new maps.Marker({
-            map: mapRef.current,
-            position,
-            title: petsLabel(client),
-            icon
-          });
-
-          marker.addListener("click", () => {
-            infoWindowRef.current?.setContent(clientInfoHtml(client));
-            infoWindowRef.current?.open({ anchor: marker, map: mapRef.current });
-          });
-
-          markersRef.current.push(marker);
-          bounds.extend(position);
-        });
-
-        if (mappedClients.length === 1) {
-          mapRef.current.setCenter(mappedClients[0].position);
-          mapRef.current.setZoom(13);
-        } else {
-          mapRef.current.fitBounds(bounds, 62);
-        }
-
-        setStatus("ready");
-        setStatusText(`${mappedClients.length} of ${clientsWithAddresses.length} client${clientsWithAddresses.length === 1 ? "" : "s"} mapped`);
+        maps = await loadGoogleMaps();
       } catch (error) {
         if (!active) return;
-        setStatus("error");
-        setStatusText(error instanceof Error ? error.message : "Map could not load.");
+        setMapStatus("error");
+        setMapError(error instanceof Error ? error.message : "Map could not load.");
+        return;
       }
+      if (!active || !containerRef.current) return;
+
+      if (!mapRef.current) {
+        mapRef.current = new maps.Map(containerRef.current, {
+          center: { lat: 45.5152, lng: -122.6784 },
+          clickableIcons: false,
+          fullscreenControl: false,
+          mapTypeControl: false,
+          streetViewControl: false,
+          zoom: 11
+        });
+        infoWindowRef.current = new maps.InfoWindow();
+      }
+      setMapStatus("ready");
+
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+      if (total === 0) return;
+
+      const geocoder = new maps.Geocoder();
+      const mappedClients: MappedClient[] = [];
+      let failure = "";
+
+      for (const client of clientsWithAddresses) {
+        const address = client.address.trim();
+        const cached = readCachedPosition(address);
+        if (cached) {
+          mappedClients.push({ client, position: cached });
+          continue;
+        }
+
+        const located = await locateAddress(maps, geocoder, address);
+        if (!active) return;
+        if ("position" in located) {
+          writeCachedPosition(address, located.position);
+          mappedClients.push({ client, position: located.position });
+        } else {
+          failure = located.failure;
+        }
+      }
+
+      if (!active) return;
+
+      const bounds = new maps.LatLngBounds();
+      const icon = markerIcon();
+
+      mappedClients.forEach(({ client, position }) => {
+        const marker = new maps.Marker({
+          map: mapRef.current,
+          position,
+          title: petsLabel(client),
+          icon
+        });
+
+        marker.addListener("click", () => {
+          infoWindowRef.current?.setContent(clientInfoHtml(client));
+          infoWindowRef.current?.open({ anchor: marker, map: mapRef.current });
+        });
+
+        markersRef.current.push(marker);
+        bounds.extend(position);
+      });
+
+      if (mappedClients.length === 1) {
+        mapRef.current.setCenter(mappedClients[0].position);
+        mapRef.current.setZoom(13);
+      } else if (mappedClients.length > 1) {
+        mapRef.current.fitBounds(bounds, 62);
+      }
+
+      setPins({ placing: false, placed: mappedClients.length, total, failure });
     }
 
     buildMap();
@@ -250,6 +332,19 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
       active = false;
     };
   }, [clientsWithAddresses, locationKey]);
+
+  /* One line under the map, and only while it has something to say: pins still
+     being placed, or addresses that could not be. A fully placed map needs no
+     caption — the section header already counts the pins. */
+  const caption = pins.placing
+    ? `Placing ${pins.total} client${pins.total === 1 ? "" : "s"}…`
+    : mapStatus === "ready" && pins.total === 0
+      ? "No client addresses to map yet."
+      : mapStatus === "ready" && pins.placed < pins.total
+        ? `${pins.total - pins.placed} of ${pins.total} address${pins.total === 1 ? "" : "es"} could not be placed${
+            pins.failure ? ` · ${pins.failure}` : ""
+          }`
+        : "";
 
   return (
     /* No card of its own, and no title. This sits inside a section of the
@@ -260,17 +355,22 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
     <div className="overflow-hidden rounded-[14px] border border-border bg-subtle">
       <div className="relative h-[260px] w-full sm:h-[320px] md:h-[380px]">
         <div ref={containerRef} className="h-full w-full" aria-label="Map of client addresses" />
-        {status === "loading" || status === "empty" || status === "error" ? (
+        {mapStatus !== "ready" ? (
           <div className="absolute inset-0 grid place-items-center bg-subtle/80 px-5 text-center backdrop-blur-[1px]">
             <div>
               <div className="text-body font-medium text-text-primary">
-                {status === "loading" ? "Building client map" : status === "empty" ? "No pins available" : "Map unavailable"}
+                {mapStatus === "loading" ? "Loading map" : "Map unavailable"}
               </div>
-              <div className="mt-1 max-w-sm text-meta text-text-secondary">{statusText}</div>
+              {mapStatus === "error" ? (
+                <div className="mt-1 max-w-sm text-meta text-text-secondary">{mapError}</div>
+              ) : null}
             </div>
           </div>
         ) : null}
       </div>
+      {caption ? (
+        <div className="border-t border-border bg-surface px-3 py-2 text-meta text-text-secondary">{caption}</div>
+      ) : null}
     </div>
   );
 }

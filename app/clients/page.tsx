@@ -23,6 +23,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
 import { labelFor, loadUserLabels } from "@/lib/userLabels";
 import type { ClientStatus, ClientWithPets } from "@/types/client";
+import type { HouseSittingBooking } from "@/types/houseSitting";
 
 type ClientFilter = ClientStatus | "All";
 type ClientView = "performance" | "regular" | "house-sitting";
@@ -84,14 +85,22 @@ function ClientsPageContent() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientWithPets | null>(null);
   const [ownerLabels, setOwnerLabels] = useState<Record<string, string>>({});
+  const [bookings, setBookings] = useState<HouseSittingBooking[]>([]);
 
   const loadClients = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("clients")
-      .select("*, pets(*), price_history(*)")
-      .order("name", { ascending: true });
+    const year = new Date().getFullYear();
+    // A stay only has to touch the year to count toward it — one that starts in
+    // December puts nights into January.
+    const [{ data }, bookingResult] = await Promise.all([
+      supabase.from("clients").select("*, pets(*), price_history(*)").order("name", { ascending: true }),
+      supabase
+        .from("house_sittings")
+        .select("*")
+        .lte("start_date", `${year}-12-31`)
+        .gte("end_date", `${year}-01-01`)
+    ]);
 
     const nextClients = ((data ?? []) as Array<ClientWithPets & { pets: ClientWithPets["pets"] | null }>).map(
       (client) => ({ ...client, pets: client.pets ?? [], price_history: client.price_history ?? [] })
@@ -100,6 +109,14 @@ function ClientsPageContent() {
     // Both people's clients are in one list now, so every card says whose it is.
     setOwnerLabels(nextClients.length > 0 ? await loadUserLabels() : {});
 
+    // The calendar has its own migration, so an unreadable table means no stays
+    // rather than a broken page.
+    setBookings(
+      ((bookingResult.data ?? []) as HouseSittingBooking[]).map((booking) => ({
+        ...booking,
+        status: booking.status === "Cancelled" ? "Cancelled" : "Planned"
+      }))
+    );
     setClients(nextClients);
     setLoading(false);
   }, [user]);
@@ -275,7 +292,7 @@ function ClientsPageContent() {
         ) : null}
 
         {activeView === "performance" && !loading && filteredClients.length > 0 ? (
-          <ClientAnalyticsDashboard clients={filteredClients} />
+          <ClientAnalyticsDashboard clients={filteredClients} bookings={bookings} />
         ) : null}
 
         {activeView === "regular" && !loading && filteredClients.length > 0 ? (

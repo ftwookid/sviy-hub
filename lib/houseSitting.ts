@@ -101,3 +101,34 @@ export function estimateHouseSitting(input: {
     taxable: input.paymentMethod !== "Cash"
   };
 }
+
+/**
+ * How many nights of a calendar year were spent at a stay rather than at home.
+ *
+ * Counted night by night, the same way the Finances month is, so a stay from
+ * 28 December to 3 January gives this year four nights and next year two
+ * instead of filing all six under the year it started in. A night belongs to
+ * the evening it begins on, which is also how `nightsBetween` counts: the
+ * check-out day is spent at home. Cancelled stays were never slept in.
+ *
+ * `past` is the nights already slept — those before `today` — so a year that
+ * is still being booked can say how much of the figure has happened yet.
+ */
+export function nightsAwayInYear(bookings: HouseSittingBooking[], year: number, today: string) {
+  let total = 0;
+  let past = 0;
+
+  activeBookings(bookings).forEach((booking) => {
+    const start = parseLocalDate(booking.start_date);
+    const nightCount = nightsBetween(booking.start_date, booking.end_date);
+
+    for (let index = 0; index < nightCount; index += 1) {
+      const night = addDays(start, index);
+      if (night.getFullYear() !== year) continue;
+      total += 1;
+      if (toInputDate(night) < today) past += 1;
+    }
+  });
+
+  return { total, past, upcoming: total - past };
+}
