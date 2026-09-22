@@ -573,6 +573,34 @@ What was set up on 22 September 2026, all through the script:
 Verified the same day: with the locked key, from `localhost:3000`, the map
 drew, a geocode placed its pin and a Places text search resolved an address.
 
+### Billable calls — what a visit costs, and the rules that keep it there
+
+Measured against Google with the real key (request counts, not estimates):
+
+- **Typing an address costs 2 calls, not 28.** `AddressAutocomplete` used to
+  fetch Place Details for **every** suggestion on every pause in typing, to
+  polish row text the suggestion already carries, and it cleared its session
+  token after each lookup, so each keystroke was billed on its own. At normal
+  phone typing speed one address was 23 autocomplete requests + 5 Details. Now:
+  rows come straight from the suggestion, the session token lives until a row
+  is picked, the one Details call is for the chosen row (which also closes the
+  billing session), and the debounce is 350ms.
+- **Opening Performance costs 0 map loads until the map is scrolled to.** Google
+  bills a map load per `new google.maps.Map`, and the map sits ~1,000px down on
+  a phone. `ClientMap` waits for an `IntersectionObserver` (400px margin).
+- **Switching tabs costs nothing.** One map per page session lives on a
+  detached element (`sharedMap` in `components/ClientMap.tsx`) and each mount
+  moves it into place; its pins live on it too, so a remount clears rather than
+  stacks them. Measured: 0 loads at rest, 1 after scrolling, still 1 after two
+  unmount/remounts.
+- **Geocoding runs once per address per browser** (`localStorage`), and
+  Anthropic is only called on an explicit statement or proof-sheet upload —
+  never on a page open.
+
+Rules for anything new that touches Google: never create a map or call Places
+on mount if it can wait for sight or intent; never fetch Details for a list,
+only for the chosen item; keep one session token per typed search.
+
 ## Handing Over SQL Migrations
 
 Ivan runs migrations by pasting them into the Supabase SQL Editor, in a UI where
