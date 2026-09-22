@@ -528,6 +528,51 @@ http://127.0.0.1:3000/*
 http://localhost:3000/*
 ```
 
+## Google Cloud and Vercel — Claude runs them, Ivan does not
+
+Ivan asked for this outright and permanently: he does not click through Google
+Cloud or Vercel, and a session that hands him console steps has not done the
+job. Everything below exists so no session has to.
+
+**Google Cloud** (project `project-3d21fc15-a1c6-4de3-ac4`, number
+`873692776186`, billing account `017464-43BF62-7C8967`) is driven through
+`scripts/gcp.py`, signed in as the service account
+`claude-maps@project-3d21fc15-a1c6-4de3-ac4.iam.gserviceaccount.com`. Its roles
+are deliberately narrow — API Keys Admin, Service Usage Admin, Quota Admin and
+Monitoring Viewer on the project, Costs Manager on the billing account — so it
+can manage the Maps key, which APIs are on, the daily caps and the budget, and
+nothing that holds data.
+
+- **The key's home is Vercel**: env var `GCP_SA_KEY_B64` (base64 of the JSON
+  key), target **development only**, type `encrypted` so it can be read back.
+  It is never loaded into staging or production. A session fetches it with
+  `mcp__Vercel__get_project_env` (id `quCTCleDZA6kwzsq`), base64-decodes it into
+  `.gcp-key.json` in the repo root (gitignored), and runs the script.
+- `python3 scripts/gcp.py status` — billing on/off, budget, key lock, caps.
+  Also `whoami`, `budget`, `lock-key`, `quotas`, `cap`.
+- `.claude/settings.json` pre-approves exactly that script, the key file, and
+  the Vercel env/deploy/log tools, so none of this stops for approval.
+- The organisation blocks service-account key creation
+  (`iam.disableServiceAccountKeyCreation`). It was lifted for this project just
+  long enough to mint this one key and put straight back; the rule stops new
+  keys, not existing ones.
+
+What was set up on 22 September 2026, all through the script:
+
+- **Budget** "Sviy Hub - Maps": $5/month, emails at 25%, 50% and 100%.
+- **Maps key locked**: only `maps-backend`, `geocoding-backend`, `places` and
+  `places-backend`, and only from production, the `-git-staging-`, `-git-main-`
+  and project aliases, and `localhost:3000` / `127.0.0.1:3000`. A request from
+  anywhere else gets `REQUEST_DENIED`. A per-deployment URL
+  (`sviy-<hash>-ivan-k-s-projects.vercel.app`) is **not** on the list, so the map
+  does not load there — use the staging branch URL.
+- **Daily caps**: map loads 1,000/day, geocoding 500/day, every Places method
+  500/day. Real use is tens a day; the free allowance is 10,000 a month per
+  service. A copied key cannot run up a bill past these.
+
+Verified the same day: with the locked key, from `localhost:3000`, the map
+drew, a geocode placed its pin and a Places text search resolved an address.
+
 ## Handing Over SQL Migrations
 
 Ivan runs migrations by pasting them into the Supabase SQL Editor, in a UI where
