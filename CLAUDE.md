@@ -916,6 +916,15 @@ on this key), each with an 8s deadline; coordinates are remembered in
 `localStorage` by address; and any address that could not be placed is named
 under the map with Google's own status code, so the next failure says why.
 
+**The root cause, found on 22 September 2026, was billing, not code.** Billing
+had been switched off on the Google Cloud project that owns the Maps key
+(`project-3d21fc15-a1c6-4de3-ac4`), and Google refuses every Maps call from a
+project without billing, so the map went dark with no code change. The APIs were
+all enabled and the key allowed all of them. If the map ever goes blank again,
+check billing first: Cloud Console → Billing, or in Cloud Shell
+`gcloud billing projects describe <project-id>`. The resilience above is still
+worth having: it is why the failure now names itself instead of hiding the map.
+
 - Added `/clients`.
 - Added client list with Active / Paused / All filters and counts.
 - Added client cards showing:
