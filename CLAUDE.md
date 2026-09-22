@@ -2631,11 +2631,20 @@ git push origin staging
 
 The repo uses `core.hooksPath=.githooks`. The `post-commit` hook automatically pushes commits made on `staging` to `origin/staging`; commits on other branches are not auto-pushed by the hook.
 
-`staging` deploys to the protected Vercel preview URL:
+`staging` deploys to the Vercel preview URL:
 
 ```text
 https://sviy-hub-git-staging-ivan-k-s-projects.vercel.app/
 ```
+
+**No Vercel login in front of it, deliberately.** The project shipped with
+Vercel Authentication (`ssoProtection`) on `all_except_custom_domains`, which
+exempted `sviy-hub.vercel.app` and put every other address, staging included,
+behind a Vercel sign-in. That is Vercel's default for a new project, not a
+choice anyone made, and it meant staging behaved differently from production and
+could not be opened by anyone without a Vercel seat. It was switched off on
+22 September 2026 (`ssoProtection: null`). The app's own Supabase sign-in is the
+one gate on every environment; do not turn Vercel Authentication back on.
 
 Only deploy production when Ivan names the promote — `push live`, `push main`, `push to main`, `promote`, `deploy` are all the same instruction. To do that, merge the tested `staging` branch into `main` with a promote commit, push `main` to `origin`, and then return the local workspace to `staging`:
 
