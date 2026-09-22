@@ -7,14 +7,19 @@ import {
   MapPinned
 } from "lucide-react";
 import { ClientMap } from "@/components/ClientMap";
+import { Stat } from "@/components/health/primitives";
 import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
 import { estimateClientCurrentEarnings, estimateClientEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
-import { formatCurrency, toInputDate } from "@/lib/formatters";
+import { formatCurrency, toInputDate, todayInputValue } from "@/lib/formatters";
+import { activeBookings, nightsAwayInYear } from "@/lib/houseSitting";
 import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
+import type { HouseSittingBooking } from "@/types/houseSitting";
 
 type ClientDashboardProps = {
   clients: ClientWithPets[];
+  /** The stays touching this calendar year, for the nights spent away. */
+  bookings: HouseSittingBooking[];
 };
 
 const PAYMENT_METHODS: ClientPaymentMethod[] = ["Rover", "Venmo", "Cash"];
@@ -381,7 +386,7 @@ function BarRow({
   );
 }
 
-export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
+export function ClientAnalyticsDashboard({ clients, bookings }: ClientDashboardProps) {
   const previousDate = comparisonDate();
   const clientMetrics = clients.map((client) => clientMetric(client)).filter((item): item is ClientMetric => Boolean(item));
   const previousMetrics = clients.map((client) => clientMetric(client, previousDate)).filter((item): item is ClientMetric => Boolean(item));
@@ -436,6 +441,12 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
   const maxServiceWeekly = Math.max(1, ...serviceBreakdown.map((item) => item.weeklyNet));
 
   const mappable = clients.filter((client) => client.address.trim().length > 0).length;
+
+  const today = todayInputValue();
+  const year = Number(today.slice(0, 4));
+  const daysInYear = new Date(year, 1, 29).getMonth() === 1 ? 366 : 365;
+  const away = nightsAwayInYear(bookings, year, today);
+  const yearStays = activeBookings(bookings).length;
 
   return (
     <section className="space-y-3">
@@ -564,10 +575,31 @@ export function ClientAnalyticsDashboard({ clients }: ClientDashboardProps) {
           </BarRows>
         </Section>
 
-        {/* Full width beneath the two columns. Its pin count is on the header
-            because nothing in the body states it. */}
+        {/* A night at a stay is a night not spent at home, so the year's booked
+            nights are the days away. Full width, because three figures in a
+            divided strip is what the row is for; the stay count is on the
+            header because none of the three states it. */}
         <div className="md:col-span-2">
-          <Section title="Client map" summary={`${mappable} of ${clients.length} mapped`}>
+          <Section
+            title="House sitting"
+            summary={`${year} · ${yearStays} ${yearStays === 1 ? "stay" : "stays"}`}
+          >
+            <div className="grid grid-cols-3 divide-x divide-border">
+              <Stat
+                label="Days away"
+                value={String(away.total)}
+                detail={`${Math.round((away.total / daysInYear) * 100)}% of the year`}
+              />
+              <Stat label="So far" value={String(away.past)} />
+              <Stat label="Still booked" value={String(away.upcoming)} />
+            </div>
+          </Section>
+        </div>
+
+        {/* Full width beneath the two columns. The header counts addresses, not
+            pins: whether each one could be placed is the map's own caption. */}
+        <div className="md:col-span-2">
+          <Section title="Client map" summary={`${mappable} of ${clients.length} with an address`}>
             <ClientMap clients={clients} />
           </Section>
         </div>

@@ -898,6 +898,24 @@ same header strip the Finances Setup buckets use — tinted background, 15px
 primary title — which is a boundary you cannot miss for 18px total across all
 five.
 
+**House sitting has a row on Performance: the days away.** A night at a stay is
+a night not at home, so `nightsAwayInYear()` in `lib/houseSitting.ts` counts the
+calendar year's booked nights night by night — a stay across New Year splits
+between the two years, the check-out day is at home, cancelled stays count
+nothing — and splits them into slept so far and still booked. It counts every
+planned stay, not one owner's: attribution on a stay is "who logged it", and
+matching a nickname in code would break the day it is renamed.
+
+**The client map draws first and pins second.** It used to hide behind an
+overlay until every address had been geocoded, so a Geocoder that was refused
+(the Geocoding API is a separate switch on the Google key) or that never
+answered — with a key Google rejects, `geocode()` never settles — took the whole
+map with it. Now the map shows as soon as the library loads; each address tries
+the Geocoder, then Places text search (the API autocomplete already proves works
+on this key), each with an 8s deadline; coordinates are remembered in
+`localStorage` by address; and any address that could not be placed is named
+under the map with Google's own status code, so the next failure says why.
+
 - Added `/clients`.
 - Added client list with Active / Paused / All filters and counts.
 - Added client cards showing:
