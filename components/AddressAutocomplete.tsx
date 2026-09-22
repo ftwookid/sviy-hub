@@ -230,9 +230,22 @@ export function AddressAutocomplete({
         });
 
         if (!active) return;
-        const nextPredictions = await Promise.all(normalizeSuggestions(suggestions).map(enrichPrediction));
-        if (!active) return;
-        sessionTokenRef.current = null;
+        /*
+         * The rows are drawn from what the suggestion already carries — the
+         * place name and its address line — with no further request.
+         *
+         * They used to be "enriched" by fetching Place Details for every
+         * suggestion on every pause in typing: five paid lookups per keystroke,
+         * roughly 50 for one address, to polish text that was already good
+         * enough to pick from. Details are now fetched once, for the row that
+         * is actually chosen.
+         *
+         * The session token is kept across keystrokes on purpose. Google bills
+         * a typing session as one unit when it ends in a Details call on the
+         * chosen place; clearing the token after each lookup made every
+         * keystroke a separately billed request.
+         */
+        const nextPredictions = normalizeSuggestions(suggestions);
         setPredictions(nextPredictions);
         setOpen(nextPredictions.length > 0);
         setActiveIndex(-1);
@@ -244,7 +257,8 @@ export function AddressAutocomplete({
       } finally {
         if (active) setLoading(false);
       }
-    }, 180);
+      // Long enough that a word typed at speed is one lookup, not one per letter.
+    }, 350);
 
     return () => {
       active = false;
@@ -257,7 +271,8 @@ export function AddressAutocomplete({
     setLookupError("");
 
     try {
-      const nextPrediction = prediction.formattedAddress ? prediction : await enrichPrediction(prediction);
+      // The one Details call per address: it also closes the billing session.
+      const nextPrediction = await enrichPrediction(prediction);
       const nextAddress = nextPrediction.formattedAddress || nextPrediction.description;
       selectedAddressRef.current = nextAddress.trim();
       userEditedRef.current = false;

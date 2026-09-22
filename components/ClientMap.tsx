@@ -207,6 +207,38 @@ async function locateAddress(maps: any, geocoder: any, address: string): Promise
   return { failure: failures.join(" · ") };
 }
 
+/*
+ * One map for the whole page session, reused on every mount.
+ *
+ * Google bills a map load each time a map is created, not each time one is
+ * shown. The Performance tab unmounts this component on every switch to
+ * Customers or Sitting and on every reload of the client list, so creating a
+ * map per mount billed a fresh load for the same map over and over. The map
+ * lives on a detached element instead, and a mount just moves that element into
+ * its container: switching tabs costs nothing, and only a full page reload
+ * creates another.
+ */
+let sharedMap: { element: HTMLDivElement; map: any; infoWindow: any; markers: any[] } | null = null;
+
+function attachSharedMap(maps: any, container: HTMLDivElement) {
+  if (!sharedMap) {
+    const element = document.createElement("div");
+    element.style.width = "100%";
+    element.style.height = "100%";
+    const map = new maps.Map(element, {
+      center: { lat: 45.5152, lng: -122.6784 },
+      clickableIcons: false,
+      fullscreenControl: false,
+      mapTypeControl: false,
+      streetViewControl: false,
+      zoom: 11
+    });
+    sharedMap = { element, map, infoWindow: new maps.InfoWindow(), markers: [] };
+  }
+  if (sharedMap.element.parentElement !== container) container.appendChild(sharedMap.element);
+  return sharedMap;
+}
+
 type PinState = {
   placing: boolean;
   placed: number;
@@ -223,6 +255,34 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const [mapError, setMapError] = useState("");
   const [pins, setPins] = useState<PinState>({ placing: false, placed: 0, total: 0, failure: "" });
+  /*
+   * The map is the last block on Performance — about 1,000px down on a phone —
+   * and most visits never scroll that far. Nothing is loaded from Google until
+   * it comes within a screen of view, so a visit that only reads the figures
+   * costs no map load at all. Once seen, it stays built.
+   */
+  const [nearView, setNearView] = useState(Boolean(sharedMap));
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (nearView) return;
+    const node = wrapperRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") {
+      setNearView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setNearView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nearView]);
 
   const clientsWithAddresses = useMemo(() => clients.filter((client) => client.address.trim()), [clients]);
   const locationKey = useMemo(
@@ -231,6 +291,7 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
   );
 
   useEffect(() => {
+    if (!nearView) return;
     let active = true;
 
     /*
@@ -255,21 +316,16 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
       }
       if (!active || !containerRef.current) return;
 
-      if (!mapRef.current) {
-        mapRef.current = new maps.Map(containerRef.current, {
-          center: { lat: 45.5152, lng: -122.6784 },
-          clickableIcons: false,
-          fullscreenControl: false,
-          mapTypeControl: false,
-          streetViewControl: false,
-          zoom: 11
-        });
-        infoWindowRef.current = new maps.InfoWindow();
-      }
+      const attached = attachSharedMap(maps, containerRef.current);
+      mapRef.current = attached.map;
+      infoWindowRef.current = attached.infoWindow;
+      // The pins belong to the shared map, so a remount clears the last
+      // mount's pins rather than stacking a second set on top of them.
+      markersRef.current = attached.markers;
       setMapStatus("ready");
 
       markersRef.current.forEach((marker) => marker.setMap(null));
-      markersRef.current = [];
+      markersRef.current.length = 0;
       if (total === 0) return;
 
       const geocoder = new maps.Geocoder();
@@ -331,12 +387,14 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
     return () => {
       active = false;
     };
-  }, [clientsWithAddresses, locationKey]);
+  }, [clientsWithAddresses, locationKey, nearView]);
 
   /* One line under the map, and only while it has something to say: pins still
      being placed, or addresses that could not be. A fully placed map needs no
      caption — the section header already counts the pins. */
-  const caption = pins.placing
+  const caption = !nearView
+    ? ""
+    : pins.placing
     ? `Placing ${pins.total} client${pins.total === 1 ? "" : "s"}…`
     : mapStatus === "ready" && pins.total === 0
       ? "No client addresses to map yet."
@@ -352,10 +410,10 @@ export function ClientMap({ clients }: { clients: ClientWithPets[] }) {
        a shadow, a 40px icon badge and a second "Client map" heading would all
        be chrome repeating what is directly above them. What is left is the map
        and the one line that says whether it worked. */
-    <div className="overflow-hidden rounded-[14px] border border-border bg-subtle">
+    <div ref={wrapperRef} className="overflow-hidden rounded-[14px] border border-border bg-subtle">
       <div className="relative h-[260px] w-full sm:h-[320px] md:h-[380px]">
         <div ref={containerRef} className="h-full w-full" aria-label="Map of client addresses" />
-        {mapStatus !== "ready" ? (
+        {nearView && mapStatus !== "ready" ? (
           <div className="absolute inset-0 grid place-items-center bg-subtle/80 px-5 text-center backdrop-blur-[1px]">
             <div>
               <div className="text-body font-medium text-text-primary">

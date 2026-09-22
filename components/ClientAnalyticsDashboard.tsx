@@ -386,6 +386,93 @@ function BarRow({
   );
 }
 
+type MixRow = {
+  key: string;
+  /** Label first, then one figure per extra column. */
+  cells: string[];
+  amount: number;
+  max: number;
+  /** The figure at the end of the bar. */
+  value: string;
+};
+
+/**
+ * A block that splits one total several ways, as a real table.
+ *
+ * Payment mix used to set every fact in one grey label — "Rover · 4 ·
+ * $1,092.00" — beside a bar and a share. Nothing lined up down the block, so a
+ * client count could not be compared with another client count without reading
+ * each label from the start, and the money sat in the same tone as the name.
+ * Each fact has its own column now, under a heading that names it, with a
+ * total row closing the block the way a ledger does: the counts and the money
+ * add up in the place they are read.
+ *
+ * The figure columns size to their widest value so they share one right edge,
+ * and the bar keeps a floor so it cannot be squeezed out on a phone.
+ */
+function MixTable({ head, rows, total }: { head: string[]; rows: MixRow[]; total?: { cells: string[]; value: string } }) {
+  const figureColumns = head.length - 2;
+  // The label sizes to its longest entry first (it is the thing being read);
+  // the bar takes whatever is left, down to a floor, and only a label that
+  // still cannot fit truncates.
+  const template = `minmax(0,max-content) ${"max-content ".repeat(figureColumns)}minmax(40px,1fr) max-content`;
+  const figure = "text-right text-list tabular-nums";
+  // Spacing lives inside the cells, not in a grid gap: a gap would break every
+  // row's hairline into pieces, one per column.
+  const pad = "pl-3 sm:pl-4";
+
+  return (
+    <div className="grid items-stretch" style={{ gridTemplateColumns: template }}>
+      {head.map((label, index) => (
+        <span
+          key={label}
+          className={cn(
+            "pb-1.5 text-caption font-medium uppercase tracking-[0.05em] text-text-tertiary",
+            index === 0 ? "text-left" : cn("text-right", pad),
+            // The share heading spans the bar and its figure.
+            index === head.length - 1 && "col-span-2"
+          )}
+        >
+          {label}
+        </span>
+      ))}
+
+      {rows.map((row) => (
+        <div key={row.key} className="contents">
+          <span className="min-w-0 truncate border-t border-border/40 py-2 text-list text-text-primary">{row.cells[0]}</span>
+          {row.cells.slice(1).map((cell, index) => (
+            <span key={index} className={cn(figure, pad, "border-t border-border/40 py-2 text-text-secondary")}>
+              {cell}
+            </span>
+          ))}
+          <span className={cn("flex items-center border-t border-border/40", pad)}>
+            <span className="h-1.5 w-full overflow-hidden rounded-full bg-subtle">
+              {/* No mark at all for a zero. */}
+              {row.amount > 0 ? (
+                <span className="block h-full rounded-full bg-accent" style={{ width: barWidth(row.amount, row.max) }} />
+              ) : null}
+            </span>
+          </span>
+          <span className={cn(figure, pad, "border-t border-border/40 py-2 font-medium text-text-primary")}>{row.value}</span>
+        </div>
+      ))}
+
+      {total ? (
+        <div className="contents">
+          <span className="border-t border-border py-2 text-list font-semibold text-text-primary">{total.cells[0]}</span>
+          {total.cells.slice(1).map((cell, index) => (
+            <span key={index} className={cn(figure, pad, "border-t border-border py-2 font-semibold text-text-primary")}>
+              {cell}
+            </span>
+          ))}
+          <span className="border-t border-border" />
+          <span className={cn(figure, pad, "border-t border-border py-2 font-semibold text-text-primary")}>{total.value}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ClientAnalyticsDashboard({ clients, bookings }: ClientDashboardProps) {
   const previousDate = comparisonDate();
   const clientMetrics = clients.map((client) => clientMetric(client)).filter((item): item is ClientMetric => Boolean(item));
@@ -527,23 +614,6 @@ export function ClientAnalyticsDashboard({ clients, bookings }: ClientDashboardP
           </BarRows>
         </Section>
 
-        {/* No summary on the header: "Cash · 51%" above a list in which Cash is
-            plainly the longest bar is the same fact written twice. */}
-        <Section title="Payment mix">
-          <BarRows>
-            {paymentBreakdown.map((item) => (
-              <BarRow
-                key={item.method}
-                label={`${item.method} · ${item.count}`}
-                detail={formatCurrency(item.monthlyNet)}
-                value={percent(item.share)}
-                amount={item.monthlyNet}
-                max={totals.monthlyNet}
-              />
-            ))}
-          </BarRows>
-        </Section>
-
         <Section title="Weekly workload">
           <BarRows>
             {dayBreakdown.map((item) => (
@@ -560,19 +630,40 @@ export function ClientAnalyticsDashboard({ clients, bookings }: ClientDashboardP
           </BarRows>
         </Section>
 
+        {/* No summary on the header: the total row at the foot already says
+            what the block adds up to. */}
+        <Section title="Payment mix">
+          <MixTable
+            head={["Method", "Clients", "Monthly", "Share"]}
+            rows={paymentBreakdown.map((item) => ({
+              key: item.method,
+              cells: [item.method, String(item.count), formatCurrency(item.monthlyNet)],
+              amount: item.monthlyNet,
+              max: totals.monthlyNet,
+              value: percent(item.share)
+            }))}
+            total={{
+              cells: ["Total", String(clientMetrics.length), formatCurrency(totals.monthlyNet)],
+              value: "100%"
+            }}
+          />
+        </Section>
+
         <Section title="Service mix">
-          <BarRows>
-            {serviceBreakdown.map((item) => (
-              <BarRow
-                key={item.service}
-                label={`${item.service} · ${item.clients}`}
-                detail={`${item.visits} ${item.visits === 1 ? "visit" : "visits"}`}
-                value={`${formatCurrency(item.weeklyNet)}/wk`}
-                amount={item.weeklyNet}
-                max={maxServiceWeekly}
-              />
-            ))}
-          </BarRows>
+          <MixTable
+            head={["Service", "Clients", "Visits", "Weekly"]}
+            rows={serviceBreakdown.map((item) => ({
+              key: item.service,
+              cells: [item.service, String(item.clients), String(item.visits)],
+              amount: item.weeklyNet,
+              max: maxServiceWeekly,
+              value: formatCurrency(item.weeklyNet)
+            }))}
+            total={{
+              cells: ["Total", String(clientMetrics.length), String(totals.visitsPerWeek)],
+              value: formatCurrency(totals.weeklyNet)
+            }}
+          />
         </Section>
 
         {/* A night at a stay is a night not spent at home, so the year's booked
