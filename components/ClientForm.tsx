@@ -117,12 +117,15 @@ export function ClientForm({
   const [changeSummary, setChangeSummary] = useState<ChangeSummary[]>([]);
   const [termsDate, setTermsDate] = useState(todayInputValue());
 
-  // A new price or a new way of being paid starts on a day. Everything before it
-  // keeps the terms it was earned under — Rover's cut stays on the Rover months.
+  // A new price, a new way of being paid or new visit days start on a day.
+  // Everything before it keeps the terms it was earned under — Rover's cut stays
+  // on the Rover months, and last month is not re-priced at this month's days.
   const termsChanged = Boolean(
     client &&
       (values.payment_method !== client.payment_method ||
-        Math.round(Number(values.price_per_visit || 0) * 100) !== Math.round(Number(client.price_per_visit) * 100))
+        Math.round(Number(values.price_per_visit || 0) * 100) !== Math.round(Number(client.price_per_visit) * 100) ||
+        selectedDaysLabel(values.selected_days) !==
+          selectedDaysLabel(selectedDaysFromRecord(client.frequency_label, client.visits_per_week)))
   );
 
   // Stacked over the client slide-over. The hook's stack means Escape backs out
@@ -426,13 +429,13 @@ export function ClientForm({
           ? {}
           : {
               payment_method: values.payment_method,
-              price_per_visit: Number(Number(values.price_per_visit || 0).toFixed(2))
+              price_per_visit: Number(Number(values.price_per_visit || 0).toFixed(2)),
+              frequency_label: selectedDaysLabel(values.selected_days),
+              visits_per_week: selectedDaysCount
             }),
         status: values.status,
         service_type: values.service_type,
         custom_service_type: values.service_type === "Custom" ? values.custom_service_type.trim() || null : null,
-        frequency_label: selectedDaysLabel(values.selected_days),
-        visits_per_week: selectedDaysCount,
         notes: values.notes.trim() || null,
         rover_commission_rate: ROVER_COMMISSION_RATE,
         updated_at: new Date().toISOString()
@@ -472,6 +475,7 @@ export function ClientForm({
           history: client.price_history ?? [],
           price: Number(values.price_per_visit || 0),
           paymentMethod: values.payment_method,
+          visitDays: values.selected_days,
           effectiveDate: termsDate,
           openingDate: clientStartDate(client)
         });
@@ -490,6 +494,7 @@ export function ClientForm({
             client_id: clientId,
             price: Number(Number(values.price_per_visit || 0).toFixed(2)),
             payment_method: values.payment_method,
+            visit_days: selectedDaysLabel(values.selected_days),
             effective_date: regularSince
           })
         ]);
@@ -905,9 +910,9 @@ export function ClientForm({
 
             {termsChanged ? (
               <div className="mt-4">
-                <DateField label="New price or payment from" value={termsDate} onChange={setTermsDate} />
+                <DateField label="New terms start on" value={termsDate} onChange={setTermsDate} />
                 <p className="mt-1.5 text-meta text-text-tertiary">
-                  Earnings before this day keep the old terms.
+                  Price, payment and visit days before this day stay as they were, so history and analytics show the change on this date.
                 </p>
               </div>
             ) : null}

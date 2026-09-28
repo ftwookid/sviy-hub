@@ -18,3 +18,10 @@ alter table price_history
 alter table price_history
   add constraint price_history_payment_method_check
   check (payment_method is null or payment_method in ('Rover', 'Venmo', 'Cash'));
+
+-- Visit days, dated the same way. Going from one walk a week to two is a
+-- change of terms like any other, and it must not re-price the months before
+-- it. Comma-separated weekdays ("Tue, Thu"), matching clients.frequency_label;
+-- null means "whatever the client record says".
+alter table price_history
+  add column if not exists visit_days text;

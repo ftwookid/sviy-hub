@@ -34,6 +34,7 @@ export type Pet = {
 export type ClientWithPets = Client & {
   pets: Pet[];
   price_history?: PriceHistory[];
+  status_history?: StatusHistory[];
 };
 
 export type StatusHistory = {
@@ -53,6 +54,8 @@ export type PriceHistory = {
   created_at: string;
   /** How this price was paid. Null on rows written before it was recorded: read as the client's own method. */
   payment_method?: ClientPaymentMethod | null;
+  /** Visit weekdays, "Tue, Thu". Null on older rows: read as the client's own days. */
+  visit_days?: string | null;
 };
 
 export type ClientFormPet = {

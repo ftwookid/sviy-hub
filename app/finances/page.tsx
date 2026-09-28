@@ -13,7 +13,7 @@ import { DetailSheet } from "@/components/finances/DetailSheet";
 import { YearList } from "@/components/finances/YearList";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { currentPeriodMonth } from "@/lib/expenses";
-import { buildYear, clientMonthlyIncome, houseSittingByMonth } from "@/lib/finances";
+import { buildYear, clientIncomeByMonth, houseSittingByMonth } from "@/lib/finances";
 import { loadFinanceHomes, loadFinanceLines } from "@/lib/financeClient";
 import { utilityBook } from "@/lib/utilities";
 import type { HistorySubject } from "@/lib/financeHistory";
@@ -134,7 +134,7 @@ export default function FinancesPage() {
     if (!supabase || !user) return;
     setLoading(true);
 
-    const clientQuery = supabase.from("clients").select("*, price_history(*)").order("name", { ascending: true });
+    const clientQuery = supabase.from("clients").select("*, price_history(*), status_history(*)").order("name", { ascending: true });
     // A stay only has to touch the year to matter — one that starts in December
     // pays for nights in January.
     const bookingQuery = supabase
@@ -184,7 +184,7 @@ export default function FinancesPage() {
       buildYear({
         year,
         lines,
-        clientIncome: clientMonthlyIncome(clients),
+        clientIncome: clientIncomeByMonth(clients, year),
         houseSitting,
         utilities: book
       }),

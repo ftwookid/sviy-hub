@@ -1,22 +1,29 @@
-import { clientPaymentOn, clientPriceOn } from "@/lib/clients";
+import { clientTermsOn, selectedDaysLabel } from "@/lib/clients";
 import { todayInputValue } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
 import type { ClientPaymentMethod, ClientWithPets, PriceHistory } from "@/types/client";
 
 /**
- * A client's terms — what a visit costs and how it is paid — from a date.
+ * A client's terms — what a visit costs, how it is paid, which days — from a date.
  *
- * Both live on one `price_history` row, because they change together: moving
- * from Rover at $37 to Venmo at $35 is one event, and the 20% Rover takes has
- * to stop on the same day the price does. The client record keeps a copy of the
+ * All three live on one `price_history` row, because they change together:
+ * moving from Rover at $37 to Venmo at $35 is one event, and the 20% Rover takes
+ * has to stop on the same day the price does. Every row is a whole snapshot, so
+ * reading history back never has to stitch terms together from several rows. The client record keeps a copy of the
  * terms in force today, for the list and the card, and this is the only writer
  * that keeps the two in step.
  */
+type ClientRecord = Pick<
+  ClientWithPets,
+  "id" | "price_per_visit" | "payment_method" | "frequency_label" | "visits_per_week"
+>;
+
 export type ClientTermInput = {
-  client: Pick<ClientWithPets, "id" | "price_per_visit" | "payment_method">;
+  client: ClientRecord;
   history: PriceHistory[];
   price: number;
   paymentMethod: ClientPaymentMethod;
+  visitDays: string[];
   effectiveDate: string;
   /** The row being corrected, when this is an edit rather than a new change. */
   replaceId?: string | null;
@@ -30,7 +37,7 @@ export type ClientTermInput = {
 };
 
 export async function writeClientTerm(input: ClientTermInput): Promise<{ error: string | null; history: PriceHistory[] }> {
-  const { client, price, paymentMethod, effectiveDate, replaceId, openingDate } = input;
+  const { client, price, paymentMethod, visitDays, effectiveDate, replaceId, openingDate } = input;
   let history = input.history.slice();
   if (!supabase) return { error: "Supabase is not configured.", history };
 
@@ -39,6 +46,7 @@ export async function writeClientTerm(input: ClientTermInput): Promise<{ error: 
       client_id: client.id,
       price: Number(client.price_per_visit),
       payment_method: client.payment_method,
+      visit_days: client.frequency_label || null,
       effective_date: openingDate
     };
     const { data, error } = await supabase.from("price_history").insert(opening).select("*").single();
@@ -50,6 +58,7 @@ export async function writeClientTerm(input: ClientTermInput): Promise<{ error: 
     client_id: client.id,
     price: Math.round(price * 100) / 100,
     payment_method: paymentMethod,
+    visit_days: selectedDaysLabel(visitDays),
     effective_date: effectiveDate
   };
 
@@ -75,7 +84,7 @@ export async function writeClientTerm(input: ClientTermInput): Promise<{ error: 
 }
 
 export async function deleteClientTerm(
-  client: Pick<ClientWithPets, "id" | "price_per_visit" | "payment_method">,
+  client: ClientRecord,
   history: PriceHistory[],
   entryId: string
 ) {
@@ -90,17 +99,19 @@ export async function deleteClientTerm(
 
 /** Copies the terms in force today onto the client record. */
 async function syncClientTerms(
-  client: Pick<ClientWithPets, "id" | "price_per_visit" | "payment_method">,
+  client: ClientRecord,
   history: PriceHistory[]
 ) {
   if (!supabase) return null;
   const today = todayInputValue();
-  const record = { price_per_visit: client.price_per_visit, payment_method: client.payment_method, price_history: history };
+  const terms = clientTermsOn({ ...client, price_history: history }, today);
   const { error } = await supabase
     .from("clients")
     .update({
-      price_per_visit: Math.round(clientPriceOn(record, today) * 100) / 100,
-      payment_method: clientPaymentOn(record, today),
+      price_per_visit: Math.round(terms.price * 100) / 100,
+      payment_method: terms.paymentMethod,
+      frequency_label: selectedDaysLabel(terms.days),
+      visits_per_week: terms.visitsPerWeek,
       updated_at: new Date().toISOString()
     })
     .eq("id", client.id);

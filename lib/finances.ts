@@ -14,7 +14,8 @@ import type {
   FinanceSectionKey,
   MonthFinances
 } from "@/types/finance";
-import { estimateClientMonthlyNet } from "@/lib/clients";
+import { clientMonthlyNetIn } from "@/lib/clients";
+import { periodMonthBounds } from "@/lib/expenses";
 import { utilityRowsForBucket } from "@/lib/utilities";
 import { addDays, activeBookings, estimateHouseSitting, nightsBetween } from "@/lib/houseSitting";
 import {
@@ -78,17 +79,20 @@ function emptyYear() {
 }
 
 /**
- * What the regular clients bring in each month.
+ * What the regular clients bring in, month by month through a year.
  *
- * One figure for every month rather than twelve, because a client record says
- * what the arrangement is now — it carries no history of which months were
- * actually worked. Paused clients are excluded: they are not bringing anything
- * in this month.
+ * Each month is priced at the terms agreed by its last day — price, payment
+ * method and visit days are dated in `price_history` — and counts only the
+ * clients that were on the books and active then (`status_history`). It used to
+ * be today's figure repeated twelve times, which put a September raise into
+ * March and hid the month it actually happened in. `clientsHistory` reads the
+ * same function, so the row and its timeline agree.
  */
-export function clientMonthlyIncome(clients: ClientWithPets[]) {
-  return clients
-    .filter((client) => client.status === "Active")
-    .reduce((total, client) => total + estimateClientMonthlyNet(client), 0);
+export function clientIncomeByMonth(clients: ClientWithPets[], year: number) {
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const monthEnd = periodMonthBounds(`${year}-${String(monthIndex + 1).padStart(2, "0")}-01`).end;
+    return clients.reduce((total, client) => total + clientMonthlyNetIn(client, monthEnd), 0);
+  });
 }
 
 /**
@@ -722,7 +726,8 @@ function sectionOf(
 export type MonthInputs = {
   year: number;
   lines: FinanceLine[];
-  clientIncome: number;
+  /** Twelve figures, one per month of `year`. */
+  clientIncome: number[];
   houseSitting: { net: number[]; nights: number[] };
   /**
    * The metered commitments, grouped by account.
@@ -751,9 +756,9 @@ export function buildMonth(monthIndex: number, inputs: MonthInputs): MonthFinanc
     {
       key: "clients",
       label: "Yana — Regular clients",
-      amount: clientIncome,
+      amount: clientIncome[monthIndex] ?? 0,
       source: "Clients",
-      hint: "Current estimate, after Rover's cut"
+      hint: "Estimate at that month's rates, after Rover's cut"
     },
     {
       key: "house-sitting",

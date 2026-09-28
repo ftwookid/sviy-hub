@@ -18,7 +18,10 @@ import { useScrollLock } from "@/lib/useScrollLock";
 import { deleteClientTerm, writeClientTerm } from "@/lib/clientTerms";
 import {
   CLIENT_PAYMENT_METHODS,
+  clientDaysOn,
+  clientEarnedBetween,
   clientPaymentOn,
+  clientTermsOn,
   estimateClientEarnings,
   selectedDaysFromRecord,
   WEEKS_PER_MONTH
@@ -118,32 +121,6 @@ function mapsUrl(address: string) {
 
 function displayAddress(address: string) {
   return address.replace(/,\s*USA$/i, "");
-}
-
-function scheduledVisitsBetween(startValue: string, endValue: string, selectedDays: string[]) {
-  if (selectedDays.length === 0) return 0;
-
-  const selectedDaySet = new Set(selectedDays);
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const start = parseLocalDate(startValue);
-  const end = parseLocalDate(endValue);
-  let visits = 0;
-
-  for (let date = start; date <= end; date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)) {
-    if (selectedDaySet.has(weekDays[date.getDay()])) visits += 1;
-  }
-
-  return visits;
-}
-
-function currentPriceFromHistory(client: ClientWithPets | null, priceHistory: PriceHistory[]) {
-  if (!client) return 0;
-  const today = todayInputValue();
-  const currentEntry = priceHistory
-    .filter((entry) => entry.effective_date <= today)
-    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
-
-  return Number(currentEntry?.price ?? client.price_per_visit);
 }
 
 function startingPriceEntry(client: ClientWithPets, effectiveDate: string): PriceHistoryRow {
@@ -387,14 +364,21 @@ export default function ClientDetailPage() {
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
   const currentStatusStartDate = statusStartDate(client, history);
   const currentEarningStartDate = earningStartDate(currentStatusStartDate, priceHistory);
-  const selectedDays = useMemo(
-    () => (client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : []),
-    [client]
+  const orderedPriceHistory = useMemo(
+    () => sortedPrices(seededPriceHistory(client, priceHistory, currentEarningStartDate)),
+    [client, currentEarningStartDate, priceHistory]
   );
-  const currentPrice = currentPriceFromHistory(client, priceHistory);
-  const currentPayment: ClientPaymentMethod = client
-    ? clientPaymentOn({ payment_method: client.payment_method, price_history: priceHistory }, todayInputValue())
-    : "Rover";
+  // The client as the dated history describes it. Price, payment method and
+  // visit days are read off this for any day, so a change agreed with the client
+  // applies from its date and never re-prices the days before it.
+  const termRecord = useMemo(
+    () => (client ? { ...client, price_history: orderedPriceHistory, status_history: history } : null),
+    [client, history, orderedPriceHistory]
+  );
+  const todayTerms = termRecord ? clientTermsOn(termRecord, todayInputValue()) : null;
+  const selectedDays = todayTerms?.days ?? [];
+  const currentPrice = todayTerms?.price ?? 0;
+  const currentPayment: ClientPaymentMethod = todayTerms?.paymentMethod ?? "Rover";
   const estimate = client
     ? estimateClientEarnings({
         pricePerVisit: currentPrice,
@@ -403,55 +387,16 @@ export default function ClientDetailPage() {
         commissionRate: Number(client.rover_commission_rate)
       })
     : null;
-  const orderedPriceHistory = useMemo(
-    () => sortedPrices(seededPriceHistory(client, priceHistory, currentEarningStartDate)),
-    [client, currentEarningStartDate, priceHistory]
-  );
-  const termRecord = useMemo(
-    () => ({ payment_method: client?.payment_method ?? "Rover", price_history: orderedPriceHistory }),
-    [client, orderedPriceHistory]
-  );
   const visiblePriceHistory = priceHistoryOpen ? orderedPriceHistory : orderedPriceHistory.slice(0, COMPACT_PRICE_HISTORY_COUNT);
   const hasMorePriceHistory = orderedPriceHistory.length > COMPACT_PRICE_HISTORY_COUNT;
-  const totalEstimate = useMemo(() => {
-    if (!client) {
-      return {
-        gross: 0,
-        commission: 0,
-        net: 0
-      };
-    }
-
-    const today = todayInputValue();
-    const seededPrices = seededPriceHistory(client, priceHistory, currentEarningStartDate);
-
-    const record = { payment_method: client.payment_method, price_history: seededPrices };
-    let gross = 0;
-    let commission = 0;
-
-    // Each stretch is paid at its own terms: Rover's cut comes off the months
-    // that went through Rover, and nothing else.
-    for (let index = 0; index < seededPrices.length; index += 1) {
-      const entry = seededPrices[index];
-      const nextEntry = seededPrices[index + 1];
-      const periodStart = entry.effective_date < currentEarningStartDate ? currentEarningStartDate : entry.effective_date;
-      const periodEnd = nextEntry ? dayBefore(nextEntry.effective_date) : today;
-
-      if (periodEnd >= currentEarningStartDate && periodStart <= today && periodEnd >= periodStart) {
-        const stretch = Number(entry.price) * scheduledVisitsBetween(periodStart, periodEnd, selectedDays);
-        gross += stretch;
-        if (clientPaymentOn(record, entry.effective_date) === "Rover") {
-          commission += stretch * Number(client.rover_commission_rate);
-        }
-      }
-    }
-
-    return {
-      gross,
-      commission,
-      net: gross - commission
-    };
-  }, [client, currentEarningStartDate, priceHistory, selectedDays]);
+  // Visit by visit, each at the terms of its own day, paused days skipped.
+  const totalEstimate = useMemo(
+    () =>
+      termRecord
+        ? clientEarnedBetween(termRecord, currentEarningStartDate, todayInputValue())
+        : { gross: 0, commission: 0, net: 0 },
+    [currentEarningStartDate, termRecord]
+  );
 
   const timeline = useMemo(() => history.slice().sort((a, b) => b.start_date.localeCompare(a.start_date)), [history]);
 
@@ -549,7 +494,7 @@ export default function ClientDetailPage() {
     const effectiveDate = entry?.effective_date ?? prefilledDate ?? todayInputValue();
     setEditingPrice(entry?.isFallback ? null : entry ?? null);
     setPriceValue(entry ? String(entry.price) : String(currentPrice || ""));
-    setPricePayment(entry ? clientPaymentOn({ payment_method: currentPayment, price_history: priceHistory }, entry.effective_date) : currentPayment);
+    setPricePayment(termRecord ? clientPaymentOn(termRecord, effectiveDate) : currentPayment);
     setPriceEffectiveDate(effectiveDate);
     setPriceCalendarMonth(parseLocalDate(effectiveDate));
     setPriceCalendarMode("days");
@@ -621,6 +566,13 @@ export default function ClientDetailPage() {
       history: priceHistory,
       price: nextPriceCents / 100,
       paymentMethod: pricePayment,
+      // The days are not edited here, so a change keeps the days in force on
+      // its date — or, when correcting a row, the days that row already had.
+      visitDays: editingPrice?.visit_days
+        ? selectedDaysFromRecord(editingPrice.visit_days, null)
+        : termRecord
+          ? clientDaysOn(termRecord, priceEffectiveDate)
+          : selectedDays,
       effectiveDate: priceEffectiveDate,
       replaceId: editingPrice?.id ?? null,
       openingDate: currentEarningStartDate
@@ -786,7 +738,7 @@ export default function ClientDetailPage() {
 
                   <div className="border-t border-border px-3 py-2">
                     <div className="flex min-h-6 items-center justify-between gap-3">
-                      <div className="text-meta font-medium text-text-secondary">Price history</div>
+                      <div className="text-meta font-medium text-text-secondary">History</div>
                       {hasMorePriceHistory ? (
                         <button
                           className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
@@ -821,17 +773,24 @@ export default function ClientDetailPage() {
                           >
                             <div className="min-w-0">
                               <div className="text-list font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
-                              <div className="truncate text-caption leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                              <div className="truncate text-caption leading-4 text-text-tertiary">
+                                Since {formatExactDate(entry.effective_date)}
+                                {termRecord ? ` · ${clientDaysOn(termRecord, entry.effective_date).join(", ") || "no days"}` : ""}
+                              </div>
                             </div>
                             <span className="flex shrink-0 items-center gap-1.5 text-meta font-medium text-text-secondary">
-                              <ClientPaymentIcon method={clientPaymentOn(termRecord, entry.effective_date)} />
-                              {clientPaymentOn(termRecord, entry.effective_date)}
+                              {termRecord ? (
+                                <>
+                                  <ClientPaymentIcon method={clientPaymentOn(termRecord, entry.effective_date)} />
+                                  {clientPaymentOn(termRecord, entry.effective_date)}
+                                </>
+                              ) : null}
                               <ChevronRight className="text-text-tertiary" size={15} strokeWidth={1.7} />
                             </span>
                           </button>
                         ))
                       ) : (
-                        <p className="text-list text-text-tertiary">No price history yet.</p>
+                        <p className="text-list text-text-tertiary">No history yet.</p>
                       )}
                     </div>
                     {!priceHistoryOpen && hasMorePriceHistory ? (
