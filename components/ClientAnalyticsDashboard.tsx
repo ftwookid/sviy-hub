@@ -10,7 +10,7 @@ import { ClientMap } from "@/components/ClientMap";
 import { Stat } from "@/components/health/primitives";
 import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
-import { estimateClientCurrentEarnings, estimateClientEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
+import { clientPaymentOn, currentClientPayment, estimateClientCurrentEarnings, estimateClientEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
 import { formatCurrency, toInputDate, todayInputValue } from "@/lib/formatters";
 import { activeBookings, nightsAwayInYear } from "@/lib/houseSitting";
 import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
@@ -114,12 +114,13 @@ function clientPriceOn(client: ClientWithPets, dateValue: string) {
 function clientMetric(client: ClientWithPets, dateValue?: string): ClientMetric | null {
   const price = dateValue ? clientPriceOn(client, dateValue) : null;
   if (dateValue && price === null) return null;
+  const paymentMethod = dateValue ? clientPaymentOn(client, dateValue) : currentClientPayment(client);
 
   const estimate = dateValue
     ? estimateClientEarnings({
         pricePerVisit: price ?? 0,
         visitsPerWeek: client.visits_per_week,
-        paymentMethod: client.payment_method,
+        paymentMethod,
         commissionRate: Number(client.rover_commission_rate)
       })
     : estimateClientCurrentEarnings(client);
@@ -131,7 +132,7 @@ function clientMetric(client: ClientWithPets, dateValue?: string): ClientMetric 
     client,
     pets: petNames(client),
     service: serviceLabel(client),
-    paymentMethod: client.payment_method,
+    paymentMethod,
     visitDays,
     weeklyGross: estimate.weeklyGross,
     weeklyNet,

@@ -1,5 +1,5 @@
 import { periodMonthBounds, periodMonthShortLabel, shiftPeriodMonth } from "@/lib/expenses";
-import { clientPriceOn, clientStartDate, estimateClientFromRecord } from "@/lib/clients";
+import { clientPaymentOn, clientPriceOn, clientStartDate, estimateClientFromRecord } from "@/lib/clients";
 import { amountForMonth, endedOn, onPaydays, paydayWeekdayFor } from "@/lib/finances";
 import { monthValue, toPeriodMonth } from "@/lib/utilities";
 import { parseLocalDate } from "@/lib/formatters";
@@ -228,7 +228,11 @@ export function clientsHistory(clients: ClientWithPets[], periodMonth: string): 
       const amount = earning.reduce(
         (total, client) =>
           total +
-          estimateClientFromRecord({ ...client, price_per_visit: clientPriceOn(client, end) }).monthlyNet,
+          estimateClientFromRecord({
+            ...client,
+            price_per_visit: clientPriceOn(client, end),
+            payment_method: clientPaymentOn(client, end)
+          }).monthlyNet,
         0
       );
       return { periodMonth: month, amount: Math.round(amount * 100) / 100 };

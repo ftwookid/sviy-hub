@@ -51,6 +51,8 @@ export type PriceHistory = {
   price: number;
   effective_date: string;
   created_at: string;
+  /** How this price was paid. Null on rows written before it was recorded: read as the client's own method. */
+  payment_method?: ClientPaymentMethod | null;
 };
 
 export type ClientFormPet = {

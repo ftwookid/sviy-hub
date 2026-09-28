@@ -75,6 +75,25 @@ export function clientPriceOn(
 }
 
 /**
+ * How a client was paying on a given day.
+ *
+ * Dated alongside the price, because moving from Rover to Venmo is exactly the
+ * change that decides whether 20% comes off — and it happens on a date, not
+ * for all time. The latest dated row that names a method wins; rows written
+ * before the method was recorded fall back to the client record.
+ */
+export function clientPaymentOn(
+  client: Pick<ClientWithPets, "payment_method" | "price_history">,
+  dateValue: string
+): ClientPaymentMethod {
+  const entry = (client.price_history ?? [])
+    .filter((row) => row.effective_date <= dateValue && row.payment_method)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+  return entry?.payment_method ?? client.payment_method;
+}
+
+/**
  * The earliest day this client can be said to have existed.
  *
  * The first dated price if there is one, and the day the record was created
@@ -90,8 +109,16 @@ export function currentClientPrice(client: Pick<ClientWithPets, "price_per_visit
   return clientPriceOn(client, todayInputValue());
 }
 
+export function currentClientPayment(client: Pick<ClientWithPets, "payment_method" | "price_history">) {
+  return clientPaymentOn(client, todayInputValue());
+}
+
 export function estimateClientCurrentEarnings(client: ClientWithPets) {
-  return estimateClientFromRecord({ ...client, price_per_visit: currentClientPrice(client) });
+  return estimateClientFromRecord({
+    ...client,
+    price_per_visit: currentClientPrice(client),
+    payment_method: currentClientPayment(client)
+  });
 }
 
 export function estimateClientMonthlyNet(client: ClientWithPets) {
