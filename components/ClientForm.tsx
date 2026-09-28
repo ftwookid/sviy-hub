@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, ChevronDown, Minus, Plus, Sparkles, X } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ClientPaymentIcon } from "@/components/ClientPaymentBadge";
@@ -15,12 +16,14 @@ import {
   ROVER_COMMISSION_RATE,
   SERVICE_TYPES,
   WEEK_DAYS,
+  clientStartDate,
   defaultClientValues,
   estimateClientEarnings,
   selectedDaysFromRecord,
   selectedDaysLabel
 } from "@/lib/clients";
-import { formatCurrency, formatShortDate, sanitizeFilename, toInputDate } from "@/lib/formatters";
+import { writeClientTerm } from "@/lib/clientTerms";
+import { formatCurrency, formatShortDate, sanitizeFilename, todayInputValue, toInputDate } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
 import { loadUsers } from "@/lib/userLabels";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -112,6 +115,18 @@ export function ClientForm({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmingChanges, setConfirmingChanges] = useState(false);
   const [changeSummary, setChangeSummary] = useState<ChangeSummary[]>([]);
+  const [termsDate, setTermsDate] = useState(todayInputValue());
+
+  // A new price, a new way of being paid or new visit days start on a day.
+  // Everything before it keeps the terms it was earned under — Rover's cut stays
+  // on the Rover months, and last month is not re-priced at this month's days.
+  const termsChanged = Boolean(
+    client &&
+      (values.payment_method !== client.payment_method ||
+        Math.round(Number(values.price_per_visit || 0) * 100) !== Math.round(Number(client.price_per_visit) * 100) ||
+        selectedDaysLabel(values.selected_days) !==
+          selectedDaysLabel(selectedDaysFromRecord(client.frequency_label, client.visits_per_week)))
+  );
 
   // Stacked over the client slide-over. The hook's stack means Escape backs out
   // of this review first and leaves the edits underneath intact.
@@ -408,13 +423,19 @@ export function ClientForm({
         user_id: nextOwnerId,
         name: values.name.trim(),
         address: values.address.trim(),
-        payment_method: values.payment_method,
+        // An existing client's terms are written through their dated history
+        // below, which then copies today's terms back onto this row.
+        ...(client
+          ? {}
+          : {
+              payment_method: values.payment_method,
+              price_per_visit: Number(Number(values.price_per_visit || 0).toFixed(2)),
+              frequency_label: selectedDaysLabel(values.selected_days),
+              visits_per_week: selectedDaysCount
+            }),
         status: values.status,
         service_type: values.service_type,
         custom_service_type: values.service_type === "Custom" ? values.custom_service_type.trim() || null : null,
-        price_per_visit: Number(Number(values.price_per_visit || 0).toFixed(2)),
-        frequency_label: selectedDaysLabel(values.selected_days),
-        visits_per_week: selectedDaysCount,
         notes: values.notes.trim() || null,
         rover_commission_rate: ROVER_COMMISSION_RATE,
         updated_at: new Date().toISOString()
@@ -448,6 +469,19 @@ export function ClientForm({
         if (petsError) throw petsError;
       }
 
+      if (client && termsChanged) {
+        const { error: termError } = await writeClientTerm({
+          client,
+          history: client.price_history ?? [],
+          price: Number(values.price_per_visit || 0),
+          paymentMethod: values.payment_method,
+          visitDays: values.selected_days,
+          effectiveDate: termsDate,
+          openingDate: clientStartDate(client)
+        });
+        if (termError) throw new Error(termError);
+      }
+
       if (!client) {
         const regularSince = values.regular_since;
         const [{ error: statusError }, { error: priceError }] = await Promise.all([
@@ -459,6 +493,8 @@ export function ClientForm({
           supabase.from("price_history").insert({
             client_id: clientId,
             price: Number(Number(values.price_per_visit || 0).toFixed(2)),
+            payment_method: values.payment_method,
+            visit_days: selectedDaysLabel(values.selected_days),
             effective_date: regularSince
           })
         ]);
@@ -467,12 +503,16 @@ export function ClientForm({
         if (priceError) throw priceError;
       }
 
+      setConfirmingChanges(false);
       onSaved();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Something went wrong while saving.");
+      // Supabase errors are plain objects, not Error instances, so read the
+      // message off either. The review stays open, so the reason shows where
+      // the tap was rather than at the foot of a form scrolled out of view.
+      const message = (error as { message?: string } | null)?.message;
+      setFormError(message || "Something went wrong while saving.");
     } finally {
       setSaving(false);
-      setConfirmingChanges(false);
     }
   }
 
@@ -489,6 +529,7 @@ export function ClientForm({
 
       setFormError("");
       setChangeSummary(changes);
+      setTermsDate(todayInputValue());
       setConfirmingChanges(true);
       return;
     }
@@ -754,7 +795,7 @@ export function ClientForm({
           <Sparkles size={17} strokeWidth={1.6} className="text-accent" />
           Earnings estimate
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Weekly" value={formatCurrency(estimate.weeklyGross)} />
           <Metric label="Monthly gross" value={formatCurrency(estimate.monthlyGross)} />
           <Metric label={values.payment_method === "Rover" ? "After Rover fee" : "Monthly net"} value={formatCurrency(estimate.monthlyNet)} />
@@ -762,7 +803,7 @@ export function ClientForm({
         </div>
         {values.payment_method === "Rover" ? (
           <p className="mt-3 text-list text-text-secondary">
-            Rover commission is set to {Math.round(ROVER_COMMISSION_RATE * 100)}% and can be changed in code later.
+            Rover keeps {Math.round(ROVER_COMMISSION_RATE * 100)}% of every visit.
           </p>
         ) : null}
       </section>
@@ -827,7 +868,8 @@ export function ClientForm({
         </Button>
       </div>
 
-      {confirmingChanges ? (
+      {confirmingChanges && typeof document !== "undefined"
+        ? createPortal(
         <div
           className="fixed inset-0 z-[80] grid place-items-center bg-[#1A1916]/30 px-4 backdrop-blur-sm"
           role="dialog"
@@ -866,17 +908,30 @@ export function ClientForm({
               ))}
             </div>
 
+            {termsChanged ? (
+              <div className="mt-4">
+                <DateField label="New terms start on" value={termsDate} onChange={setTermsDate} />
+                <p className="mt-1.5 text-meta text-text-tertiary">
+                  Price, payment and visit days before this day stay as they were, so history and analytics show the change on this date.
+                </p>
+              </div>
+            ) : null}
+
+            {formError ? <p className="mt-3 text-list text-danger">{formError}</p> : null}
+
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button variant="soft" type="button" onClick={() => setConfirmingChanges(false)} disabled={saving}>
                 Cancel
               </Button>
-              <Button variant="accent" type="button" onClick={saveClient} disabled={saving}>
+              <Button variant="accent" type="button" onClick={saveClient} disabled={saving || (termsChanged && !termsDate)}>
                 {saving ? "Saving..." : "Confirm changes"}
               </Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+            document.body
+          )
+        : null}
     </form>
   );
 }

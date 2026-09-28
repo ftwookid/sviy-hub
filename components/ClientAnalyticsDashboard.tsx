@@ -10,7 +10,14 @@ import { ClientMap } from "@/components/ClientMap";
 import { Stat } from "@/components/health/primitives";
 import { Figure, FigureGrid } from "@/components/ui/FigureGrid";
 import { cn } from "@/lib/cn";
-import { estimateClientCurrentEarnings, estimateClientEarnings, selectedDaysFromRecord, WEEK_DAYS, WEEKS_PER_MONTH } from "@/lib/clients";
+import {
+  clientActiveOn,
+  clientStartDate,
+  clientTermsOn,
+  estimateClientOn,
+  WEEK_DAYS,
+  WEEKS_PER_MONTH
+} from "@/lib/clients";
 import { formatCurrency, toInputDate, todayInputValue } from "@/lib/formatters";
 import { activeBookings, nightsAwayInYear } from "@/lib/houseSitting";
 import type { ClientPaymentMethod, ClientWithPets } from "@/types/client";
@@ -67,10 +74,6 @@ function serviceLabel(client: ClientWithPets) {
   return client.service_type === "Custom" ? client.custom_service_type || "Custom" : client.service_type;
 }
 
-function clientVisitDays(client: ClientWithPets) {
-  return selectedDaysFromRecord(client.frequency_label, client.visits_per_week);
-}
-
 function percent(value: number) {
   return `${Math.round(value)}%`;
 }
@@ -94,36 +97,15 @@ function barWidth(value: number, total: number) {
   return `${Math.max(4, Math.min(100, nextShare))}%`;
 }
 
-function clientStartDate(client: ClientWithPets) {
-  const firstPriceDate = (client.price_history ?? [])
-    .map((entry) => entry.effective_date)
-    .sort((a, b) => a.localeCompare(b))[0];
-
-  return firstPriceDate ?? client.created_at.slice(0, 10);
-}
-
-function clientPriceOn(client: ClientWithPets, dateValue: string) {
-  if (clientStartDate(client) > dateValue) return null;
-  const entry = (client.price_history ?? [])
-    .filter((priceEntry) => priceEntry.effective_date <= dateValue)
-    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
-
-  return Number(entry?.price ?? client.price_per_visit);
-}
-
 function clientMetric(client: ClientWithPets, dateValue?: string): ClientMetric | null {
-  const price = dateValue ? clientPriceOn(client, dateValue) : null;
-  if (dateValue && price === null) return null;
-
-  const estimate = dateValue
-    ? estimateClientEarnings({
-        pricePerVisit: price ?? 0,
-        visitsPerWeek: client.visits_per_week,
-        paymentMethod: client.payment_method,
-        commissionRate: Number(client.rover_commission_rate)
-      })
-    : estimateClientCurrentEarnings(client);
-  const visitDays = clientVisitDays(client);
+  // A day in the past is read at the terms agreed by then — price, payment
+  // method and visit days — and only if the client was on the books and active.
+  if (dateValue && (clientStartDate(client) > dateValue || !clientActiveOn(client, dateValue))) return null;
+  const on = dateValue ?? todayInputValue();
+  const terms = clientTermsOn(client, on);
+  const paymentMethod = terms.paymentMethod;
+  const estimate = estimateClientOn(client, on);
+  const visitDays = terms.days;
   const weeklyNet = estimate.monthlyNet / WEEKS_PER_MONTH;
   const netPerVisit = visitDays.length > 0 ? weeklyNet / visitDays.length : 0;
 
@@ -131,7 +113,7 @@ function clientMetric(client: ClientWithPets, dateValue?: string): ClientMetric 
     client,
     pets: petNames(client),
     service: serviceLabel(client),
-    paymentMethod: client.payment_method,
+    paymentMethod,
     visitDays,
     weeklyGross: estimate.weeklyGross,
     weeklyNet,

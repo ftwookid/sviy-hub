@@ -6,15 +6,26 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ClientForm } from "@/components/ClientForm";
-import { ClientPaymentBadge } from "@/components/ClientPaymentBadge";
+import { ClientPaymentBadge, ClientPaymentIcon } from "@/components/ClientPaymentBadge";
 import { AppLoading, SetupNotice } from "@/components/SetupNotice";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useScrollLock } from "@/lib/useScrollLock";
-import { estimateClientEarnings, selectedDaysFromRecord, WEEKS_PER_MONTH } from "@/lib/clients";
+import { deleteClientTerm, writeClientTerm } from "@/lib/clientTerms";
+import {
+  CLIENT_PAYMENT_METHODS,
+  clientDaysOn,
+  clientEarnedBetween,
+  clientPaymentOn,
+  clientTermsOn,
+  estimateClientEarnings,
+  selectedDaysFromRecord,
+  WEEKS_PER_MONTH
+} from "@/lib/clients";
 import { formatCurrency, parseLocalDate, todayInputValue, toInputDate } from "@/lib/formatters";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/useAuthUser";
@@ -112,37 +123,12 @@ function displayAddress(address: string) {
   return address.replace(/,\s*USA$/i, "");
 }
 
-function scheduledVisitsBetween(startValue: string, endValue: string, selectedDays: string[]) {
-  if (selectedDays.length === 0) return 0;
-
-  const selectedDaySet = new Set(selectedDays);
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const start = parseLocalDate(startValue);
-  const end = parseLocalDate(endValue);
-  let visits = 0;
-
-  for (let date = start; date <= end; date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)) {
-    if (selectedDaySet.has(weekDays[date.getDay()])) visits += 1;
-  }
-
-  return visits;
-}
-
-function currentPriceFromHistory(client: ClientWithPets | null, priceHistory: PriceHistory[]) {
-  if (!client) return 0;
-  const today = todayInputValue();
-  const currentEntry = priceHistory
-    .filter((entry) => entry.effective_date <= today)
-    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
-
-  return Number(currentEntry?.price ?? client.price_per_visit);
-}
-
 function startingPriceEntry(client: ClientWithPets, effectiveDate: string): PriceHistoryRow {
   return {
     id: "starting-price",
     client_id: client.id,
     price: Number(client.price_per_visit),
+    payment_method: client.payment_method,
     effective_date: effectiveDate,
     created_at: client.created_at,
     isFallback: true
@@ -178,10 +164,6 @@ function moneyToCents(value: number | string) {
   if (!Number.isFinite(numberValue)) return Number.NaN;
 
   return Math.round((numberValue + Number.EPSILON) * 100);
-}
-
-function centsToMoney(cents: number) {
-  return cents / 100;
 }
 
 function DateCalendar({
@@ -329,6 +311,9 @@ export default function ClientDetailPage() {
   const [editingPrice, setEditingPrice] = useState<PriceHistory | null>(null);
   const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
   const [priceValue, setPriceValue] = useState("");
+  const [pricePayment, setPricePayment] = useState<ClientPaymentMethod>("Rover");
+  const [deletingPrice, setDeletingPrice] = useState<PriceHistory | null>(null);
+  const [deletingPriceBusy, setDeletingPriceBusy] = useState(false);
   const [priceEffectiveDate, setPriceEffectiveDate] = useState(todayInputValue());
   const [priceCalendarMonth, setPriceCalendarMonth] = useState(() => parseLocalDate(todayInputValue()));
   const [priceCalendarMode, setPriceCalendarMode] = useState<"days" | "monthYear">("days");
@@ -379,57 +364,39 @@ export default function ClientDetailPage() {
   const nextStatus: ClientStatus = client?.status === "Active" ? "Paused" : "Active";
   const currentStatusStartDate = statusStartDate(client, history);
   const currentEarningStartDate = earningStartDate(currentStatusStartDate, priceHistory);
-  const selectedDays = useMemo(
-    () => (client ? selectedDaysFromRecord(client.frequency_label, client.visits_per_week) : []),
-    [client]
-  );
-  const currentPrice = currentPriceFromHistory(client, priceHistory);
-  const estimate = client
-    ? estimateClientEarnings({
-        pricePerVisit: currentPrice,
-        visitsPerWeek: selectedDays.length,
-        paymentMethod: client.payment_method,
-        commissionRate: Number(client.rover_commission_rate)
-      })
-    : null;
   const orderedPriceHistory = useMemo(
     () => sortedPrices(seededPriceHistory(client, priceHistory, currentEarningStartDate)),
     [client, currentEarningStartDate, priceHistory]
   );
+  // The client as the dated history describes it. Price, payment method and
+  // visit days are read off this for any day, so a change agreed with the client
+  // applies from its date and never re-prices the days before it.
+  const termRecord = useMemo(
+    () => (client ? { ...client, price_history: orderedPriceHistory, status_history: history } : null),
+    [client, history, orderedPriceHistory]
+  );
+  const todayTerms = termRecord ? clientTermsOn(termRecord, todayInputValue()) : null;
+  const selectedDays = todayTerms?.days ?? [];
+  const currentPrice = todayTerms?.price ?? 0;
+  const currentPayment: ClientPaymentMethod = todayTerms?.paymentMethod ?? "Rover";
+  const estimate = client
+    ? estimateClientEarnings({
+        pricePerVisit: currentPrice,
+        visitsPerWeek: selectedDays.length,
+        paymentMethod: currentPayment,
+        commissionRate: Number(client.rover_commission_rate)
+      })
+    : null;
   const visiblePriceHistory = priceHistoryOpen ? orderedPriceHistory : orderedPriceHistory.slice(0, COMPACT_PRICE_HISTORY_COUNT);
   const hasMorePriceHistory = orderedPriceHistory.length > COMPACT_PRICE_HISTORY_COUNT;
-  const totalEstimate = useMemo(() => {
-    if (!client) {
-      return {
-        gross: 0,
-        commission: 0,
-        net: 0
-      };
-    }
-
-    const today = todayInputValue();
-    const seededPrices = seededPriceHistory(client, priceHistory, currentEarningStartDate);
-
-    let gross = 0;
-
-    for (let index = 0; index < seededPrices.length; index += 1) {
-      const entry = seededPrices[index];
-      const nextEntry = seededPrices[index + 1];
-      const periodStart = entry.effective_date < currentEarningStartDate ? currentEarningStartDate : entry.effective_date;
-      const periodEnd = nextEntry ? dayBefore(nextEntry.effective_date) : today;
-
-      if (periodEnd >= currentEarningStartDate && periodStart <= today && periodEnd >= periodStart) {
-        gross += Number(entry.price) * scheduledVisitsBetween(periodStart, periodEnd, selectedDays);
-      }
-    }
-
-    const commission = client.payment_method === "Rover" ? gross * Number(client.rover_commission_rate) : 0;
-    return {
-      gross,
-      commission,
-      net: gross - commission
-    };
-  }, [client, currentEarningStartDate, priceHistory, selectedDays]);
+  // Visit by visit, each at the terms of its own day, paused days skipped.
+  const totalEstimate = useMemo(
+    () =>
+      termRecord
+        ? clientEarnedBetween(termRecord, currentEarningStartDate, todayInputValue())
+        : { gross: 0, commission: 0, net: 0 },
+    [currentEarningStartDate, termRecord]
+  );
 
   const timeline = useMemo(() => history.slice().sort((a, b) => b.start_date.localeCompare(a.start_date)), [history]);
 
@@ -523,19 +490,11 @@ export default function ClientDetailPage() {
     loadClient();
   }
 
-  async function syncClientCurrentPrice(nextPriceHistory: PriceHistory[]) {
-    if (!supabase || !client) return;
-    const nextCurrentPrice = currentPriceFromHistory(client, nextPriceHistory);
-    await supabase
-      .from("clients")
-      .update({ price_per_visit: centsToMoney(moneyToCents(nextCurrentPrice)), updated_at: new Date().toISOString() })
-      .eq("id", client.id);
-  }
-
   function openPriceModal(entry?: PriceHistoryRow, prefilledDate?: string) {
     const effectiveDate = entry?.effective_date ?? prefilledDate ?? todayInputValue();
     setEditingPrice(entry?.isFallback ? null : entry ?? null);
     setPriceValue(entry ? String(entry.price) : String(currentPrice || ""));
+    setPricePayment(termRecord ? clientPaymentOn(termRecord, effectiveDate) : currentPayment);
     setPriceEffectiveDate(effectiveDate);
     setPriceCalendarMonth(parseLocalDate(effectiveDate));
     setPriceCalendarMode("days");
@@ -602,70 +561,44 @@ export default function ClientDetailPage() {
     setSavingPrice(true);
     setError("");
 
-    const payload = {
-      client_id: client.id,
-      price: centsToMoney(nextPriceCents),
-      effective_date: priceEffectiveDate
-    };
+    const { error: termError } = await writeClientTerm({
+      client,
+      history: priceHistory,
+      price: nextPriceCents / 100,
+      paymentMethod: pricePayment,
+      // The days are not edited here, so a change keeps the days in force on
+      // its date — or, when correcting a row, the days that row already had.
+      visitDays: editingPrice?.visit_days
+        ? selectedDaysFromRecord(editingPrice.visit_days, null)
+        : termRecord
+          ? clientDaysOn(termRecord, priceEffectiveDate)
+          : selectedDays,
+      effectiveDate: priceEffectiveDate,
+      replaceId: editingPrice?.id ?? null,
+      openingDate: currentEarningStartDate
+    });
 
-    const sameDayEntry = priceHistory.find(
-      (entry) => entry.effective_date === priceEffectiveDate && entry.id !== editingPrice?.id
-    );
-
-    const { error: priceError } = sameDayEntry
-      ? await supabase.from("price_history").update(payload).eq("id", sameDayEntry.id)
-      : editingPrice
-        ? await supabase.from("price_history").update(payload).eq("id", editingPrice.id)
-        : await supabase.from("price_history").insert(payload);
-
-    if (priceError) {
-      setError(priceError.message);
-      setSavingPrice(false);
+    setSavingPrice(false);
+    if (termError) {
+      setError(termError);
       return;
     }
 
-    if (sameDayEntry && editingPrice && sameDayEntry.id !== editingPrice.id) {
-      const { error: deleteMergedError } = await supabase.from("price_history").delete().eq("id", editingPrice.id);
-      if (deleteMergedError) {
-        setError(deleteMergedError.message);
-        setSavingPrice(false);
-        return;
-      }
-    }
-
-    const nextHistory = sameDayEntry
-      ? priceHistory
-          .filter((entry) => entry.id !== editingPrice?.id)
-          .map((entry) => (entry.id === sameDayEntry.id ? { ...entry, ...payload } : entry))
-      : editingPrice
-        ? priceHistory.map((entry) => (entry.id === editingPrice.id ? { ...entry, ...payload } : entry))
-      : [
-          ...priceHistory,
-          {
-            id: "new",
-            created_at: new Date().toISOString(),
-            ...payload
-          }
-        ];
-
-    await syncClientCurrentPrice(nextHistory as PriceHistory[]);
-    setSavingPrice(false);
     closePriceModal();
     loadClient();
   }
 
-  async function deletePriceHistory(entry: PriceHistory) {
-    if (!supabase) return;
-    const confirmed = window.confirm(`Delete ${formatCurrency(entry.price)} from ${formatExactDate(entry.effective_date)}?`);
-    if (!confirmed) return;
-
-    const { error: deleteError } = await supabase.from("price_history").delete().eq("id", entry.id);
+  async function deletePriceHistory() {
+    if (!client || !deletingPrice) return;
+    setDeletingPriceBusy(true);
+    const deleteError = await deleteClientTerm(client, priceHistory, deletingPrice.id);
+    setDeletingPriceBusy(false);
     if (deleteError) {
-      setError(deleteError.message);
+      setError(deleteError);
       return;
     }
 
-    await syncClientCurrentPrice(priceHistory.filter((item) => item.id !== entry.id));
+    setDeletingPrice(null);
     loadClient();
   }
 
@@ -738,7 +671,7 @@ export default function ClientDetailPage() {
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-body text-text-tertiary">
                     <span>{serviceLabel(client)}</span>
                     <span>{selectedDays.length}x/week</span>
-                    <span>{client.payment_method}</span>
+                    <span>{currentPayment}</span>
                   </div>
                 </div>
                 <div className="min-w-0 md:border-l md:border-border md:pl-3">
@@ -760,7 +693,7 @@ export default function ClientDetailPage() {
             <FinancialBlock
               period={financialPeriod}
               onPeriodChange={setFinancialPeriod}
-              paymentMethod={client.payment_method}
+              paymentMethod={currentPayment}
               gross={estimate.monthlyGross}
               roverFee={estimate.commission}
               roverRate={Number(client.rover_commission_rate)}
@@ -773,7 +706,7 @@ export default function ClientDetailPage() {
               <div className="rounded-[20px] border border-border bg-surface p-4 shadow-card">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-label font-semibold text-text-primary">Payment info</h2>
-                  <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-micro" method={client.payment_method} />
+                  <ClientPaymentBadge className="min-h-6 px-1.5 py-0.5 pr-2 text-micro" method={currentPayment} />
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-xl bg-subtle">
@@ -789,10 +722,10 @@ export default function ClientDetailPage() {
                     <div className="px-3 py-2">
                       <PaymentInfoRow
                         label="Price per visit"
-                        value={formatCurrency(currentPrice)}
+                        value={`${formatCurrency(currentPrice)} · ${currentPayment}`}
                         action={
                           <button
-                            className="focus-ring rounded-md px-1.5 py-0.5 text-caption font-medium text-text-tertiary transition hover:bg-surface hover:text-text-secondary"
+                            className="focus-ring -my-2 -mr-2 min-h-11 rounded-xl px-3 text-body font-medium text-text-primary underline decoration-accent decoration-2 underline-offset-4 transition-colors duration-200 ease-out hover:bg-surface"
                             type="button"
                             onClick={() => openPriceModal()}
                           >
@@ -805,7 +738,7 @@ export default function ClientDetailPage() {
 
                   <div className="border-t border-border px-3 py-2">
                     <div className="flex min-h-6 items-center justify-between gap-3">
-                      <div className="text-meta font-medium text-text-secondary">Price history</div>
+                      <div className="text-meta font-medium text-text-secondary">History</div>
                       {hasMorePriceHistory ? (
                         <button
                           className="focus-ring inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium text-text-tertiary transition hover:bg-subtle hover:text-text-primary"
@@ -832,33 +765,32 @@ export default function ClientDetailPage() {
                     <div className="mt-1.5 space-y-1">
                       {visiblePriceHistory.length > 0 ? (
                         visiblePriceHistory.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface px-2.5 py-1.5">
+                          <button
+                            key={entry.id}
+                            className="focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg bg-surface px-2.5 py-1.5 text-left transition-colors duration-200 ease-out hover:bg-page"
+                            type="button"
+                            onClick={() => openPriceModal(entry)}
+                          >
                             <div className="min-w-0">
                               <div className="text-list font-medium leading-5 text-text-primary">{formatCurrency(entry.price)}</div>
-                              <div className="truncate text-caption leading-4 text-text-tertiary">Since {formatExactDate(entry.effective_date)}</div>
+                              <div className="truncate text-caption leading-4 text-text-tertiary">
+                                Since {formatExactDate(entry.effective_date)}
+                                {termRecord ? ` · ${clientDaysOn(termRecord, entry.effective_date).join(", ") || "no days"}` : ""}
+                              </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button
-                                className="focus-ring rounded-md px-1.5 py-0.5 text-caption font-medium text-text-secondary transition hover:bg-subtle hover:text-text-primary"
-                                type="button"
-                                onClick={() => openPriceModal(entry)}
-                              >
-                                Edit
-                              </button>
-                              {!entry.isFallback ? (
-                                <button
-                                  className="focus-ring rounded-md px-1.5 py-0.5 text-caption font-medium text-danger transition hover:bg-danger-soft"
-                                  type="button"
-                                  onClick={() => deletePriceHistory(entry)}
-                                >
-                                  Delete
-                                </button>
+                            <span className="flex shrink-0 items-center gap-1.5 text-meta font-medium text-text-secondary">
+                              {termRecord ? (
+                                <>
+                                  <ClientPaymentIcon method={clientPaymentOn(termRecord, entry.effective_date)} />
+                                  {clientPaymentOn(termRecord, entry.effective_date)}
+                                </>
                               ) : null}
-                            </div>
-                          </div>
+                              <ChevronRight className="text-text-tertiary" size={15} strokeWidth={1.7} />
+                            </span>
+                          </button>
                         ))
                       ) : (
-                        <p className="text-list text-text-tertiary">No price history yet.</p>
+                        <p className="text-list text-text-tertiary">No history yet.</p>
                       )}
                     </div>
                     {!priceHistoryOpen && hasMorePriceHistory ? (
@@ -888,7 +820,7 @@ export default function ClientDetailPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-figure-lg font-semibold text-text-primary">{editingPrice ? "Edit price" : "Change price"}</h2>
-                <p className="mt-1 text-body text-text-secondary">Set the price and when it took effect.</p>
+                <p className="mt-1 text-body text-text-secondary">The price, how it is paid, and when that started.</p>
               </div>
               <CloseButton onClick={closePriceModal} />
             </div>
@@ -906,6 +838,33 @@ export default function ClientDetailPage() {
                 />
               </label>
               <div>
+                <span className="text-list font-medium text-text-secondary">Paid through</span>
+                <div className="mt-2 grid min-h-11 grid-cols-3 rounded-2xl border border-border bg-subtle p-1">
+                  {CLIENT_PAYMENT_METHODS.map((method) => (
+                    <button
+                      key={method}
+                      className={cn(
+                        "focus-ring rounded-xl text-body font-medium transition-colors duration-150 ease-out",
+                        pricePayment === method ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary"
+                      )}
+                      type="button"
+                      aria-pressed={pricePayment === method}
+                      onClick={() => setPricePayment(method)}
+                    >
+                      <span className="flex min-w-0 items-center justify-center gap-1.5">
+                        <ClientPaymentIcon method={method} />
+                        <span className="truncate">{method}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-meta text-text-tertiary">
+                  {pricePayment === "Rover"
+                    ? `Rover keeps ${Math.round(Number(client.rover_commission_rate) * 100)}% of this price.`
+                    : "Paid to you directly — no platform fee."}
+                </p>
+              </div>
+              <div>
                 <span className="text-list font-medium text-text-secondary">Effective date</span>
                 <DateCalendar
                   month={priceCalendarMonth}
@@ -921,6 +880,20 @@ export default function ClientDetailPage() {
             </div>
             {error ? <p className="mt-3 text-list text-danger">{error}</p> : null}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              {editingPrice ? (
+                <Button
+                  className="sm:mr-auto"
+                  variant="danger"
+                  onClick={() => {
+                    const entry = editingPrice;
+                    closePriceModal();
+                    setDeletingPrice(entry);
+                  }}
+                  disabled={savingPrice}
+                >
+                  Delete
+                </Button>
+              ) : null}
               <Button variant="ghost" onClick={closePriceModal} disabled={savingPrice}>
                 Cancel
               </Button>
@@ -930,6 +903,17 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {deletingPrice ? (
+        <ConfirmDialog
+          title="Delete this price?"
+          description={`${formatCurrency(deletingPrice.price)} from ${formatExactDate(deletingPrice.effective_date)}. Earnings before and after it are recalculated.`}
+          confirmLabel="Delete price"
+          busy={deletingPriceBusy}
+          onConfirm={deletePriceHistory}
+          onCancel={() => setDeletingPrice(null)}
+        />
       ) : null}
 
       {statusModalOpen && client ? (
@@ -1103,7 +1087,7 @@ export default function ClientDetailPage() {
             <ClientForm
               key={client.id}
               userId={user.id}
-              client={client}
+              client={{ ...client, price_history: priceHistory }}
               canChangeOwner
               hideStatusField
               statusHistory={timeline}
@@ -1183,12 +1167,12 @@ function FinancialBlock({
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-label font-semibold text-text-primary">Financial overview</h2>
           <div className="flex justify-end">
-            <div className="grid h-7 grid-cols-3 rounded-lg border border-border bg-subtle p-0.5">
+            <div className="grid h-11 grid-cols-3 rounded-xl border border-border bg-subtle p-1">
               {FINANCIAL_PERIODS.map((item) => (
                 <button
                   key={item}
                   className={cn(
-                    "focus-ring min-w-14 rounded-md px-2 text-micro font-medium leading-none transition duration-150 ease-out",
+                    "focus-ring min-w-14 rounded-lg px-2 text-meta font-medium leading-none transition-colors duration-150 ease-out",
                     period === item ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary hover:text-text-secondary"
                   )}
                   type="button"

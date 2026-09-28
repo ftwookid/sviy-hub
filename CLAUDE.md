@@ -1066,6 +1066,36 @@ worth having: it is why the failure now names itself instead of hiding the map.
   - If no values changed, the form shows `No changes to update.`
   - Editing preserves the original client owner instead of reassigning it to whoever saved.
 
+### Client terms are dated
+
+A client's **terms** are price per visit, payment method and visit days, and all
+three live on one `price_history` row (`payment_method`, `visit_days` added by
+`supabase/price-history-payment-schema.sql`). Each row is a change agreed with
+the client from its `effective_date`; a day is earned under the last row before
+it. So moving Rover $37 → Venmo $35 stops the 20% fee *from that date* and leaves
+the Rover months as they were, and adding a weekday does not re-price last month.
+
+- `clientTermsOn()` / `clientActiveOn()` in `lib/clients.ts` are the only readers.
+  Null columns on older rows fall back to the client record.
+- `writeClientTerm()` in `lib/clientTerms.ts` is the only writer. It writes a whole
+  snapshot, and on a client with no dated history it first writes the opening
+  terms from the start date — without that, the first change re-priced every
+  month before it (the fallback row reads the client's *current* price).
+  It then copies today's terms onto `clients`, which the cards and list read.
+- The edit form never writes price, payment or days onto `clients` directly for an
+  existing client: a change of any of them asks **"New terms start on"** in the
+  confirmation and goes through `writeClientTerm`.
+- Total earned on a client page walks visit by visit (`clientEarnedBetween`), each
+  at its own day's terms, skipping paused days. Performance's year-ago comparison
+  and the Finances month row and timeline read the same terms.
+
+**The edit confirmation is portalled to `body`.** It was `position: fixed` inside
+the slide-over, and `.slide-over-panel`'s animation (`fill-mode: both`) leaves a
+transform on the panel, which makes it the containing block for fixed children:
+the dialog was drawn ~1000px above the screen and "Update client" looked dead.
+**Any fixed overlay rendered inside `.slide-over-panel` or `.sheet-panel` must be
+portalled.**
+
 ### Client Database
 
 - Added `supabase/clients-schema.sql`.
@@ -1711,9 +1741,9 @@ Rules the arithmetic follows:
 - House sitting is spread over the nights it was slept in, not filed under its
   start date, so a stay from the 28th to the 3rd pays into both months. Cancelled
   stays earn nothing.
-- Regular clients contribute one figure to every month, because a client record
-  says what the arrangement is *now* and carries no history of months worked.
-  Paused clients are excluded.
+- Regular clients are priced per month at the terms in force on its last day
+  (`clientIncomeByMonth` → `clientMonthlyNetIn`), and count only while
+  `status_history` says they were active. See **Client terms are dated** below.
 - Everything in `lib/finances.ts` is a pure function of rows somebody else
   loaded. The one thing this page must not get wrong is whether the family is up
   or down, and that is easiest to trust when no query can change the answer.

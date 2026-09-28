@@ -1,5 +1,5 @@
 import { periodMonthBounds, periodMonthShortLabel, shiftPeriodMonth } from "@/lib/expenses";
-import { clientPriceOn, clientStartDate, estimateClientFromRecord } from "@/lib/clients";
+import { clientMonthlyNetIn, clientStartDate } from "@/lib/clients";
 import { amountForMonth, endedOn, onPaydays, paydayWeekdayFor } from "@/lib/finances";
 import { monthValue, toPeriodMonth } from "@/lib/utilities";
 import { parseLocalDate } from "@/lib/formatters";
@@ -205,32 +205,20 @@ export function houseSittingHistory(net: number[], periodMonth: string): Finance
  * What is still an estimate, and always will be, is the *visits*: a client says
  * how many days a week it is, not which weeks were actually worked. So this is
  * the standing arrangement re-priced month by month — the same thing the row on
- * the month is, which is the whole rule for what a timeline plots.
- *
- * Paused clients are excluded throughout, matching `clientMonthlyIncome`. The
- * status is a single current flag with no history, so a client paused today is
- * absent from the whole line rather than from the months since it paused; that
- * is the one thing here the data cannot say, and inventing a date for it would
- * be worse than leaving the figure where the dashboard already puts it.
+ * the month is (`clientMonthlyNetIn`), which is the whole rule for what a
+ * timeline plots. Price, payment method and visit days are all dated, and a
+ * pause counts from the day `status_history` says it started.
  */
 export function clientsHistory(clients: ClientWithPets[], periodMonth: string): FinanceHistory {
-  const active = clients.filter((client) => client.status === "Active");
-  if (active.length === 0) return { points: [], note: "No active clients" };
+  if (clients.length === 0) return { points: [], note: "No clients" };
 
-  const opened = active.map((client) => clientStartDate(client)).sort()[0];
+  const opened = clients.map((client) => clientStartDate(client)).sort()[0];
 
   const points = historyMonths(toPeriodMonth(opened), periodMonth)
     .map((month) => {
       const { end } = periodMonthBounds(month);
-      const earning = active.filter((client) => clientStartDate(client) <= end);
-      if (earning.length === 0) return null;
-
-      const amount = earning.reduce(
-        (total, client) =>
-          total +
-          estimateClientFromRecord({ ...client, price_per_visit: clientPriceOn(client, end) }).monthlyNet,
-        0
-      );
+      if (!clients.some((client) => clientStartDate(client) <= end)) return null;
+      const amount = clients.reduce((total, client) => total + clientMonthlyNetIn(client, end), 0);
       return { periodMonth: month, amount: Math.round(amount * 100) / 100 };
     })
     .filter((point): point is FinanceHistoryPoint => point !== null);

@@ -94,7 +94,7 @@ function ClientsPageContent() {
     // A stay only has to touch the year to count toward it — one that starts in
     // December puts nights into January.
     const [{ data }, bookingResult] = await Promise.all([
-      supabase.from("clients").select("*, pets(*), price_history(*)").order("name", { ascending: true }),
+      supabase.from("clients").select("*, pets(*), price_history(*), status_history(*)").order("name", { ascending: true }),
       supabase
         .from("house_sittings")
         .select("*")
