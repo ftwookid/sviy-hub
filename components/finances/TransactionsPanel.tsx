@@ -254,7 +254,13 @@ function ChoicePicker<T extends string>({
           className
         )}
         type="button"
-        aria-label={current ? `${label}: ${current.label}. Change it` : `${allLabel ?? label}. Change it`}
+        aria-label={
+          allLabel
+            ? current
+              ? `Showing ${current.label}. Change ${label.toLowerCase()}`
+              : `${allLabel}. Change ${label.toLowerCase()}`
+            : `${label}: ${current?.label ?? "not set"}. Change it`
+        }
         aria-expanded={open}
         onClick={() => setOpen((next) => !next)}
       >
