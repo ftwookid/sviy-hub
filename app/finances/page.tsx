@@ -248,62 +248,25 @@ export default function FinancesPage() {
           <SkeletonRows />
         ) : (
           <>
-            {/* Two columns, and every region of them used. The breakdown is
-                capped at the width its rows actually need — label on the left,
-                amount on the right, and past ~460px the middle is just a gap —
-                so the leftover-by-month block gets the rest, where the extra
-                width turns its bars into something you can read across.
-
-                The picker sits at the top of the right column because that is
-                where the empty space was: the header row already carries the
-                title and Setup, and a control on a row of its own left the whole
-                top right of the page blank. Placement is explicit per cell so
-                the phone still reads picker, month, breakdown, year. */}
-            {/* minmax(0,…) on the phone's single column too, not just the
-                desktop pair: an auto grid track sizes to its widest item's
-                min-content, so one long line name inside the breakdown pushed
-                the whole page 81px wider than the screen and everything scrolled
-                sideways. */}
-            {/* Two columns where there is width. The left one is the month's
-                own arithmetic — how much is spoken for and by which block, then
-                what came in to measure it against — and the right one is the
-                detail you act on: every commitment on one scale, then the year.
-
-                Phone order is the order the questions get asked: which month,
-                what it came to, how much is committed, what to go after, where
-                the money came from, and only then how the months compare. */}
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
-              <div className="order-1 lg:col-start-1 lg:row-start-1">
-                <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} variant="panel" />
-              </div>
-              <div className="order-2 lg:col-start-2 lg:row-start-1">
-                <MonthSummary month={month} />
-              </div>
-
-              {/* Money in first on a phone — it is the denominator every share
-                  below is measured against — then the blocks it is spent on,
-                  then the year. On a desktop the long sectioned card takes the
-                  left column for both rows and the two short blocks stack
-                  beside it. */}
-              <div className="order-3 lg:col-start-2 lg:row-start-2 lg:self-start">
-                <MoneyIn month={month} onOpen={setOpenSubject} />
-              </div>
-
-              <div className="order-4 lg:col-start-1 lg:row-start-2 lg:row-span-2 lg:self-start">
-                <MoneyOut month={month} onOpen={setOpenSubject} />
-              </div>
-
-              <div className="order-5 lg:col-start-2 lg:row-start-3 lg:self-start">
-                <YearList
-                  months={months}
-                  year={year}
-                  selectedIndex={monthIndex}
-                  onSelect={(nextMonth) =>
-                    setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
-                  }
-                />
-              </div>
+            {/* Summary first, then what came in, then each block of what went
+                out, then the year. On a phone that is one stack. On a desktop
+                the summary takes the width beside the picker, and the spending
+                blocks share two columns — see MoneyOut — so one of them is not
+                a tall slab beside an empty rail. */}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)]">
+              <MonthPicker periodMonth={periodMonth} onChange={setPeriodMonth} variant="panel" />
+              <MonthSummary month={month} />
             </div>
+            <MoneyIn month={month} onOpen={setOpenSubject} />
+            <MoneyOut month={month} onOpen={setOpenSubject} />
+            <YearList
+              months={months}
+              year={year}
+              selectedIndex={monthIndex}
+              onSelect={(nextMonth) =>
+                setPeriodMonth(`${year}-${String(nextMonth + 1).padStart(2, "0")}-01`)
+              }
+            />
           </>
         )}
       </div>

@@ -23,11 +23,12 @@ import type { FinanceSection, MonthFinances } from "@/types/finance";
  * from tax withheld.
  *
  * So the buckets are back, **in their declared order** (tax, deductions, needs,
- * subscriptions, debt, savings), each a header row carrying its own total and
- * its share of what came in, with its lines beneath it. The order is fixed
- * rather than sorted by size so a block sits in the same place every month;
- * inside a block the lines are still biggest first, which is `sectionOf`'s job
- * in `lib/finances.ts`.
+ * subscriptions, debt, savings). Money in stays one card. Each money-out block
+ * is its own card: the title, the total, the share of what came in, and the
+ * lines. On a desktop those cards share two columns; on a phone they stack in
+ * the same order. The order is fixed rather than sorted by size so a block
+ * sits in the same place every month; inside a block the lines are still
+ * biggest first, which is `sectionOf`'s job in `lib/finances.ts`.
  *
  * **The rows carry no bars.** They did, on one scale across the whole card, and
  * the scale was the right answer to the wrong question: what this card is read
@@ -172,26 +173,58 @@ function SectionTotal({ section, moneyIn }: { section: FinanceSection; moneyIn: 
 }
 
 /**
- * Everything the month is already promised to, by block.
+ * One spending block, as its own card.
  *
- * **Three levels, one verb.** The card opens `Money out` whole, a band opens its
- * block, a row opens its line — and every one of them is the same chevron in the
- * same permanent end slot, opening the same panel. The alternative was a second
- * kind of control for the level above, which is exactly how a reader ends up
- * unsure whether they are about to open the category or one of its lines. The
- * levels are told apart by the thing that already tells them apart: 17px on the
- * white card head, 15px semibold on the tinted band, 13px secondary on a line.
+ * These used to be tinted bands inside a single Money out card. That card was
+ * the whole left column, and on a desktop it ran on for a screen and a half
+ * while the column beside it stopped. A card per block is the same heading,
+ * total, and rows — split so the two columns can share the height, and so a
+ * block can be found by its title instead of by scrolling a slab.
  *
- * **No meter at the top.** A single bar sat here splitting money in into
- * committed and left over, with both ends labelled — and labelling both ends is
- * not the same as being readable. It was one bar in a card full of bars, drawn
- * against a different denominator than every other bar under it, so its length
- * meant something the rest of the card's lengths did not; and both its figures
- * are already stated, as figures, in `MonthSummary` directly above the card.
- * A ratio nobody can name is noise however carefully it is labelled, so it is
- * gone rather than relabelled. Each block's share of income stays on the block's
- * own total row, where it is a number rather than a length.
+ * The Money out card opens the whole side, a block's card opens that block, a
+ * row opens its line — and every one of them is the same chevron, opening the
+ * same panel. A block's share of income sits under its title. It used to be a
+ * footer total, which repeated the figure the card heading already states.
  */
+function OutSection({
+  section,
+  moneyIn,
+  onOpen
+}: {
+  section: FinanceSection;
+  moneyIn: number;
+  onOpen: (subject: HistorySubject) => void;
+}) {
+  const title = SECTION_STYLE[section.key].title;
+  const hasRows = section.rows.length > 0;
+  const share =
+    hasRows && section.total > 0 && moneyIn > 0
+      ? `${percent(shareOfIncome(section.total, moneyIn))} of money in`
+      : undefined;
+
+  return (
+    <ChartCard
+      title={title}
+      note={hasRows ? formatCurrency(section.total) : "—"}
+      detail={share}
+      markerClass={SECTION_STYLE[section.key].color}
+      onOpen={() => onOpen(blockSubject(section.key, title, section.total, section.rows.length))}
+    >
+      {hasRows ? (
+        <div className="divide-y divide-border/40">
+          {section.rows.map((row) => (
+            <BarRow
+              key={row.key}
+              row={{ key: row.key, label: row.label, amount: row.amount }}
+              onOpen={() => onOpen(rowSubject(row, "out"))}
+            />
+          ))}
+        </div>
+      ) : null}
+    </ChartCard>
+  );
+}
+
 export function MoneyOut({
   month,
   onOpen
@@ -200,56 +233,29 @@ export function MoneyOut({
   onOpen: (subject: HistorySubject) => void;
 }) {
   const sections = month.sections.filter((section) => section.direction === "out");
+  // First half, then the rest. On a phone the wrappers disappear (`contents`),
+  // so the blocks stay in this order. On a desktop each half is a column, and
+  // the two long blocks — Needs, then Subscriptions — land in different columns.
+  const splitAt = Math.ceil(sections.length / 2);
+  const columns = [sections.slice(0, splitAt), sections.slice(splitAt)];
 
   return (
-    <ChartCard
-      title="Money out"
-      note={formatCurrency(month.moneyOut)}
-      onOpen={() => onOpen(sideSubject("out", "Money out", month.moneyOut, sections.length))}
-    >
-      {sections.map((section, index) => (
-        <Fragment key={section.key}>
-          <SectionHeader
-            section={section}
-            first={index === 0}
-            onOpen={() =>
-              onOpen(
-                blockSubject(
-                  section.key,
-                  SECTION_STYLE[section.key].title,
-                  section.total,
-                  section.rows.length
-                )
-              )
-            }
-          />
-          {/* An empty block has no total — nothing in it to add up, and
-              `Total $0.00` is the zero pretending to be a figure this page keeps
-              catching. It does get a row, though: a bare heading sat straight
-              against the next block's heading, and two tinted bands with one
-              hairline between them read as a single double-height band rather
-              than as an empty block followed by a full one. A dash is what this
-              app says when there is no figure, and the white row it sits on is
-              what keeps the two bands apart. */}
-          <div className="divide-y divide-border/40">
-            {section.rows.length === 0 ? (
-              <div className="px-3.5 py-2 text-list text-text-tertiary sm:px-4">—</div>
-            ) : null}
-            {section.rows.map((row) => (
-              // Behind the row's own chevron, not printed on it: the run rate,
-              // what one payment is worth, how many landed — and the timeline
-              // none of that could ever fit. See `DetailSheet`.
-              <BarRow
-                key={row.key}
-                row={{ key: row.key, label: row.label, amount: row.amount }}
-                onOpen={() => onOpen(rowSubject(row, "out"))}
-              />
+    <>
+      <ChartCard
+        title="Money out"
+        note={formatCurrency(month.moneyOut)}
+        onOpen={() => onOpen(sideSubject("out", "Money out", month.moneyOut, sections.length))}
+      />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
+        {columns.map((column, index) => (
+          <div key={index} className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-3">
+            {column.map((section) => (
+              <OutSection key={section.key} section={section} moneyIn={month.moneyIn} onOpen={onOpen} />
             ))}
           </div>
-          {section.rows.length > 0 ? <SectionTotal section={section} moneyIn={month.moneyIn} /> : null}
-        </Fragment>
-      ))}
-    </ChartCard>
+        ))}
+      </div>
+    </>
   );
 }
 

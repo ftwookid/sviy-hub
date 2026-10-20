@@ -176,11 +176,17 @@ export function BarRow({ row, onOpen }: { row: BarRowData; onOpen?: () => void }
 export function ChartCard({
   title,
   note,
+  detail,
+  markerClass,
   onOpen,
   children
 }: {
   title: string;
   note?: string;
+  /** A secondary fact hung under the title, such as a block's share of income. */
+  detail?: string;
+  /** An existing section colour, drawn as the same marker the bucket chip uses. */
+  markerClass?: string;
   /**
    * Opens the whole side's timeline — `Money in` or `Money out`, month by month.
    *
@@ -191,7 +197,7 @@ export function ChartCard({
    * 13px, and the tint on the band in the middle.
    */
   onOpen?: () => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   // The chevron takes the permanent end slot, which lines the card's own total
   // up with the block totals and the line figures underneath it. It used to sit
@@ -199,9 +205,17 @@ export function ChartCard({
   // of — the second right edge this card exists not to have.
   const head = (
     <>
-      <h2 className="min-w-0 flex-1 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
-        {title}
-      </h2>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          {markerClass ? (
+            <span aria-hidden className={cn("h-3.5 w-1.5 shrink-0 rounded-full", markerClass)} />
+          ) : null}
+          <h2 className="min-w-0 flex-1 truncate text-subhead font-semibold tracking-[-0.01em] text-text-primary">
+            {title}
+          </h2>
+        </div>
+        {detail ? <p className="mt-0.5 truncate text-meta text-text-tertiary">{detail}</p> : null}
+      </div>
       {note ? (
         <span className="shrink-0 text-subhead font-semibold tabular-nums text-text-primary">{note}</span>
       ) : null}
@@ -211,7 +225,7 @@ export function ChartCard({
 
   return (
     <section className="overflow-hidden rounded-[20px] border border-border bg-surface shadow-card">
-      <div className="border-b border-border">
+      <div className={children ? "border-b border-border" : undefined}>
         {onOpen ? (
           <button
             type="button"

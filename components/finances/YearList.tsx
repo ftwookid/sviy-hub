@@ -15,9 +15,10 @@ import type { MonthFinances } from "@/types/finance";
  * Month-over-month comparison is the entire job of this block, and it has to be
  * readable in one view.
  *
- * The only thing actually wrong with it before was the width — twelve rows across
- * a whole screen. So: a narrow column beside the month on a desktop, and two
- * columns of six on a phone, which halves the height without costing a figure.
+ * Twelve rows across a whole screen was too tall a list, and a single narrow
+ * rail beside the month left the other column empty once the rail ended. Two
+ * columns of six at every width: Jan–Jun, then Jul–Dec. From `sm` each row has
+ * room for its bar between the month and the figure.
  */
 export function YearList({
   months,
@@ -34,26 +35,14 @@ export function YearList({
 
   return (
     <section className="rounded-[20px] border border-border bg-surface p-2.5 shadow-card">
-      <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
-        <h2 className="text-meta font-semibold uppercase tracking-[0.05em] text-text-tertiary">
-          Left over · {year}
-        </h2>
+      <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1.5 pt-1">
+        <h2 className="text-subhead font-semibold tracking-[-0.01em] text-text-primary">Left over · {year}</h2>
       </div>
 
-      {/* Two columns of six on a phone, one wide column in the desktop rail.
-          With real width the bar earns its own column between the month and the
-          figure, which is the version that reads across; squeezed into a phone
-          it drops under the row instead of shrinking to a stub.
-
-          **Column-major on the phone.** A CSS grid fills row by row by default,
-          which put Jan and Feb side by side and ran the year left-right,
-          left-right down the card — so reading it in order meant zig-zagging,
-          and neither column was a sequence on its own. `grid-flow-col` with six
-          fixed rows fills downwards instead: Jan–Jun in the left column, Jul–Dec
-          in the right, each column a half-year you can read straight down. The
-          desktop rail is a single column, where the question never arises, so
-          both are reset at `lg`. */}
-      <div className="grid grid-flow-col grid-cols-2 grid-rows-6 gap-x-3 gap-y-px lg:grid-flow-row lg:grid-cols-1 lg:grid-rows-none">
+      {/* Column-major. A CSS grid fills row by row by default, which put Jan and
+          Feb side by side — reading the year meant zig-zagging. `grid-flow-col`
+          with six rows fills downwards: Jan–Jun, then Jul–Dec. */}
+      <div className="grid grid-flow-col grid-cols-2 grid-rows-6 gap-x-3 gap-y-px sm:gap-x-6">
         {months.map((month, index) => {
           const width = (Math.abs(month.leftOver) / scale) * 100;
           const short = month.leftOver < 0;
@@ -63,7 +52,7 @@ export function YearList({
             <button
               key={MONTHS[index]}
               className={cn(
-                "focus-ring rounded-lg px-1.5 py-1 text-left transition-colors duration-200 ease-out lg:grid lg:grid-cols-[32px_minmax(0,1fr)_86px] lg:items-center lg:gap-2.5 lg:py-1.5",
+                "focus-ring rounded-lg px-1.5 py-1 text-left transition-colors duration-200 ease-out sm:grid sm:grid-cols-[32px_minmax(0,1fr)_86px] sm:items-center sm:gap-2.5 sm:py-1.5",
                 selected ? "bg-accent-soft" : "hover:bg-subtle"
               )}
               type="button"
@@ -75,7 +64,7 @@ export function YearList({
             >
               <span
                 className={cn(
-                  "hidden text-meta lg:block",
+                  "hidden text-meta sm:block",
                   selected ? "font-semibold text-text-primary" : "text-text-secondary"
                 )}
               >
@@ -84,7 +73,7 @@ export function YearList({
 
               {/* One line carrying both on a phone, where a middle column would
                   leave the bar about 40px wide. */}
-              <span className="flex items-baseline justify-between gap-1.5 lg:hidden">
+              <span className="flex items-baseline justify-between gap-1.5 sm:hidden">
                 <span
                   className={cn(
                     "text-caption",
@@ -104,7 +93,7 @@ export function YearList({
                 </span>
               </span>
 
-              <span className="mt-0.5 block h-[3px] w-full overflow-hidden rounded-full bg-subtle lg:mt-0 lg:h-2">
+              <span className="mt-0.5 block h-[3px] w-full overflow-hidden rounded-full bg-subtle sm:mt-0 sm:h-2">
                 <span
                   className={cn(
                     "block h-full rounded-full transition-all duration-200 ease-out",
@@ -116,7 +105,7 @@ export function YearList({
 
               <span
                 className={cn(
-                  "hidden text-right text-meta font-medium tabular-nums lg:block",
+                  "hidden text-right text-meta font-medium tabular-nums sm:block",
                   short ? "text-danger" : "text-text-primary"
                 )}
               >
