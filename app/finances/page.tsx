@@ -219,13 +219,21 @@ export default function FinancesPage() {
       <PageHeader
         title="Finances"
         action={
-          <Link
-            href="/finances/manage"
-            className="focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-subtle px-3.5 text-body font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border"
-          >
-            <SlidersHorizontal size={16} strokeWidth={1.8} />
-            Manage
-          </Link>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Link
+              href="/finances/transactions"
+              className="focus-ring inline-flex min-h-11 items-center rounded-xl bg-subtle px-2.5 text-list font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border sm:px-3.5 sm:text-body"
+            >
+              Transactions
+            </Link>
+            <Link
+              href="/finances/manage"
+              className="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-subtle px-2.5 text-list font-medium text-text-primary transition-colors duration-200 ease-out hover:bg-border sm:px-3.5 sm:text-body"
+            >
+              <SlidersHorizontal size={16} strokeWidth={1.8} className="hidden sm:block" />
+              Manage
+            </Link>
+          </div>
         }
       />
       <div className="space-y-3">
