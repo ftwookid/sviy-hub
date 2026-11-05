@@ -41,6 +41,10 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+## Telegram bridge
+
+Telegram DMs and the Sviy Hub group talk to a Grok Bot webhook routine through routes on this same app. Setup, the public paths, and the Vercel env vars are in [docs/telegram-bridge.md](docs/telegram-bridge.md).
+
 ## 5. Deploy to Vercel
 
 1. Push the project to GitHub.
