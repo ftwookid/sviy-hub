@@ -8,11 +8,16 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:telegram": "node --import tsx --test lib/telegram-bridge/bridge.test.ts",
+    "telegram:set-webhook": "node --import tsx scripts/telegram-set-webhook.ts",
+    "telegram:webhook-info": "node --import tsx scripts/telegram-webhook-info.ts",
+    "telegram:set-commands": "node --import tsx scripts/telegram-set-commands.ts",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/functions": "^3.10.6",
     "lucide-react": "^0.468.0",
     "next": "14.2.15",
     "react": "^18.3.1",
@@ -27,6 +32,7 @@
     "eslint-config-next": "14.2.15",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.3"
   }
 }
